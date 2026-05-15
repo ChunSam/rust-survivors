@@ -12,3 +12,4 @@ image    = { workspace = true }
 log      = { workspace = true }
 pollster = { workspace = true }
 rapier2d = { workspace = true }
+rodio    = { workspace = true }

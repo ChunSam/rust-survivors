@@ -12,3 +12,4 @@ log    = "0.4"
 env_logger = "0.11"
 pollster   = "0.3"
 rapier2d   = { version = "0.22", features = ["default"] }
+rodio      = { version = "0.19", default-features = false, features = ["wav"] }

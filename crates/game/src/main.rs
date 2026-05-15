@@ -1,4 +1,5 @@
-use engine::{App, Entity, InputState, PhysicsBody, Sprite, System, Transform, World};
+use engine::{AnimationSystem, App, AudioManager, Entity, GameState, InputState, PhysicsBody,
+             Sprite, System, Transform, World};
 use glam::Vec2;
 use rapier2d::prelude::*;
 use winit::keyboard::KeyCode;
@@ -20,15 +21,42 @@ struct Player;
 /// `PhysicsWorld`를 직접 소유해 borrow checker 문제를 피한다.
 /// (PhysicsWorld를 ECS 리소스로 넣으면 &mut World 와 동시 대여 충돌이 생긴다.)
 struct PlatformerSystem {
-    physics:     engine::PhysicsWorld,
-    player_body: RigidBodyHandle,
-    player_col:  ColliderHandle,
-    speed:       f32,   // 수평 이동 속도 (물리 단위/s)
-    jump_force:  f32,   // 점프 충격량 (N·s)
+    physics:       engine::PhysicsWorld,
+    player_body:   RigidBodyHandle,
+    player_col:    ColliderHandle,
+    player_entity: Entity,  // 낙하 감지와 재시작 시 Transform 리셋에 사용
+    speed:         f32,     // 수평 이동 속도 (물리 단위/s)
+    jump_force:    f32,     // 점프 충격량 (N·s)
 }
 
 impl System for PlatformerSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
+        // ── 0. 게임 상태 확인 ──────────────────────────────────────────────
+        let state = world.resource::<GameState>().cloned().unwrap_or(GameState::Playing);
+
+        if state == GameState::GameOver {
+            // R 키로 재시작
+            let restart = world.resource::<InputState>()
+                .map(|i| i.just_pressed(KeyCode::KeyR))
+                .unwrap_or(false);
+            if restart {
+                // 물리 바디를 초기 위치로 리셋
+                if let Some(body) = self.physics.rigid_body_set.get_mut(self.player_body) {
+                    body.set_translation(vector![p(400.0), p(100.0)], true);
+                    body.set_linvel(vector![0.0, 0.0], true);
+                }
+                // Transform도 즉시 반영
+                if let Some(tr) = world.get_mut::<Transform>(self.player_entity) {
+                    tr.position = Vec2::new(400.0, 100.0);
+                }
+                if let Some(gs) = world.resource_mut::<GameState>() {
+                    *gs = GameState::Playing;
+                }
+                println!("재시작!");
+            }
+            return;
+        }
+
         // ── 1. 입력 읽기 ───────────────────────────────────────────────────
         let (move_x, do_jump) = {
             let input = world.resource::<InputState>().unwrap();
@@ -39,16 +67,17 @@ impl System for PlatformerSystem {
         };
 
         // ── 2. 플레이어 속도·점프 적용 ────────────────────────────────────
-        //  is_grounded: 플레이어 콜라이더가 다른 바디와 접촉 중이면 착지 상태
         let grounded = self.physics.has_contact(self.player_col);
 
         if let Some(body) = self.physics.rigid_body_set.get_mut(self.player_body) {
             let vel = *body.linvel();
-            // 수평 속도를 입력에 따라 직접 설정 (수직은 유지)
             body.set_linvel(vector![move_x * self.speed, vel.y], true);
-            // 착지 상태에서만 점프 허용
             if do_jump && grounded {
                 body.apply_impulse(vector![0.0, -self.jump_force], true);
+                // 점프 효과음 (assets/audio/jump.wav 가 있을 때만 재생됨)
+                if let Some(audio) = world.resource_mut::<AudioManager>() {
+                    audio.play("sfx_jump", "assets/audio/jump.wav", false);
+                }
             }
         }
 
@@ -68,6 +97,17 @@ impl System for PlatformerSystem {
                 if let Some(tr) = world.get_mut::<Transform>(entity) {
                     tr.position = Vec2::new(t.x * SCALE, t.y * SCALE);
                 }
+            }
+        }
+
+        // ── 5. 낙하 감지 → 게임 오버 ─────────────────────────────────────
+        let fell = world.get::<Transform>(self.player_entity)
+            .map(|tr| tr.position.y > 700.0)
+            .unwrap_or(false);
+        if fell {
+            println!("게임 오버! R 키로 재시작하세요.");
+            if let Some(gs) = world.resource_mut::<GameState>() {
+                *gs = GameState::GameOver;
             }
         }
     }
@@ -102,9 +142,13 @@ fn main() {
     let mut physics = engine::PhysicsWorld::new(Vec2::new(0.0, 9.8));
 
     // ── 지형 (정적 바디) ────────────────────────────────────────────────────
-    //   바닥
+    //   바닥 왼쪽 (x: 0~350)
     spawn_static(&mut app.world, &mut physics,
-        400.0, 572.0, 800.0, 40.0,
+        175.0, 572.0, 350.0, 40.0,
+        0.28, 0.62, 0.22);
+    //   바닥 오른쪽 (x: 490~800) — 350~490 구간이 낙하 구멍
+    spawn_static(&mut app.world, &mut physics,
+        645.0, 572.0, 310.0, 40.0,
         0.28, 0.62, 0.22);
 
     //   플랫폼 1 (왼쪽 아래)
@@ -136,13 +180,13 @@ fn main() {
     let sprite_size = 36.0_f32;
     let half = p(sprite_size * 0.5 - 1.0); // 콜라이더를 스프라이트보다 1px 작게
     let (player_body, player_col) = physics.add_dynamic_box(
-        Vec2::new(p(400.0), p(100.0)),
+        Vec2::new(p(200.0), p(100.0)),
         half, half,
         true, // 회전 고정
     );
     let player_e = app.world.spawn();
     app.world.add_component(player_e, Transform::new(
-        Vec2::new(400.0, 100.0),
+        Vec2::new(200.0, 100.0),
         Vec2::splat(sprite_size),
         0.0,
     ));
@@ -153,15 +197,25 @@ fn main() {
     });
     app.world.add_component(player_e, Player);
 
+    // ── 오디오 초기화 (장치가 없어도 게임은 실행됨) ────────────────────────
+    if let Some(audio) = AudioManager::new() {
+        // BGM 예시: audio.play("bgm", "assets/audio/bgm.wav", true);
+        app.world.insert_resource(audio);
+    }
+
     // ── 시스템 등록 ─────────────────────────────────────────────────────────
+    // AnimationSystem은 AnimationPlayer 컴포넌트가 없으면 아무것도 하지 않는다.
+    app.add_system(AnimationSystem);
     app.add_system(PlatformerSystem {
         physics,
         player_body,
         player_col,
+        player_entity: player_e,
         speed:      5.5,   // m/s  → 275 px/s 수평 이동
         jump_force: 3.8,   // N·s  → 착지에서 약 3.7m(185px) 도달
     });
 
     println!("A / ← → D : 이동    Space : 점프    ESC : 종료");
+    println!("플레이어가 떨어지면 게임 오버 → R 키로 재시작");
     app.run();
 }

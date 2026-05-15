@@ -117,10 +117,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 알려진 이슈 / 확장 포인트
 
-- [ ] 텍스처 로딩 (`Texture::from_path`) 구현됐으나 `SpriteRenderer`에서 미연결 (단색만 동작)
-- [ ] 씬 전환 / 게임 오버 로직 없음
-- [ ] 오디오 시스템 미구현
-- [ ] 스프라이트 애니메이션 미구현
+- [x] 텍스처 로딩 연결: `app.load_texture(path)` → `Sprite::textured(path)` 로 사용
+- [x] 씬 전환 / 게임 오버: `GameState` 리소스 (`Playing`/`Paused`/`GameOver`), 낙하 감지, R키 재시작
+- [x] 오디오 시스템: `AudioManager` 리소스 (`rodio` wav), `audio.play(channel, path, repeat)`
+- [x] 스프라이트 애니메이션: `AnimationPlayer` 컴포넌트, `UvRect::from_grid()`, `AnimationSystem`
 - [ ] `cargo clean` macOS 버그 → `rm -rf target` 사용
 
 ## Git / GitHub

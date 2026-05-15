@@ -10,6 +10,7 @@ use winit::{
 };
 
 use crate::{
+    components::GameState,
     ecs::{System, World},
     input::InputState,
     renderer::{GpuContext, SpriteRenderer},
@@ -31,31 +32,53 @@ pub struct App {
     /// 배경색 (RGBA, 선형 공간)
     pub clear_color: wgpu::Color,
 
-    systems:         Vec<Box<dyn System>>,
-    window:          Option<Arc<Window>>,
-    gpu:             Option<GpuContext>,
-    sprite_renderer: Option<SpriteRenderer>,
-    last_frame:      Option<Instant>,
+    systems:          Vec<Box<dyn System>>,
+    window:           Option<Arc<Window>>,
+    gpu:              Option<GpuContext>,
+    sprite_renderer:  Option<SpriteRenderer>,
+    last_frame:       Option<Instant>,
+    /// GPU 초기화 전에 등록된 텍스처 경로를 보관한다. resumed()에서 실제로 로드한다.
+    pending_textures: Vec<String>,
 }
 
 impl App {
     pub fn new() -> Self {
         let mut world = World::new();
         world.insert_resource(InputState::default());
+        world.insert_resource(GameState::Playing);
         Self {
             world,
             clear_color: wgpu::Color { r: 0.08, g: 0.08, b: 0.12, a: 1.0 },
-            systems:         Vec::new(),
-            window:          None,
-            gpu:             None,
-            sprite_renderer: None,
-            last_frame:      None,
+            systems:          Vec::new(),
+            window:           None,
+            gpu:              None,
+            sprite_renderer:  None,
+            last_frame:       None,
+            pending_textures: Vec::new(),
         }
     }
 
     /// 시스템을 등록한다. 매 프레임 등록 순서대로 실행된다.
     pub fn add_system<S: System + 'static>(&mut self, system: S) {
         self.systems.push(Box::new(system));
+    }
+
+    /// PNG 텍스처를 로드 대기열에 추가한다.
+    ///
+    /// GPU가 준비되기 전(`run()` 호출 전)에도 안전하게 호출할 수 있다.
+    /// 실제 GPU 업로드는 `resumed()` 시점에 일괄 처리된다.
+    pub fn load_texture(&mut self, path: impl Into<String>) {
+        self.pending_textures.push(path.into());
+    }
+
+    /// ECS 월드를 초기화하고 기본 리소스를 재삽입한다.
+    ///
+    /// 씬 전환 시 엔티티·컴포넌트를 전부 지우고 싶을 때 사용한다.
+    /// 시스템은 유지되므로 필요하면 `add_system`으로 새로 등록한다.
+    pub fn reload_scene(&mut self) {
+        self.world = World::new();
+        self.world.insert_resource(InputState::default());
+        self.world.insert_resource(GameState::Playing);
     }
 
     /// 이벤트 루프를 시작한다. 창이 닫힐 때까지 블로킹된다.
@@ -141,7 +164,12 @@ impl ApplicationHandler for App {
         let window = Arc::new(event_loop.create_window(attrs).expect("창 생성 실패"));
 
         let gpu             = pollster::block_on(GpuContext::new(window.clone()));
-        let sprite_renderer = SpriteRenderer::new(&gpu.device, &gpu.queue, gpu.config.format);
+        let mut sprite_renderer = SpriteRenderer::new(&gpu.device, &gpu.queue, gpu.config.format);
+
+        // 대기열에 있던 텍스처를 GPU에 일괄 로드한다.
+        for path in self.pending_textures.drain(..) {
+            sprite_renderer.load_texture(&gpu.device, &gpu.queue, &path);
+        }
 
         self.sprite_renderer = Some(sprite_renderer);
         self.gpu             = Some(gpu);
