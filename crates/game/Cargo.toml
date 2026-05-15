@@ -1,0 +1,16 @@
+[package]
+name    = "game"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "game"
+path = "src/main.rs"
+
+[dependencies]
+engine     = { path = "../engine" }
+env_logger = { workspace = true }
+log        = { workspace = true }
+glam     = { workspace = true }
+winit    = { workspace = true }
+rapier2d = { workspace = true }

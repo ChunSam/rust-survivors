@@ -1,0 +1,14 @@
+[package]
+name    = "engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winit    = { workspace = true }
+wgpu     = { workspace = true }
+glam     = { workspace = true }
+bytemuck = { workspace = true }
+image    = { workspace = true }
+log      = { workspace = true }
+pollster = { workspace = true }
+rapier2d = { workspace = true }

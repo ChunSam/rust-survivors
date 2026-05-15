@@ -1,0 +1,14 @@
+[workspace]
+members = ["crates/engine", "crates/game"]
+resolver = "2"
+
+[workspace.dependencies]
+winit  = "0.30"
+wgpu   = "0.20"
+glam   = "0.28"
+bytemuck = { version = "1", features = ["derive"] }
+image  = { version = "0.25", default-features = false, features = ["png"] }
+log    = "0.4"
+env_logger = "0.11"
+pollster   = "0.3"
+rapier2d   = { version = "0.22", features = ["default"] }
