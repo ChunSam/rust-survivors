@@ -1,6 +1,7 @@
 use engine::{Sprite, Transform, World};
 use glam::Vec2;
 use super::health::Health;
+use super::hud::GameStats;
 use super::player::{Player, PlayerStats, Velocity};
 use super::spawn::SpawnTimer;
 use super::weapon::Whip;
@@ -24,4 +25,17 @@ pub fn spawn_player(world: &mut World) {
     world.add_component(e, Whip::default());
     world.add_component(e, XpAccumulator::default());
     world.insert_resource(SpawnTimer::default());
+}
+
+/// 씬 초기화 진입점. survivor.rs 와 RestartSystem 모두 이 함수를 호출한다.
+///
+/// - `spawn_player` 로 플레이어 엔티티 스폰 + SpawnTimer 리소스 삽입.
+/// - `GameStats` 리소스가 없으면 default 로 삽입 (재시작 시에는 이미 reset 됐으므로 덮어쓰지 않음).
+pub fn setup_survivor_world(world: &mut World) {
+    spawn_player(world);
+    // GameStats 가 없을 때만 삽입 (최초 init 용)
+    // 재시작(restart_world) 에서는 먼저 리셋 후 spawn_player 를 호출하므로 중복 없음.
+    if world.resource::<GameStats>().is_none() {
+        world.insert_resource(GameStats::default());
+    }
 }

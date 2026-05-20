@@ -1,6 +1,8 @@
 pub mod camera_follow;
+pub mod death;
 pub mod enemy;
 pub mod health;
+pub mod hud;
 pub mod levelup;
 pub mod player;
 pub mod spawn;
@@ -9,13 +11,15 @@ pub mod world_setup;
 pub mod xp;
 
 pub use camera_follow::CameraFollowSystem;
+pub use death::{restart_world, DeathSystem, EnemyContactDamageSystem, RestartSystem};
 pub use enemy::{EnemyAi, EnemyAiSystem, Zombie};
 pub use health::Health;
+pub use hud::{GameStats, HudSystem};
 pub use levelup::{CardKind, LevelUpSystem, PendingLevelUp};
 pub use player::{Player, PlayerMovementSystem, PlayerStats, Velocity};
 pub use spawn::{spawn_zombie, EnemySpawnSystem, SpawnTimer};
 pub use weapon::{HitFlash, HitFlashSystem, Whip, WhipSystem};
-pub use world_setup::spawn_player;
+pub use world_setup::{setup_survivor_world, spawn_player};
 pub use xp::{spawn_xp_gem, MagnetSystem, XpAccumulator, XpGem};
 
 /// 플레이어 충돌 레이어 비트마스크

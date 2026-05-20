@@ -409,3 +409,109 @@ cargo build --release --workspace           # ok
 
 - `apply_card` 를 `LevelUpSystem` 의 `pub` 연관 함수로 분리 → 키 입력 없이 카드 효과만 단위 테스트 가능 (InputState::press 가 pub(crate) 라 외부 시뮬레이션 불가)
 - `PendingLevelUp.consumed` sentinel: `World::remove_resource` 미존재, `HitFlash`의 `f32::NEG_INFINITY` 전례와 동일한 패턴 적용
+
+---
+
+### Phase 1-F — HUD + 사망 + GameOver + R 재시작 (2026-05-21)
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/hud.rs` | `GameStats { elapsed, kills }` 리소스, `HudSystem` |
+| `crates/game/src/survivor/death.rs` | `EnemyContactDamageSystem`, `DeathSystem`, `RestartSystem`, `restart_world` 헬퍼 |
+
+#### HUD (`HudSystem`)
+
+- **모든 GameState** 에서 동작 (Playing/Paused/GameOver 모두 표시)
+- 좌상단 `(10, 10)`: `MM:SS  Lv N  XP cur/max  HP cur/max  Kills N` 한 줄
+- Paused + PendingLevelUp: 화면 중앙 (`320, 220`) "LEVEL UP!" 48px + 카드 3장 22px
+- GameOver: 화면 중앙 (`310, 250`) "YOU DIED" 56px + `(310, 325)` "Press R to restart" 22px
+- 좌표 근거: 800×600 viewport 기준 좌상단 `(10,10)`, 중앙 x≈310~320 (글자 폭 고려 어림값)
+
+#### 적 접촉 데미지 (`EnemyContactDamageSystem`)
+
+- Playing 가드 적용
+- 1초 cooldown, 접촉 반경 25px, 적 1마리 이상 시 Player -10 HP
+- `SpatialGrid` 직접 소유 (WhipSystem 패턴 답습)
+- 이벤트성 로그: `"Player hit by N enemies (HP=X)"`
+
+#### 사망 (`DeathSystem`)
+
+- Playing 중, Player Health <= 0 이면 `GameState::GameOver` 전환
+
+#### 재시작 (`RestartSystem` + `restart_world` 헬퍼)
+
+- GameOver 중, R 키 → `restart_world(world)` 호출
+- `restart_world`: Transform 보유 모든 엔티티 despawn → GameStats/PendingLevelUp/SpawnTimer 리셋 → `setup_survivor_world` 재호출 → GameState::Playing 복귀
+- `restart_world` 를 `pub fn` 헬퍼로 분리 → 테스트에서 InputState 시뮬레이션 없이 직접 호출 가능
+
+#### kills 카운트
+
+- `WhipSystem` 적 사망 처리 직후 `GameStats.kills += 1` 누적
+- 기존 매 발화 `println!("Whip: {} hits, {} killed")` 제거 — HudSystem.Kills 로 대체
+
+#### 콘솔 로그 정리
+
+- **제거**: 매 발화 `println!` (Whip hit/killed 집계, XP 픽업)
+- **유지**: 이벤트성만 (`"Player hit by N enemies"`, `"YOU DIED"`, `"Restarted."`, `"Whip upgraded"`, `"Resumed"`, `"LEVEL UP!"`)
+
+#### setup_survivor_world 추가
+
+- `world_setup.rs` 에 `pub fn setup_survivor_world(world)` 신규 — `spawn_player` + `GameStats` 미존재 시 default 삽입
+- `bin/survivor.rs` 및 `restart_world` 모두 이 함수를 단일 진입점으로 호출
+
+#### 시스템 등록 순서 (Phase 1-F)
+
+```
+LevelUpSystem
+PlayerMovementSystem
+EnemyAiSystem
+EnemySpawnSystem::default()
+EnemyContactDamageSystem::default()  ← 신규
+DeathSystem                          ← 신규
+RestartSystem                        ← 신규
+CameraFollowSystem::default()
+WhipSystem::default()
+MagnetSystem::default()
+HitFlashSystem
+HudSystem                            ← 신규 (마지막 — TextQueue push)
+```
+
+#### 테스트
+
+game lib 19 통과 (직전 16 + 신규 3):
+- `player_dies_when_hp_reaches_zero` — HP 0 강제 → DeathSystem → GameOver 확인
+- `restart_clears_world_and_resumes` — restart_world 직접 호출 → Player=1, Zombie=0, XpGem=0, Playing 확인
+- `enemy_contact_damages_player_after_cooldown` — 반경 15px 좀비 + dt=1.0 → HP 90.0 확인
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 19 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- `restart_world` 를 `pub fn` 헬퍼로 분리: `RestartSystem` 이 시스템 안에서 R 키 확인 후 호출, 테스트는 헬퍼를 직접 호출 (InputState::just_pressed 외부 시뮬레이션 불가)
+- `setup_survivor_world` 로 초기화 단일 진입점 통일: 최초 기동과 재시작 모두 같은 함수 사용
+- HUD 좌표: 800×600 viewport 기준 — 좌상단 `(10, 10)`, 중앙부 x≈310~320 (렌더 검증은 사용자 게이트)
+
+---
+
+## **Phase 1 Vertical Slice MVP 완료**
+
+한 루프 **(이동 → 자동공격 → XP → 레벨업 → 사망/재시작)** 가 닫힘.
+
+| sub-phase | 내용 |
+|---|---|
+| 1-A | 진입점 + Player + Camera follow |
+| 1-B | Zombie 적 + 스폰 |
+| 1-C | Whip 무기 + DamageSystem + HitFlash |
+| 1-D | XpGem 드롭 + 자석 흡수 |
+| 1-E | 레벨업 + 카드 선택 |
+| 1-F | HUD + 사망 + GameOver + R 재시작 |
+
+다음: **Phase 2 — 무기 풀 확장** (Magic Wand, Knife, Axe, Cross, Garlic, Holy Water, King Bible, Fire Wand, Lightning Ring + 공용 ProjectileSystem)

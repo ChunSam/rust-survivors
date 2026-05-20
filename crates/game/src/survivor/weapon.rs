@@ -3,6 +3,7 @@ use engine::components::GameState;
 use glam::Vec2;
 
 use super::health::Health;
+use super::hud::GameStats;
 use super::player::Player;
 use super::LAYER_ENEMY;
 
@@ -139,9 +140,6 @@ impl System for WhipSystem {
         hits.sort_by_key(|e| e.0);
         hits.dedup();
 
-        let mut killed = 0usize;
-        let mut hit_actual = 0usize;
-
         for entity in hits {
             // 1) 현재 sprite 색 캐시 + 빨강으로 변경
             let original = if let Some(s) = world.get_mut::<Sprite>(entity) {
@@ -159,23 +157,22 @@ impl System for WhipSystem {
                 false
             };
 
-            hit_actual += 1;
             if died {
-                killed += 1;
                 // despawn 전에 위치를 캐치해 XpGem 을 드롭
                 let drop_pos = world.get::<Transform>(entity).map(|t| t.position);
                 world.despawn(entity);
                 if let Some(p) = drop_pos {
                     super::xp::spawn_xp_gem(world, p, 1);
                 }
+                // HUD 처치 카운터 누적
+                if let Some(stats) = world.resource_mut::<GameStats>() {
+                    stats.kills += 1;
+                }
             } else {
                 // 살아있으면 HitFlash 부착 (덮어쓰기 — 기존 있어도 갱신)
                 world.add_component(entity, HitFlash { remaining: 0.1, original });
             }
         }
-
-        if hit_actual > 0 {
-            println!("Whip: {} hits, {} killed", hit_actual, killed);
-        }
+        // 매 발화 println 제거 — HudSystem 의 Kills 카운터로 대체됨
     }
 }
