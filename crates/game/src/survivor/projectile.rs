@@ -9,15 +9,31 @@ use super::xp::spawn_xp_gem;
 use super::weapon::HitFlash;
 use super::LAYER_ENEMY;
 
-/// 직선 이동 투사체. velocity 단위는 px/s.
+/// 투사체 이동 방식.
+///
+/// - `Straight`: 매 프레임 velocity 그대로 이동 (직선)
+/// - `Arc`: velocity.y 가 매 프레임 += gravity * dt (포물선). 도끼처럼 위로 던져 중력으로 떨어질 때 사용.
+///
+/// ## Y 축 방향 주의
+/// 렌더 좌표계는 `(0,0) = 좌상단, y 클수록 아래`. 따라서:
+/// - "위로 던지기" = `velocity.y < 0` (음수)
+/// - "중력" = `gravity > 0` (매 프레임 velocity.y 증가 → 결국 아래로)
+#[derive(Debug, Clone, Copy)]
+pub enum ProjectileBehavior {
+    Straight,
+    Arc { gravity: f32 },
+}
+
+/// 투사체 컴포넌트. velocity 단위는 px/s.
 #[derive(Debug, Clone)]
 pub struct Projectile {
     pub velocity:   Vec2,
-    pub lifetime:   f32,          // 남은 수명 (초). 0 이하면 despawn
-    pub pierce:     u8,           // 남은 관통 횟수. 0 이면 다음 hit 후 despawn
+    pub lifetime:   f32,            // 남은 수명 (초). 0 이하면 despawn
+    pub pierce:     u8,             // 남은 관통 횟수. 0 이면 다음 hit 후 despawn
     pub damage:     f32,
     pub layer_mask: CollisionLayer, // 어느 레이어를 타격할지
-    pub radius:     f32,          // 충돌 판정 반경 (px)
+    pub radius:     f32,            // 충돌 판정 반경 (px)
+    pub behavior:   ProjectileBehavior, // 이동 방식 (직선 / 포물선)
 }
 
 /// 모든 Projectile 의 lifetime / 이동 / 충돌 일괄 처리.
@@ -44,21 +60,29 @@ impl System for ProjectileSystem {
         self.grid.rebuild(world);
 
         // 1) 모든 Projectile 의 파라미터를 복사해 캐시 (borrow 끊기)
-        let projs: Vec<(Entity, Vec2, Vec2, f32, u8, f32, CollisionLayer, f32)> = world
+        let projs: Vec<(Entity, Vec2, Vec2, f32, u8, f32, CollisionLayer, f32, ProjectileBehavior)> = world
             .query2::<Projectile, Transform>()
             .map(|(e, p, t)| {
-                (e, t.position, p.velocity, p.lifetime, p.pierce, p.damage, p.layer_mask, p.radius)
+                (e, t.position, p.velocity, p.lifetime, p.pierce, p.damage, p.layer_mask, p.radius, p.behavior)
             })
             .collect();
 
         let mut to_despawn: Vec<Entity> = Vec::new();
         // (zombie_entity, damage)
         let mut hits_buffer: Vec<(Entity, f32)> = Vec::new();
-        // (proj_entity, new_pos, new_lifetime, new_pierce)
-        let mut proj_updates: Vec<(Entity, Vec2, f32, u8)> = Vec::new();
+        // (proj_entity, new_pos, new_lifetime, new_pierce, new_velocity)
+        let mut proj_updates: Vec<(Entity, Vec2, f32, u8, Vec2)> = Vec::new();
 
-        for (proj_e, pos, vel, life, pierce, damage, mask, radius) in projs {
-            let new_pos  = pos + vel * dt;
+        for (proj_e, pos, vel, life, pierce, damage, mask, radius, behavior) in projs {
+            // behavior 에 따라 velocity 갱신 (Arc 는 중력 적용)
+            let mut new_velocity = vel;
+            match behavior {
+                ProjectileBehavior::Straight => {}
+                ProjectileBehavior::Arc { gravity } => {
+                    new_velocity.y += gravity * dt;
+                }
+            }
+            let new_pos  = pos + new_velocity * dt;
             let new_life = life - dt;
 
             if new_life <= 0.0 {
@@ -90,18 +114,19 @@ impl System for ProjectileSystem {
             if consumed {
                 to_despawn.push(proj_e);
             } else {
-                proj_updates.push((proj_e, new_pos, new_life, new_pierce));
+                proj_updates.push((proj_e, new_pos, new_life, new_pierce, new_velocity));
             }
         }
 
-        // 2) 투사체 위치·수명·관통 갱신
-        for (proj_e, new_pos, new_life, new_pierce) in proj_updates {
+        // 2) 투사체 위치·수명·관통·속도 갱신
+        for (proj_e, new_pos, new_life, new_pierce, new_velocity) in proj_updates {
             if let Some(t) = world.get_mut::<Transform>(proj_e) {
                 t.position = new_pos;
             }
             if let Some(p) = world.get_mut::<Projectile>(proj_e) {
-                p.lifetime = new_life;
-                p.pierce   = new_pierce;
+                p.lifetime  = new_life;
+                p.pierce    = new_pierce;
+                p.velocity  = new_velocity;
             }
         }
 
@@ -151,9 +176,10 @@ impl System for ProjectileSystem {
     }
 }
 
-/// 투사체 엔티티를 스폰한다.
+/// 투사체 엔티티를 스폰한다 (`ProjectileBehavior::Straight` 기본).
 ///
 /// 모든 무기 시스템(MagicWandSystem 등)이 이 헬퍼를 통해 투사체를 생성한다.
+/// 포물선 동작이 필요하면 `spawn_projectile_ex` 를 사용한다.
 ///
 /// # 파라미터
 /// - `pos`      : 발사 위치 (px)
@@ -171,6 +197,32 @@ pub fn spawn_projectile(
     damage:   f32,
     color:    [f32; 3],
 ) {
+    spawn_projectile_ex(world, pos, velocity, lifetime, pierce, damage, color, ProjectileBehavior::Straight);
+}
+
+/// `ProjectileBehavior` 를 명시적으로 지정하는 투사체 스폰 헬퍼.
+///
+/// `spawn_projectile` 이 내부적으로 이 함수를 `Straight` 로 호출한다.
+/// `Arc { gravity }` 를 전달하면 포물선(도끼 등) 투사체를 만들 수 있다.
+///
+/// # 파라미터
+/// - `pos`      : 발사 위치 (px)
+/// - `velocity` : 초당 이동량 (px/s), 방향 + 속력 포함
+/// - `lifetime` : 수명 (초)
+/// - `pierce`   : 관통 횟수 (0 = 1마리 타격 후 소멸)
+/// - `damage`   : 타격 데미지
+/// - `color`    : RGB 색 (Sprite::colored 에 전달)
+/// - `behavior` : 이동 방식 (`Straight` 또는 `Arc { gravity }`)
+pub fn spawn_projectile_ex(
+    world:    &mut World,
+    pos:      Vec2,
+    velocity: Vec2,
+    lifetime: f32,
+    pierce:   u8,
+    damage:   f32,
+    color:    [f32; 3],
+    behavior: ProjectileBehavior,
+) {
     let e = world.spawn();
     world.add_component(e, Transform {
         position: pos,
@@ -186,6 +238,7 @@ pub fn spawn_projectile(
         damage,
         layer_mask: CollisionLayer(LAYER_ENEMY),
         radius: 6.0,
+        behavior,
     });
     // 충돌 그리드에 올리기 위한 Collider (ProjectileSystem 이 query_radius 로 detect)
     world.add_component(e, Collider::Circle { radius: 6.0 });
