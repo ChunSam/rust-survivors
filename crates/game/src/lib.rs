@@ -9,7 +9,7 @@ pub mod survivor;
 mod tests {
     use super::survivor::{
         spawn_player, spawn_zombie, CameraFollowSystem, EnemyAiSystem, EnemySpawnSystem,
-        Player, PlayerStats, SpawnTimer, Zombie,
+        Health, Player, PlayerStats, SpawnTimer, WhipSystem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use glam::Vec2;
@@ -108,5 +108,53 @@ mod tests {
         EnemySpawnSystem::default().run(&mut world, 0.0);
 
         assert_eq!(world.query::<Zombie>().count(), 0, "far zombie should be despawned");
+    }
+
+    // ── Phase 1-C: Whip + DamageSystem 테스트 ────────────────────────────────
+
+    fn setup_whip_world() -> (World, /* zombie */ engine::Entity) {
+        let mut world = World::new();
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+        spawn_player(&mut world);
+        // 플레이어를 원점으로 고정
+        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        if let Some(e) = player_entity {
+            if let Some(t) = world.get_mut::<Transform>(e) {
+                t.position = Vec2::ZERO;
+            }
+        }
+        // 좀비를 우측 AABB(0..120, -30..30) 안에 배치
+        spawn_zombie(&mut world, Vec2::new(80.0, 0.0));
+        let zombie_entity = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e).unwrap();
+        (world, zombie_entity)
+    }
+
+    #[test]
+    fn whip_does_not_trigger_before_cooldown() {
+        let (mut world, zombie) = setup_whip_world();
+        // cooldown 1.0 미만 → 발화 안 됨
+        WhipSystem::default().run(&mut world, 0.5);
+        let hp = world.get::<Health>(zombie).map(|h| h.current).unwrap();
+        assert_eq!(hp, 30.0, "cooldown 전에는 데미지 없어야 함");
+    }
+
+    #[test]
+    fn whip_damages_zombies_in_range() {
+        let (mut world, zombie) = setup_whip_world();
+        // dt == cooldown → 발화
+        WhipSystem::default().run(&mut world, 1.0);
+        let hp = world.get::<Health>(zombie).map(|h| h.current).unwrap();
+        assert_eq!(hp, 20.0, "10 데미지 차감 기대 (30 → 20)");
+    }
+
+    #[test]
+    fn zombie_dies_when_hp_reaches_zero() {
+        let (mut world, zombie) = setup_whip_world();
+        // HP 를 5 로 낮춤 — Whip 데미지(10) 에 즉사
+        if let Some(h) = world.get_mut::<Health>(zombie) {
+            *h = Health::new(5.0);
+        }
+        WhipSystem::default().run(&mut world, 1.0);
+        assert_eq!(world.query::<Zombie>().count(), 0, "즉사한 좀비는 despawn 돼야 함");
     }
 }
