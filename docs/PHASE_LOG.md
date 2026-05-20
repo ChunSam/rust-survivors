@@ -239,4 +239,69 @@ cargo build --release --workspace   # ok
 
 ---
 
-## 다음 작업: Phase 1-D — XpGem 드롭 + 자석 + 레벨업 + 플레이어 사망
+---
+
+### Phase 1-D — XpGem 드롭 + 자석 흡수 (2026-05-20)
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/xp.rs` | `XpGem`, `XpAccumulator`, `MagnetSystem`, `spawn_xp_gem` |
+
+#### 신규 컴포넌트
+
+| 컴포넌트 | 설명 | 부착 대상 |
+|---|---|---|
+| `XpGem { value: u32 }` | 적 사망 시 드롭되는 경험치 보석 | 스폰된 gem 엔티티 |
+| `XpAccumulator { current: u32 }` | XP 누적기. 1-D 는 누적만, 레벨업은 1-E | Player |
+
+#### 신규 시스템
+
+| 시스템 | 기본값 | 동작 |
+|---|---|---|
+| `MagnetSystem` | pickup=20 / magnet=80 / attract=400 px/s | 픽업 반경 내 gem → XP 누적 + despawn; 자석 반경 내 gem → 플레이어 방향 이동 |
+
+#### 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `crates/game/src/survivor/weapon.rs` | `WhipSystem` hit 루프: 적 사망 시 `spawn_xp_gem(world, pos, 1)` 호출 (despawn 전 위치 캐시) |
+| `crates/game/src/survivor/world_setup.rs` | `spawn_player` 에 `XpAccumulator::default()` 컴포넌트 추가 |
+| `crates/game/src/survivor/mod.rs` | `pub mod xp` + `LAYER_XP = 1 << 2` + 재수출 추가 |
+| `crates/game/src/bin/survivor.rs` | 주석·임포트 갱신 + `MagnetSystem::default()` 등록 (WhipSystem 다음, HitFlashSystem 앞) |
+| `crates/game/src/lib.rs` | 임포트 확장 + 신규 테스트 3건 |
+
+#### 레이어 상수
+
+```rust
+pub const LAYER_XP: u32 = 1 << 2;
+```
+
+#### 콘솔 로그
+
+XP 픽업 시 `"XP: {current}"` 출력 (HUD 도입 전 임시 확인용)
+
+#### 테스트
+
+game lib 13 통과 (직전 10 + 신규 3):
+- `xp_gem_spawned_when_zombie_dies` — zombie 즉사 시 XpGem 1개 스폰 확인
+- `xp_gem_attracted_within_magnet_radius` — 자석 반경 안의 gem 이 플레이어 방향으로 이동 확인
+- `xp_gem_picked_up_in_range` — 픽업 반경 안 gem despawn + XpAccumulator.current += 1 확인
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 13 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- `XpAccumulator` 는 Player 컴포넌트로만 사용. 리소스로는 insert 하지 않음.
+- borrow checker: Player 위치 캐시 → gems collect → to_pickup/to_attract 분류 → 적용 순서로 단계 분리.
+- XpGem z=0.3 (zombie 0.5 아래, player 1.0 아래) — 겹칠 때 gem 이 가장 뒤에 그려짐.
+- `spawn_xp_gem` 은 despawn 이후 호출 — `get::<Transform>` 으로 위치 캐시 후 `despawn` → `spawn_xp_gem` 순서. borrow 충돌 없음.
+
+## 다음 작업: Phase 1-E — 레벨업 + 카드 선택
