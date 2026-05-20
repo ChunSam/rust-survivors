@@ -13,3 +13,8 @@ log      = { workspace = true }
 pollster = { workspace = true }
 rapier2d = { workspace = true }
 rodio    = { workspace = true }
+rand     = { workspace = true }
+serde    = { workspace = true }
+ron      = { workspace = true }
+dirs     = { workspace = true }
+glyphon  = { workspace = true }
