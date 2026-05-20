@@ -933,6 +933,7 @@ dependencies = [
  "env_logger",
  "glam",
  "log",
+ "rand",
  "rapier2d",
  "wgpu",
  "winit",

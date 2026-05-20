@@ -108,18 +108,58 @@ PlayerMovementSystem → CameraFollowSystem
 
 ---
 
-## 다음 작업: Phase 1-B — Zombie 적 + 스폰
+---
 
-CLAUDE.md "Vertical Slice MVP" 섹션 참고.
+### Phase 1-B — Zombie 적 + 스폰 시스템 (2026-05-20)
 
-### 예정 파일
+#### 신규 파일
 
 | 파일 | 내용 |
 |---|---|
-| `crates/game/src/survivor/enemy.rs` | `Zombie`, `EnemyAi`, `EnemyAiSystem` (플레이어 추격) |
-| `crates/game/src/survivor/spawn.rs` | `EnemySpawnSystem` — 카메라 외곽 원형 경계 주기 스폰, 거리 초과 시 despawn |
+| `crates/game/src/survivor/enemy.rs` | `Zombie` 태그, `EnemyAi { move_speed: 80.0 }`, `EnemyAiSystem` |
+| `crates/game/src/survivor/spawn.rs` | `SpawnTimer { interval, elapsed }`, `EnemySpawnSystem`, `spawn_zombie(world, pos)` |
 
-### 준비 사항
+#### 신규 시스템
 
-- `CollisionLayer` 부착 — Phase 1-C `DamageSystem` 의 spatial grid 쿼리 준비
-- `SpatialGrid` / `CollisionGridSystem` 은 Phase 0 에서 이미 구현 완료
+| 시스템 | 동작 |
+|---|---|
+| `EnemyAiSystem` | `query3::<Zombie, Transform, EnemyAi>` → collect → get_mut 두 단계로 플레이어 추격 |
+| `EnemySpawnSystem` | 타이머 경과 시 카메라 중심 반경 500px 원형 경계에서 1마리 스폰. 반경 900px 초과 좀비 despawn |
+
+#### 신규 컴포넌트 / 태그
+
+- `Zombie` — 적 태그
+- `EnemyAi { move_speed }` — 추격 속도 파라미터
+- 스폰 시 `Collider::Circle { radius: 20.0 }` + `CollisionLayer(LAYER_ENEMY)` 부착 (Phase 1-C DamageSystem 준비)
+
+#### 레이어 상수 (mod.rs)
+
+```rust
+pub const LAYER_PLAYER: u32 = 1 << 0;
+pub const LAYER_ENEMY:  u32 = 1 << 1;
+```
+
+#### 테스트
+
+game lib 6 통과 (직전 3 + 신규 3):
+- `enemy_ai_moves_toward_player` — 좀비가 플레이어 방향으로 이동
+- `spawn_timer_triggers_after_interval` — dt=interval 시 좀비 1마리 스폰
+- `enemy_despawned_when_far` — despawn_radius 밖 좀비 자동 정리
+
+#### 검증
+
+```bash
+cargo build --workspace        # ok
+cargo test --workspace         # engine 26 / game lib 6 / doc 2 통과
+cargo build --release --workspace  # ok
+```
+
+#### 핵심 결정
+
+- `viewport` 는 `EnemySpawnSystem` 필드(800×600) — `Camera` 리소스에 viewport 가 없으므로 `CameraFollowSystem` 패턴 답습
+- `SpawnTimer` 리소스는 `spawn_player()` 안에서 삽입 — 씬 재시작(`reload_scene`) 시 재삽입되지 않으므로, 추후 `reload_scene` 확장 시 주의
+- `CollisionGridSystem` / `DamageSystem` 등록은 Phase 1-C 로 연기
+
+## 다음 작업: Phase 1-C — Whip 무기 + DamageSystem
+
+spatial-hash grid 쿼리로 Zombie hit 판정, XpGem 드롭, DamageSystem 등록.
