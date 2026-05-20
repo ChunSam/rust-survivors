@@ -11,7 +11,7 @@ pub use enemy::{EnemyAi, EnemyAiSystem, Zombie};
 pub use health::Health;
 pub use player::{Player, PlayerMovementSystem, PlayerStats, Velocity};
 pub use spawn::{spawn_zombie, EnemySpawnSystem, SpawnTimer};
-pub use weapon::{Whip, WhipSystem};
+pub use weapon::{HitFlash, HitFlashSystem, Whip, WhipSystem};
 pub use world_setup::spawn_player;
 
 /// 플레이어 충돌 레이어 비트마스크

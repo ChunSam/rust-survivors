@@ -9,7 +9,7 @@ pub mod survivor;
 mod tests {
     use super::survivor::{
         spawn_player, spawn_zombie, CameraFollowSystem, EnemyAiSystem, EnemySpawnSystem,
-        Health, Player, PlayerStats, SpawnTimer, WhipSystem, Zombie,
+        Health, HitFlash, Player, PlayerStats, SpawnTimer, WhipSystem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use glam::Vec2;
@@ -156,5 +156,23 @@ mod tests {
         }
         WhipSystem::default().run(&mut world, 1.0);
         assert_eq!(world.query::<Zombie>().count(), 0, "즉사한 좀비는 despawn 돼야 함");
+    }
+
+    #[test]
+    fn whip_hit_attaches_hit_flash() {
+        let (mut world, zombie) = setup_whip_world();
+        // dt == cooldown → 발화. 좀비 HP(30) > damage(10) → 생존 → HitFlash 부착 기대
+        WhipSystem::default().run(&mut world, 1.0);
+
+        // HitFlash 컴포넌트가 부착됐는지 확인
+        assert!(
+            world.get::<HitFlash>(zombie).is_some(),
+            "hit 된 좀비에 HitFlash 컴포넌트가 부착돼야 함"
+        );
+
+        // sprite 색이 빨강으로 변경됐는지 확인
+        use engine::Sprite;
+        let color = world.get::<Sprite>(zombie).map(|s| s.color).unwrap();
+        assert_eq!(color, [1.0, 0.3, 0.3, 1.0], "hit 된 좀비의 sprite 색이 빨강이어야 함");
     }
 }

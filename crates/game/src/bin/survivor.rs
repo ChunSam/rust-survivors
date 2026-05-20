@@ -11,6 +11,7 @@ use game::survivor::{
     CameraFollowSystem,
     EnemyAiSystem,
     EnemySpawnSystem,
+    HitFlashSystem,
     PlayerMovementSystem,
     WhipSystem,
 };
@@ -26,6 +27,7 @@ fn main() {
     app.add_system(EnemySpawnSystem::default());
     app.add_system(CameraFollowSystem::default());
     app.add_system(WhipSystem::default());
+    app.add_system(HitFlashSystem);
 
     // 초기 엔티티 + SpawnTimer 리소스
     spawn_player(&mut app.world);

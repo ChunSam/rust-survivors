@@ -141,8 +141,8 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-20)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + 1-A(서바이버 진입점·Player·Camera follow) + 1-B(Zombie + 스폰) + 1-C(Whip + Damage)
-- **상태**: engine 26 tests · game lib 9 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + 1-A(서바이버 진입점·Player·Camera follow) + 1-B(Zombie + 스폰) + 1-C(Whip + Damage + 히트플래시)
+- **상태**: engine 26 tests · game lib 10 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
 - **다음**: Phase 1-D (XpGem 드롭 + 자석 + 레벨업)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
