@@ -3,7 +3,7 @@ use engine::components::GameState;
 use engine::input::InputState;
 use winit::keyboard::KeyCode;
 use super::xp::XpAccumulator;
-use super::weapon::Whip;
+use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
 
 /// 카드 강화 종류
@@ -45,21 +45,44 @@ impl LevelUpSystem {
         5 + 5 * level
     }
 
-    /// 선택한 카드 효과를 Player 엔티티의 Whip 에 적용하고 XpAccumulator 를 갱신한다.
+    /// 선택한 카드 효과를 Player 엔티티의 WeaponInventory (Whip 슬롯) 에 적용하고
+    /// XpAccumulator 를 갱신한다.
     ///
     /// 키 입력 없이 직접 호출 가능하므로 단위 테스트에서 재사용.
     /// 반환: (새 XP current, 새 threshold) — println 메시지 구성용
     pub fn apply_card(world: &mut World, player_entity: engine::Entity, card: CardKind) -> (u32, u32) {
-        if let Some(whip) = world.get_mut::<Whip>(player_entity) {
-            match card {
-                CardKind::WhipDamage   => whip.damage += 5.0,
-                CardKind::WhipArea     => { whip.area_width += 20.0; whip.area_height += 10.0; }
-                CardKind::WhipCooldown => whip.cooldown *= 0.85,
+        if let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) {
+            if let Some(slot) = inv.whip_slot_mut() {
+                match card {
+                    CardKind::WhipDamage => {
+                        #[allow(irrefutable_let_patterns)]
+                        if let WeaponKind::Whip { damage, .. } = &mut slot.kind {
+                            *damage += 5.0;
+                        }
+                    }
+                    CardKind::WhipArea => {
+                        #[allow(irrefutable_let_patterns)]
+                        if let WeaponKind::Whip { area_width, area_height, .. } = &mut slot.kind {
+                            *area_width  += 20.0;
+                            *area_height += 10.0;
+                        }
+                    }
+                    CardKind::WhipCooldown => slot.cooldown *= 0.85,
+                }
+                slot.level += 1;
+
+                // 콘솔 로그 (inventory slot 값으로 출력)
+                #[allow(irrefutable_let_patterns)]
+                let (dmg, aw, ah) = if let WeaponKind::Whip { damage, area_width, area_height } = slot.kind {
+                    (damage, area_width, area_height)
+                } else {
+                    (0.0, 0.0, 0.0)
+                };
+                println!(
+                    "Whip upgraded: damage={:.1} area={:.0}×{:.0} cooldown={:.2}",
+                    dmg, aw, ah, slot.cooldown
+                );
             }
-            println!(
-                "Whip upgraded: damage={:.1} area={:.0}×{:.0} cooldown={:.2}",
-                whip.damage, whip.area_width, whip.area_height, whip.cooldown
-            );
         }
 
         // XpAccumulator: 현재 XP 유지, 레벨 +1, 다음 임계치 갱신
@@ -128,7 +151,7 @@ impl System for LevelUpSystem {
 
                 // Player 엔티티 조회 — borrow 를 즉시 끊음
                 let player_entity = world
-                    .query2::<Player, Whip>()
+                    .query2::<Player, WeaponInventory>()
                     .next()
                     .map(|(e, _, _)| e);
 

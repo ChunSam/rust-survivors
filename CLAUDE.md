@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A(진입점·Player·Camera) + 1-B(Zombie·스폰) + 1-C(Whip·DamageSystem·HitFlash) + 1-D(XpGem·자석) + 1-E(레벨업·카드 선택) + **1-F(HUD·사망·GameOver·R 재시작)**
-- **상태**: engine 26 tests · game lib 19 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성**: 한 루프(이동→자동공격→XP→레벨업→사망/재시작)가 완결되는 Vertical Slice
-- **다음**: Phase 2 (무기 풀 확장 — Magic Wand, Knife, Axe, Cross, Garlic, Holy Water, King Bible, Fire Wand, Lightning Ring + 공용 ProjectileSystem)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A(진입점·Player·Camera) + 1-B(Zombie·스폰) + 1-C(Whip·DamageSystem·HitFlash) + 1-D(XpGem·자석) + 1-E(레벨업·카드 선택) + **1-F(HUD·사망·GameOver·R 재시작)** + **Phase 2-A(WeaponInventory + Whip 마이그레이션)**
+- **상태**: engine 26 tests · game lib 21 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성**: WeaponInventory[6 slots] 인프라 구축. Whip 컴포넌트 → slot[0] 으로 이전. 동작 변화 없음.
+- **다음**: Phase 2-B (ProjectileSystem + Magic Wand)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

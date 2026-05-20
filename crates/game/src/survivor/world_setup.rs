@@ -2,9 +2,9 @@ use engine::{Sprite, Transform, World};
 use glam::Vec2;
 use super::health::Health;
 use super::hud::GameStats;
+use super::inventory::WeaponInventory;
 use super::player::{Player, PlayerStats, Velocity};
 use super::spawn::SpawnTimer;
-use super::weapon::Whip;
 use super::xp::XpAccumulator;
 
 /// 플레이어 엔티티를 World 에 스폰. 좌표는 월드 (0,0) — 카메라 follow 가 화면 중앙에 둠.
@@ -22,7 +22,7 @@ pub fn spawn_player(world: &mut World) {
     world.add_component(e, PlayerStats::default());
     world.add_component(e, Velocity(Vec2::ZERO));
     world.add_component(e, Health::new(100.0));
-    world.add_component(e, Whip::default());
+    world.add_component(e, WeaponInventory::with_whip_default());
     world.add_component(e, XpAccumulator::default());
     world.insert_resource(SpawnTimer::default());
 }
