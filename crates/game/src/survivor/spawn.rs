@@ -2,6 +2,7 @@ use engine::{Camera, Collider, CollisionLayer, Entity, Sprite, System, Transform
 use glam::Vec2;
 use rand::Rng;
 use super::enemy::{EnemyAi, Zombie};
+use super::health::Health;
 use super::LAYER_ENEMY;
 
 /// 적 스폰 주기 타이머 (ECS 리소스)
@@ -88,4 +89,5 @@ pub fn spawn_zombie(world: &mut World, pos: Vec2) {
     world.add_component(e, EnemyAi::default());
     world.add_component(e, CollisionLayer(LAYER_ENEMY));
     world.add_component(e, Collider::Circle { radius: 20.0 });
+    world.add_component(e, Health::new(30.0));
 }

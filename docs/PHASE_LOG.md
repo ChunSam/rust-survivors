@@ -160,6 +160,83 @@ cargo build --release --workspace  # ok
 - `SpawnTimer` 리소스는 `spawn_player()` 안에서 삽입 — 씬 재시작(`reload_scene`) 시 재삽입되지 않으므로, 추후 `reload_scene` 확장 시 주의
 - `CollisionGridSystem` / `DamageSystem` 등록은 Phase 1-C 로 연기
 
-## 다음 작업: Phase 1-C — Whip 무기 + DamageSystem
+---
 
-spatial-hash grid 쿼리로 Zombie hit 판정, XpGem 드롭, DamageSystem 등록.
+### Phase 1-C — Whip 무기 + DamageSystem (2026-05-20)
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/health.rs` | `Health { current, max }`, `take_damage(amount) -> bool` |
+| `crates/game/src/survivor/weapon.rs` | `Whip` 컴포넌트, `WhipSystem` (SpatialGrid 직접 소유) |
+
+#### 신규 컴포넌트
+
+| 컴포넌트 | 기본값 | 부착 대상 |
+|---|---|---|
+| `Health { current, max }` | `new(100)` / `new(30)` | Player / Zombie |
+| `Whip { level, damage, area_width, area_height, cooldown }` | `1, 10.0, 120.0, 60.0, 1.0` | Player |
+
+#### WhipSystem 동작
+
+1. `elapsed += dt`
+2. `query3::<Player, Transform, Whip>` 로 위치·수치 캐시
+3. `elapsed < cooldown` 이면 조기 반환; 아니면 `elapsed -= cooldown`
+4. 발화 시점에만 `grid.rebuild(world)` — 매 프레임 rebuild 비용 절감
+5. 좌측 AABB `(player - (width, height/2), player + (0, height/2))` + 우측 AABB 양쪽 쿼리
+6. `LAYER_ENEMY` 마스크로 hit 엔티티 수집 → sort + dedup
+7. `Health::take_damage` → HP ≤ 0 이면 `world.despawn`
+
+#### 테스트
+
+game lib 9 통과 (직전 6 + 신규 3):
+- `whip_does_not_trigger_before_cooldown` — cooldown 전 발화 없음
+- `whip_damages_zombies_in_range` — 10 데미지 차감 (30→20)
+- `zombie_dies_when_hp_reaches_zero` — HP ≤ 0 → despawn → `Zombie` count = 0
+
+#### 검증
+
+```bash
+cargo build --workspace             # ok
+cargo test --workspace              # engine 26 / game lib 9 / doc 2 통과
+cargo build --release --workspace   # ok
+```
+
+#### 핵심 결정
+
+- `SpatialGrid` 를 `WhipSystem` 이 직접 소유 — `PhysicsSystem` 이 `PhysicsWorld` 를 소유하는 패턴 답습. borrow checker 충돌 회피.
+- `CollisionGridSystem` 미등록 — `WhipSystem` 이 자체 grid 를 발화 시점에만 rebuild 하므로 불필요.
+- 부채꼴 대신 좌/우 AABB 사각형 hitbox — 학습 단계 단순화. Phase 2 무기 풀 확장 시 부채꼴·원·광선 hitbox 로 교체 가능.
+
+### Phase 1-C 보강 (2026-05-20)
+
+#### 히트플래시
+
+- `HitFlash { remaining: f32, original: [f32; 4] }` 컴포넌트 신규 추가
+- `HitFlashSystem` — 매 프레임 `remaining -= dt`; 만료 시 `Sprite.color = original` 복원
+- `World::remove_component` 미존재 → 복원 완료 후 `remaining = f32::NEG_INFINITY` sentinel 처리로 재처리 방지
+- `WhipSystem` hit 루프: sprite 색을 `[1.0, 0.3, 0.3, 1.0]` (빨강)으로 즉시 변경 후 `HitFlash` 부착 (0.1초); 사망 시 despawn (플래시 불필요)
+
+#### 콘솔 로그
+
+- `WhipSystem` 발화 시 `hit_actual > 0` 이면 `println!("Whip: {} hits, {} killed", hit_actual, killed)` 출력
+- 디버깅 보조용 — 다음 폴리쉬 단계(Phase 1-D 이후)에서 HUD 처치 카운터로 대체 예정
+
+#### 테스트
+
+- game lib 10 통과 (직전 9 + 신규 1)
+- `whip_hit_attaches_hit_flash` — hit 된 생존 좀비에 `HitFlash` 부착 확인 + sprite 색 빨강 확인
+
+#### 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `crates/game/src/survivor/weapon.rs` | `HitFlash`, `HitFlashSystem` 추가; `WhipSystem` hit 루프에 색 변경 + 로그 추가 |
+| `crates/game/src/survivor/mod.rs` | `HitFlash`, `HitFlashSystem` 재수출 추가 |
+| `crates/game/src/bin/survivor.rs` | `HitFlashSystem` 임포트 + `WhipSystem` 다음 등록 |
+| `crates/game/src/lib.rs` | `HitFlash` 임포트 + `whip_hit_attaches_hit_flash` 테스트 추가 |
+
+---
+
+## 다음 작업: Phase 1-D — XpGem 드롭 + 자석 + 레벨업 + 플레이어 사망
