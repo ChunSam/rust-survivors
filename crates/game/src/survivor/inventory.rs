@@ -2,6 +2,7 @@
 ///
 /// Phase 2-A 는 Whip 만 inventory 에 마이그레이션.
 /// Phase 2-B 에서 MagicWand 추가.
+/// Phase 2-C 에서 Knife, Axe 추가.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WeaponKind {
     Whip {
@@ -14,6 +15,25 @@ pub enum WeaponKind {
         projectile_speed: f32,
         lifetime:         f32,
         pierce:           u8,
+    },
+    /// 가장 가까운 적 방향으로 직선 투사체를 `amount` 개 동시 발사.
+    /// `spread_radians`: `amount > 1` 일 때 부채꼴 각도 범위 (라디안).
+    Knife {
+        damage:          f32,
+        projectile_speed: f32,
+        lifetime:        f32,
+        pierce:          u8,
+        amount:          u8,          // 동시 발사 개수
+        spread_radians:  f32,         // amount > 1 일 때 각도 분산 (라디안)
+    },
+    /// 위로 던져 중력으로 떨어지는 포물선 투사체. `ProjectileBehavior::Arc` 사용.
+    Axe {
+        damage:        f32,
+        initial_speed: f32, // 위 방향 초기 속도 (px/s). velocity.y = -initial_speed.
+        gravity:       f32, // 중력 가속도 (px/s^2). 양수 → 매 프레임 velocity.y 증가.
+        lifetime:      f32,
+        pierce:        u8,
+        amount:        u8,
     },
 }
 
@@ -49,7 +69,7 @@ pub struct WeaponInventory {
 }
 
 impl WeaponInventory {
-    /// Phase 2-B 스타터 로드아웃: Whip(slot[0]) + MagicWand(slot[1]).
+    /// Phase 2-C 스타터 로드아웃: Whip(slot[0]) + MagicWand(slot[1]) + Knife(slot[2]) + Axe(slot[3]).
     pub fn with_starter_loadout() -> Self {
         let mut inv = Self::default();
         inv.slots[0] = Some(WeaponSlot {
@@ -71,6 +91,32 @@ impl WeaponInventory {
             },
             level:    1,
             cooldown: 1.2,
+            elapsed:  0.0,
+        });
+        inv.slots[2] = Some(WeaponSlot {
+            kind: WeaponKind::Knife {
+                damage:           6.0,
+                projectile_speed: 400.0,
+                lifetime:         1.0,
+                pierce:           0,
+                amount:           1,
+                spread_radians:   0.3,
+            },
+            level:    1,
+            cooldown: 0.8,
+            elapsed:  0.0,
+        });
+        inv.slots[3] = Some(WeaponSlot {
+            kind: WeaponKind::Axe {
+                damage:        12.0,
+                initial_speed: 250.0,
+                gravity:       600.0,
+                lifetime:      1.5,
+                pierce:        2,
+                amount:        1,
+            },
+            level:    1,
+            cooldown: 1.5,
             elapsed:  0.0,
         });
         inv
@@ -127,6 +173,52 @@ impl WeaponInventory {
         }
         None
     }
+
+    /// 첫 매칭되는 Knife 슬롯의 mutable 참조.
+    pub fn knife_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        for slot in &mut self.slots {
+            if let Some(s) = slot {
+                if matches!(s.kind, WeaponKind::Knife { .. }) {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn knife_slot(&self) -> Option<&WeaponSlot> {
+        for slot in &self.slots {
+            if let Some(s) = slot {
+                if matches!(s.kind, WeaponKind::Knife { .. }) {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    }
+
+    /// 첫 매칭되는 Axe 슬롯의 mutable 참조.
+    pub fn axe_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        for slot in &mut self.slots {
+            if let Some(s) = slot {
+                if matches!(s.kind, WeaponKind::Axe { .. }) {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn axe_slot(&self) -> Option<&WeaponSlot> {
+        for slot in &self.slots {
+            if let Some(s) = slot {
+                if matches!(s.kind, WeaponKind::Axe { .. }) {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -139,7 +231,10 @@ mod tests {
         assert!(inv.slots[0].is_some(), "슬롯 0 에 Whip 이 있어야 함");
         // slot[1] 은 MagicWand
         assert!(inv.slots[1].is_some(), "슬롯 1 에 MagicWand 가 있어야 함");
-        for i in 2..6 {
+        // slot[2] 는 Knife, slot[3] 은 Axe
+        assert!(inv.slots[2].is_some(), "슬롯 2 에 Knife 가 있어야 함");
+        assert!(inv.slots[3].is_some(), "슬롯 3 에 Axe 가 있어야 함");
+        for i in 4..6 {
             assert!(inv.slots[i].is_none(), "슬롯 {i} 는 비어 있어야 함");
         }
         let slot = inv.slots[0].as_ref().unwrap();
@@ -153,6 +248,20 @@ mod tests {
         assert!(matches!(
             wand_slot.kind,
             WeaponKind::MagicWand { damage, pierce, .. } if damage == 8.0 && pierce == 0
+        ));
+        // Knife 슬롯 확인
+        let knife_slot = inv.slots[2].as_ref().unwrap();
+        assert_eq!(knife_slot.cooldown, 0.8);
+        assert!(matches!(
+            knife_slot.kind,
+            WeaponKind::Knife { damage, amount, .. } if damage == 6.0 && amount == 1
+        ));
+        // Axe 슬롯 확인
+        let axe_slot = inv.slots[3].as_ref().unwrap();
+        assert_eq!(axe_slot.cooldown, 1.5);
+        assert!(matches!(
+            axe_slot.kind,
+            WeaponKind::Axe { damage, pierce, .. } if damage == 12.0 && pierce == 2
         ));
     }
 

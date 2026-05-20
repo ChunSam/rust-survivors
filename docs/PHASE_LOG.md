@@ -640,4 +640,109 @@ cargo build --release --workspace           # ok
 - **ProjectileSystem 독립 grid**: MagicWandSystem 도 grid 를 소유 — 같은 프레임에 grid 가 2회 rebuild 되지만 엔티티 수가 적을 때는 무시할 수 있는 비용
 - **pierce=0 의미**: 1마리 타격 후 즉시 despawn (관통 없음). pierce=1 이면 2마리 관통.
 
-다음: **Phase 2-C — Knife + Axe**
+다음: **Phase 2-C — Knife + Axe + ProjectileBehavior**
+
+---
+
+### Phase 2-C — Knife + Axe + ProjectileBehavior 일반화 (2026-05-21)
+
+#### ProjectileBehavior enum 도입
+
+```rust
+pub enum ProjectileBehavior {
+    Straight,               // velocity 그대로 직선 이동
+    Arc { gravity: f32 },   // velocity.y += gravity * dt (포물선)
+}
+```
+
+- `Projectile` 컴포넌트에 `pub behavior: ProjectileBehavior` 필드 추가
+- `ProjectileSystem::run` 이 매 프레임 behavior 에 따라 velocity 갱신 후 이동
+- `Projectile.velocity` 도 매 프레임 갱신 → Arc 투사체가 실제 포물선 궤적을 그림
+- **Y 축**: `(0,0)=좌상단, y↑=아래`. 위로 던지기 = `velocity.y < 0`, 중력 = `gravity > 0`
+
+#### 신규 헬퍼 함수
+
+| 함수 | 설명 |
+|---|---|
+| `spawn_projectile(...)` | `Straight` 고정 (기존 호출자 변경 없음) |
+| `spawn_projectile_ex(..., behavior)` | behavior 를 명시적으로 지정 |
+
+#### WeaponKind 신규 variant
+
+| variant | 파라미터 | 설명 |
+|---|---|---|
+| `Knife` | `damage, projectile_speed, lifetime, pierce, amount, spread_radians` | 가장 가까운 적 방향 `amount` 개 직선 투사체. `amount > 1` 이면 `spread_radians` 범위 부채꼴 분산 |
+| `Axe` | `damage, initial_speed, gravity, lifetime, pierce, amount` | `velocity.y = -initial_speed` 로 위로 던져 `Arc` 중력으로 떨어지는 포물선 투사체 |
+
+#### 스타터 로드아웃 (with_starter_loadout)
+
+| 슬롯 | 무기 | cooldown | 주요 파라미터 |
+|---|---|---|---|
+| 0 | Whip | 1.0s | damage=10, area=120×60 |
+| 1 | MagicWand | 1.2s | damage=8, speed=300, pierce=0 |
+| 2 | Knife | 0.8s | damage=6, speed=400, amount=1, spread=0.3rad |
+| 3 | Axe | 1.5s | damage=12, init_speed=250, gravity=600, pierce=2 |
+| 4–5 | — | — | 비어 있음 |
+
+#### 신규 시스템
+
+| 시스템 | 동작 |
+|---|---|
+| `KnifeSystem` | cooldown → grid rebuild → 가장 가까운 적 탐색 → amount 개 `Straight` 투사체 발사 (흰색) |
+| `AxeSystem` | cooldown → amount 개 `Arc { gravity }` 투사체 발사 (갈색). 적 방향 탐색 없음 — 항상 위로 던짐 |
+
+#### 시스템 등록 순서 (Phase 2-C)
+
+```
+LevelUpSystem
+PlayerMovementSystem
+EnemyAiSystem
+EnemySpawnSystem
+EnemyContactDamageSystem
+DeathSystem
+RestartSystem
+CameraFollowSystem
+WhipSystem
+MagicWandSystem
+KnifeSystem::default()       ← 신규
+AxeSystem::default()         ← 신규
+ProjectileSystem
+MagnetSystem
+HitFlashSystem
+HudSystem
+```
+
+#### 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `crates/game/src/survivor/projectile.rs` | `ProjectileBehavior` enum 추가. `Projectile.behavior` 필드. `ProjectileSystem` velocity 갱신 로직. `spawn_projectile_ex` 헬퍼 추가 |
+| `crates/game/src/survivor/inventory.rs` | `WeaponKind::Knife`, `WeaponKind::Axe` variant 추가. `knife_slot_mut/axe_slot_mut` 헬퍼. `with_starter_loadout` slot[2]/[3] 추가 |
+| `crates/game/src/survivor/weapon.rs` | `KnifeSystem`, `AxeSystem` 추가. `spawn_projectile_ex` 임포트 |
+| `crates/game/src/survivor/mod.rs` | `KnifeSystem`, `AxeSystem`, `spawn_projectile_ex`, `ProjectileBehavior` 재수출 |
+| `crates/game/src/bin/survivor.rs` | `KnifeSystem::default()`, `AxeSystem::default()` 등록 |
+| `crates/game/src/lib.rs` | 임포트 확장 + 신규 테스트 3건 |
+
+#### 테스트
+
+game lib 29 통과 (직전 26 + 신규 3):
+- `knife_spawns_projectile_after_cooldown` — cooldown 0.8 → dt=1.0 → 투사체 1개 스폰 확인
+- `axe_projectile_arcs_downward` — Arc 투사체 dt=1.0 후 velocity.y ≈ 300 (중력 적용 확인)
+- `inventory_starter_loadout_has_four_slots_filled` — slot[0..3] 모두 Some, slot[4..5] None. Whip/MagicWand/Knife/Axe 순서 확인
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 29 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- `ProjectileBehavior` enum 으로 이동 방식 분기: `Straight` 는 velocity 불변, `Arc` 는 velocity.y += gravity*dt. velocity 도 갱신해야 포물선이 점점 빨라지는 물리 효과 표현 가능.
+- `spawn_projectile` 은 `Straight` 기본으로 고정 → 2-B MagicWand 호출 코드 변경 없음.
+- `AxeSystem` 은 적 탐색 없이 항상 위로 발사 → Vampire Survivors Axe 원작 동작 재현 (자동으로 포물선이 넓게 커버).
+- `KnifeSystem` spread: `amount == 1` 이면 정방향 1발, `> 1` 이면 `-spread/2 ~ +spread/2` 균등 분산.
+
+다음: **Phase 2-D — Cross + Fire Wand**

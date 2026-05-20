@@ -8,12 +8,12 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        restart_world, setup_survivor_world, spawn_player, spawn_projectile, spawn_xp_gem,
-        spawn_zombie, CameraFollowSystem, CardKind, DeathSystem, EnemyAiSystem,
-        EnemyContactDamageSystem, EnemySpawnSystem, GameStats, Health, HitFlash, LevelUpSystem,
-        MagicWandSystem, MagnetSystem, PendingLevelUp, Player, PlayerStats, Projectile,
-        ProjectileSystem, SpawnTimer, WeaponInventory, WeaponKind, WhipSystem, XpAccumulator,
-        XpGem, Zombie,
+        restart_world, setup_survivor_world, spawn_player, spawn_projectile, spawn_projectile_ex,
+        spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, DeathSystem,
+        EnemyAiSystem, EnemyContactDamageSystem, EnemySpawnSystem, GameStats, Health, HitFlash,
+        KnifeSystem, LevelUpSystem, MagicWandSystem, MagnetSystem, PendingLevelUp, Player,
+        PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnTimer, WeaponInventory,
+        WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
@@ -572,6 +572,111 @@ mod tests {
         assert_eq!(
             after_hp, 90.0,
             "적 접촉 후 HP 가 90.0 이어야 함 (100 - 10)"
+        );
+    }
+
+    // ── Phase 2-C: ProjectileBehavior + Knife + Axe 테스트 ──────────────────
+
+    /// KnifeSystem cooldown 경과 후 투사체 1개가 스폰돼야 한다.
+    #[test]
+    fn knife_spawns_projectile_after_cooldown() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+
+        // Knife 포함 스타터 로드아웃으로 플레이어 스폰
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // 적 없으면 KnifeSystem 이 발사를 건너뜀 — 좀비 1마리 스폰
+        spawn_zombie(&mut world, Vec2::new(100.0, 0.0));
+
+        // dt = 1.0 → cooldown 0.8 초과 → 발화
+        KnifeSystem::default().run(&mut world, 1.0);
+
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            1,
+            "Knife cooldown 경과 후 투사체 1개가 스폰돼야 함"
+        );
+    }
+
+    /// Arc behavior 투사체는 매 프레임 velocity.y 가 gravity * dt 만큼 증가해야 한다.
+    #[test]
+    fn axe_projectile_arcs_downward() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+
+        // 위로 던지는 포물선 투사체 (velocity.y = -200, gravity = 500)
+        spawn_projectile_ex(
+            &mut world,
+            Vec2::ZERO,
+            Vec2::new(0.0, -200.0),
+            2.0,
+            0,
+            10.0,
+            [1.0, 0.5, 0.2],
+            ProjectileBehavior::Arc { gravity: 500.0 },
+        );
+
+        // dt = 1.0 → velocity.y = -200 + 500*1 = 300 (양수 = 아래 방향)
+        ProjectileSystem::default().run(&mut world, 1.0);
+
+        // 투사체가 아직 살아 있어야 함 (lifetime 2.0 - 1.0 = 1.0 > 0)
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            1,
+            "아직 수명이 남은 투사체여야 함"
+        );
+
+        // velocity.y 가 중력 적용 후 증가했어야 함 (-200 + 500 = 300)
+        let proj_e = world.query::<Projectile>().next().map(|(e, _)| e).unwrap();
+        let vel_y = world.get::<Projectile>(proj_e).map(|p| p.velocity.y).unwrap();
+        assert!(
+            vel_y > 0.0,
+            "중력 적용 후 velocity.y 가 양수(아래 방향)여야 함 (현재 {vel_y})"
+        );
+        // 기대값: -200 + 500 * 1.0 = 300
+        assert!(
+            (vel_y - 300.0).abs() < 1.0,
+            "velocity.y 가 약 300 이어야 함 (현재 {vel_y})"
+        );
+    }
+
+    /// with_starter_loadout 에 4개 슬롯이 채워져야 한다 (Whip/MagicWand/Knife/Axe).
+    #[test]
+    fn inventory_starter_loadout_has_four_slots_filled() {
+        let inv = WeaponInventory::with_starter_loadout();
+
+        // 슬롯 0~3 은 Some, 4~5 는 None
+        assert!(inv.slots[0].is_some(), "슬롯 0 (Whip) 이 있어야 함");
+        assert!(inv.slots[1].is_some(), "슬롯 1 (MagicWand) 이 있어야 함");
+        assert!(inv.slots[2].is_some(), "슬롯 2 (Knife) 가 있어야 함");
+        assert!(inv.slots[3].is_some(), "슬롯 3 (Axe) 가 있어야 함");
+        assert!(inv.slots[4].is_none(), "슬롯 4 는 비어 있어야 함");
+        assert!(inv.slots[5].is_none(), "슬롯 5 는 비어 있어야 함");
+
+        // 각 슬롯의 kind 확인
+        assert!(
+            matches!(inv.slots[0].as_ref().unwrap().kind, WeaponKind::Whip { .. }),
+            "슬롯 0 은 Whip 이어야 함"
+        );
+        assert!(
+            matches!(inv.slots[1].as_ref().unwrap().kind, WeaponKind::MagicWand { .. }),
+            "슬롯 1 은 MagicWand 이어야 함"
+        );
+        assert!(
+            matches!(inv.slots[2].as_ref().unwrap().kind, WeaponKind::Knife { .. }),
+            "슬롯 2 는 Knife 여야 함"
+        );
+        assert!(
+            matches!(inv.slots[3].as_ref().unwrap().kind, WeaponKind::Axe { .. }),
+            "슬롯 3 은 Axe 여야 함"
         );
     }
 }

@@ -7,7 +7,7 @@ use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
 use super::LAYER_ENEMY;
-use super::projectile::spawn_projectile;
+use super::projectile::{spawn_projectile, spawn_projectile_ex, ProjectileBehavior};
 
 /// 히트플래시 컴포넌트. 피격된 엔티티에 일시적으로 부착.
 ///
@@ -250,5 +250,169 @@ impl System for MagicWandSystem {
             damage,
             [0.9, 0.7, 1.0], // 연보라색 — Magic Wand 컬러
         );
+    }
+}
+
+/// Knife 발화 시스템.
+///
+/// 매 cooldown 마다 가장 가까운 적 방향으로 `amount` 개의 직선 투사체를 동시 발사한다.
+/// `amount > 1` 이면 `spread_radians` 범위로 부채꼴 분산.
+pub struct KnifeSystem {
+    pub grid:          SpatialGrid,
+    pub target_radius: f32,
+}
+
+impl Default for KnifeSystem {
+    fn default() -> Self {
+        Self {
+            grid:          SpatialGrid::new(128.0),
+            target_radius: 400.0,
+        }
+    }
+}
+
+impl System for KnifeSystem {
+    fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
+        // 1) Player 위치 + entity 캐시
+        let Some((player_entity, player_pos)) = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, t)| (e, t.position))
+        else {
+            return;
+        };
+
+        // 2) Knife 슬롯 tick — cooldown 미달이면 즉시 반환
+        let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
+            let Some(slot) = inv.knife_slot_mut() else { return };
+            if !slot.tick(dt) {
+                return;
+            }
+            if let WeaponKind::Knife { damage, projectile_speed, lifetime, pierce, amount, spread_radians } = slot.kind {
+                Some((damage, projectile_speed, lifetime, pierce, amount, spread_radians))
+            } else {
+                None
+            }
+        };
+        let Some((damage, projectile_speed, lifetime, pierce, amount, spread_radians)) = fire_info else { return };
+
+        // 3) grid rebuild + 가장 가까운 적 탐색
+        self.grid.rebuild(world);
+        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        if candidates.is_empty() {
+            return; // 적 없으면 발사 skip
+        }
+
+        let nearest = candidates
+            .into_iter()
+            .filter_map(|e| world.get::<Transform>(e).map(|t| (e, t.position)))
+            .min_by(|a, b| {
+                let da = (a.1 - player_pos).length_squared();
+                let db = (b.1 - player_pos).length_squared();
+                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+            });
+        let Some((_target_entity, target_pos)) = nearest else { return };
+
+        // 4) 방향 벡터 계산
+        let dir = target_pos - player_pos;
+        let base_dir = if dir.length_squared() > 0.0 {
+            dir.normalize()
+        } else {
+            Vec2::new(1.0, 0.0)
+        };
+        let base_angle = base_dir.y.atan2(base_dir.x);
+
+        // 5) amount 개 투사체 발사 (흰색) — spread_radians 부채꼴 분산
+        for i in 0..amount {
+            let angle = if amount == 1 {
+                base_angle
+            } else {
+                base_angle - spread_radians * 0.5 + spread_radians * (i as f32) / ((amount - 1) as f32)
+            };
+            let velocity = Vec2::new(angle.cos(), angle.sin()) * projectile_speed;
+            spawn_projectile_ex(
+                world,
+                player_pos,
+                velocity,
+                lifetime,
+                pierce,
+                damage,
+                [0.9, 0.9, 0.9], // 흰색 — Knife 컬러
+                ProjectileBehavior::Straight,
+            );
+        }
+    }
+}
+
+/// Axe 발화 시스템.
+///
+/// 매 cooldown 마다 위로 던져 중력으로 떨어지는 포물선 투사체를 발사한다.
+/// `ProjectileBehavior::Arc { gravity }` 를 사용한다.
+///
+/// Y 축 방향 주의: y 클수록 아래 → "위로 던지기" = `velocity.y = -initial_speed`.
+pub struct AxeSystem {
+    pub grid: SpatialGrid,
+}
+
+impl Default for AxeSystem {
+    fn default() -> Self {
+        Self {
+            grid: SpatialGrid::new(128.0),
+        }
+    }
+}
+
+impl System for AxeSystem {
+    fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
+        // 1) Player 위치 + entity 캐시
+        let Some((player_entity, player_pos)) = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, t)| (e, t.position))
+        else {
+            return;
+        };
+
+        // 2) Axe 슬롯 tick — cooldown 미달이면 즉시 반환
+        let fire_info: Option<(f32, f32, f32, f32, u8, u8)> = {
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
+            let Some(slot) = inv.axe_slot_mut() else { return };
+            if !slot.tick(dt) {
+                return;
+            }
+            if let WeaponKind::Axe { damage, initial_speed, gravity, lifetime, pierce, amount } = slot.kind {
+                Some((damage, initial_speed, gravity, lifetime, pierce, amount))
+            } else {
+                None
+            }
+        };
+        let Some((damage, initial_speed, gravity, lifetime, pierce, amount)) = fire_info else { return };
+
+        // 3) amount 개 투사체 발사 (갈색)
+        //    각 투사체마다 약간의 x 오프셋을 부여해 시각적으로 분산
+        let x_offsets: &[f32] = &[-8.0, 0.0, 8.0, -16.0, 16.0, -24.0];
+        for i in 0..amount {
+            let x_offset = x_offsets.get(i as usize).copied().unwrap_or((i as f32) * 8.0 - (amount as f32) * 4.0);
+            let velocity = Vec2::new(x_offset, -initial_speed); // 음수 y = 위 방향
+            spawn_projectile_ex(
+                world,
+                player_pos,
+                velocity,
+                lifetime,
+                pierce,
+                damage,
+                [0.8, 0.5, 0.2], // 갈색 — Axe 컬러
+                ProjectileBehavior::Arc { gravity },
+            );
+        }
     }
 }
