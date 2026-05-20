@@ -92,7 +92,7 @@ impl System for MagnetSystem {
             if let Some(pe) = player_entity {
                 if let Some(acc) = world.get_mut::<XpAccumulator>(pe) {
                     acc.current += total;
-                    println!("XP: {}", acc.current);
+                    // 매 픽업 println 제거 — HudSystem 의 XP 표시로 대체됨
                 }
             }
         }

@@ -8,9 +8,11 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        spawn_player, spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, EnemyAiSystem,
-        EnemySpawnSystem, Health, HitFlash, LevelUpSystem, MagnetSystem, PendingLevelUp, Player,
-        PlayerStats, SpawnTimer, WhipSystem, Whip, XpAccumulator, XpGem, Zombie,
+        restart_world, setup_survivor_world, spawn_player, spawn_xp_gem, spawn_zombie,
+        CameraFollowSystem, CardKind, DeathSystem, EnemyAiSystem, EnemyContactDamageSystem,
+        EnemySpawnSystem, GameStats, Health, HitFlash, LevelUpSystem, MagnetSystem,
+        PendingLevelUp, Player, PlayerStats, SpawnTimer, WhipSystem, Whip, XpAccumulator,
+        XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
@@ -365,6 +367,109 @@ mod tests {
         assert_eq!(
             after_x, before_x,
             "Paused 상태에서 좀비는 이동하면 안 됨 (before={before_x}, after={after_x})"
+        );
+    }
+
+    // ── Phase 1-F: HUD + 사망 + GameOver + R 재시작 테스트 ──────────────────
+
+    /// HP <= 0 이면 DeathSystem 이 GameState::GameOver 로 전환해야 함
+    #[test]
+    fn player_dies_when_hp_reaches_zero() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        spawn_player(&mut world);
+
+        // Player Health 를 0 으로 강제 설정
+        let pe = world.query2::<Player, Health>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(h) = world.get_mut::<Health>(pe) {
+            *h = Health::new(0.0);
+        }
+
+        DeathSystem.run(&mut world, 0.0);
+
+        let state = world.resource::<GameState>().cloned();
+        assert_eq!(
+            state,
+            Some(GameState::GameOver),
+            "HP 0 이면 GameState::GameOver 여야 함"
+        );
+    }
+
+    /// restart_world 호출 후: Player 1개, Zombie/XpGem 0개, GameState::Playing
+    #[test]
+    fn restart_clears_world_and_resumes() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+
+        // 초기 씬 구성
+        setup_survivor_world(&mut world);
+
+        // 잡것 추가
+        spawn_zombie(&mut world, Vec2::new(200.0, 0.0));
+        spawn_zombie(&mut world, Vec2::new(-200.0, 0.0));
+        spawn_xp_gem(&mut world, Vec2::new(50.0, 50.0), 1);
+
+        // GameOver 로 강제 전환
+        world.insert_resource(GameState::GameOver);
+
+        // 재시작 로직 직접 호출 (InputState 시뮬레이션 없이 헬퍼 사용)
+        restart_world(&mut world);
+
+        // Player 1개만 남아야 함
+        assert_eq!(
+            world.query::<Player>().count(),
+            1,
+            "재시작 후 Player 는 정확히 1개여야 함"
+        );
+        // Zombie 전부 제거됐어야 함
+        assert_eq!(
+            world.query::<Zombie>().count(),
+            0,
+            "재시작 후 Zombie 는 0개여야 함"
+        );
+        // XpGem 전부 제거됐어야 함
+        assert_eq!(
+            world.query::<XpGem>().count(),
+            0,
+            "재시작 후 XpGem 은 0개여야 함"
+        );
+        // GameState 가 Playing 으로 복귀했어야 함
+        let state = world.resource::<GameState>().cloned();
+        assert_eq!(
+            state,
+            Some(GameState::Playing),
+            "재시작 후 GameState::Playing 이어야 함"
+        );
+    }
+
+    /// 접촉 반경(25px) 안에 좀비가 있고 cooldown 이 경과했으면 Player HP -= 10
+    #[test]
+    fn enemy_contact_damages_player_after_cooldown() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        spawn_player(&mut world);
+        world.insert_resource(GameStats::default());
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // contact_radius(25) 안에 좀비 배치
+        spawn_zombie(&mut world, Vec2::new(15.0, 0.0));
+
+        let before_hp = world.get::<Health>(pe).map(|h| h.current).unwrap();
+        assert_eq!(before_hp, 100.0);
+
+        // dt = cooldown(1.0) → cooldown 경과, 데미지 적용
+        EnemyContactDamageSystem::default().run(&mut world, 1.0);
+
+        let after_hp = world.get::<Health>(pe).map(|h| h.current).unwrap();
+        assert_eq!(
+            after_hp, 90.0,
+            "적 접촉 후 HP 가 90.0 이어야 함 (100 - 10)"
         );
     }
 }

@@ -3,7 +3,7 @@
 `crates/game/src/survivor/` — Vampire Survivors 풀 클론 모듈.
 탑다운 자동공격 로그라이트. 상세 로드맵: `CLAUDE.md` "Vampire Survivors 클론 로드맵" 섹션.
 
-**현재 단계**: Phase 1-E (레벨업 + 카드 선택)
+**현재 단계**: Phase 1-F 완료 — **Phase 1 Vertical Slice MVP 완료** (한 루프가 닫힘)
 
 ## 실행
 
@@ -37,7 +37,9 @@ Phase 1-B 이후 자동공격·레벨업 등 추가 예정.
 | `weapon.rs` | `Whip` 컴포넌트, `WhipSystem` — 1초 cooldown, 좌/우 AABB, LAYER_ENEMY 쿼리, 사망 시 XpGem 드롭 + despawn |
 | `xp.rs` | `XpGem { value }`, `XpAccumulator { current, level, next_threshold }`, `MagnetSystem`, `spawn_xp_gem(world, pos, value)` |
 | `levelup.rs` | `CardKind` (WhipDamage/WhipArea/WhipCooldown), `PendingLevelUp { offered, consumed }`, `LevelUpSystem`, `apply_card` 헬퍼 |
-| `world_setup.rs` | `spawn_player(world)` — 초기 엔티티 스폰 + `SpawnTimer` 리소스 삽입 + `XpAccumulator` 부착 |
+| `world_setup.rs` | `spawn_player(world)`, `setup_survivor_world(world)` — 초기 엔티티 스폰 + `SpawnTimer` + `GameStats` 리소스 삽입 |
+| `hud.rs` | `GameStats { elapsed, kills }` 리소스, `HudSystem` — 좌상단 HUD + LevelUp 카드 안내 + GameOver 화면 |
+| `death.rs` | `EnemyContactDamageSystem` (1초 cooldown 접촉 데미지), `DeathSystem` (HP 0→GameOver), `RestartSystem` (R 키→재시작), `restart_world` 헬퍼 |
 
 ### player.rs 주요 타입
 
@@ -73,19 +75,23 @@ CameraFollowSystem { lerp: 0.15, viewport: Vec2(800, 600) }
 | `Health` | current=max=100.0 |
 | `Whip` | 기본값 (damage=10, cooldown=1.0) |
 
-## 시스템 등록 순서 (Phase 1-E)
+## 시스템 등록 순서 (Phase 1-F — 현재)
 
 ```
-app.add_system(LevelUpSystem)               // 첫 번째 — 상태 전환·키 입력 처리
+app.add_system(LevelUpSystem)                        // 첫 번째 — 상태 전환·키 입력 처리
 app.add_system(PlayerMovementSystem)
 app.add_system(EnemyAiSystem)
 app.add_system(EnemySpawnSystem::default())
+app.add_system(EnemyContactDamageSystem::default())  // 적 접촉 → 플레이어 데미지
+app.add_system(DeathSystem)                          // HP 0 → GameOver
+app.add_system(RestartSystem)                        // R 키 → 재시작
 app.add_system(CameraFollowSystem::default())
-app.add_system(WhipSystem::default())       // 적 사망 시 XpGem 스폰
-app.add_system(MagnetSystem::default())     // XpGem 흡수
+app.add_system(WhipSystem::default())                // 적 사망 시 XpGem 스폰 + kills 카운트
+app.add_system(MagnetSystem::default())              // XpGem 흡수
 app.add_system(HitFlashSystem)
+app.add_system(HudSystem)                            // 마지막 — TextQueue push
 ```
 
-LevelUp → 입력 → 이동 → 추격 → 스폰/정리 → 카메라 → 무기(gem 드롭) → 자석(픽업) → 히트플래시 순서.
+## 다음 단계: Phase 2 — 무기 풀 확장
 
-## 다음 단계: Phase 1-F — HUD + 사망/GameOver/R 재시작
+Magic Wand, Knife, Axe, Cross, Garlic, Holy Water, King Bible, Fire Wand, Lightning Ring + 공용 `ProjectileSystem`.
