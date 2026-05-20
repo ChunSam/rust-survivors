@@ -1,4 +1,5 @@
 use engine::{Entity, System, Transform, World};
+use engine::components::GameState;
 use glam::Vec2;
 use super::player::Player;
 
@@ -21,6 +22,10 @@ pub struct EnemyAiSystem;
 
 impl System for EnemyAiSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
         // 1) 플레이어 위치 캐시 — borrow 를 여기서 끝냄
         let Some(player_pos) = world
             .query2::<Player, Transform>()

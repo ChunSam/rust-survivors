@@ -304,4 +304,108 @@ cargo build --release --workspace           # ok
 - XpGem z=0.3 (zombie 0.5 아래, player 1.0 아래) — 겹칠 때 gem 이 가장 뒤에 그려짐.
 - `spawn_xp_gem` 은 despawn 이후 호출 — `get::<Transform>` 으로 위치 캐시 후 `despawn` → `spawn_xp_gem` 순서. borrow 충돌 없음.
 
-## 다음 작업: Phase 1-E — 레벨업 + 카드 선택
+## 다음 작업: Phase 1-F — HUD + 사망/GameOver/R 재시작
+
+---
+
+### Phase 1-E — 레벨업 + 카드 선택 (2026-05-21)
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/levelup.rs` | `CardKind`, `PendingLevelUp`, `LevelUpSystem`, `apply_card` 헬퍼 |
+
+#### XpAccumulator 확장
+
+| 필드 | 기본값 | 설명 |
+|---|---|---|
+| `current: u32` | 0 | 현재 누적 XP |
+| `level: u32` | 1 | 현재 레벨 |
+| `next_threshold: u32` | 5 | L1→L2 임계치. `next_threshold(level) = 5 + 5×level` |
+
+#### 레벨업 임계치
+
+```
+next_threshold(level) = 5 + 5 × level
+L1→L2: 5, L2→L3: 10, L3→L4: 15 …
+```
+
+#### 카드 3장 (Whip 강화)
+
+| 카드 | 효과 | 표시 |
+|---|---|---|
+| `WhipDamage` | `damage += 5.0` | `1=DMG+5` |
+| `WhipArea` | `area_width += 20, area_height += 10` | `2=AREA UP` |
+| `WhipCooldown` | `cooldown *= 0.85` | `3=CD-15%` |
+
+#### 일시정지 가드 추가 시스템 (5개)
+
+`PlayerMovementSystem`, `EnemyAiSystem`, `EnemySpawnSystem`, `WhipSystem`, `MagnetSystem`의 `System::run` 시작 부분에 다음 가드 추가:
+```rust
+if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+    return;
+}
+```
+
+가드 제외: `CameraFollowSystem`, `HitFlashSystem`, `LevelUpSystem`
+
+#### PendingLevelUp 제거 패턴
+
+`World::remove_resource` 미존재 → 패턴 (b) 선택: `consumed: bool` 필드.  
+`consumed = true` 를 sentinel 로 삼아 재처리 방지. `has_pending = !consumed`.
+
+#### 시스템 등록 순서 (Phase 1-E)
+
+```
+LevelUpSystem            ← 첫 번째 (상태 전환·키 입력)
+PlayerMovementSystem
+EnemyAiSystem
+EnemySpawnSystem
+CameraFollowSystem
+WhipSystem
+MagnetSystem
+HitFlashSystem
+```
+
+#### 콘솔 로그
+
+- `"LEVEL UP! (Level N) — Press: 1=DMG+5  2=AREA UP  3=CD-15%"` — 임계치 도달 시
+- `"Whip upgraded: damage=X area=Y×Z cooldown=W"` — 카드 적용 후
+- `"Resumed (XP=A, next threshold=B)"` — Playing 복귀 시
+
+#### 테스트
+
+game lib 16 통과 (직전 13 + 신규 3):
+- `levelup_triggered_when_xp_reaches_threshold` — XP=5 → Paused + PendingLevelUp 삽입 확인
+- `levelup_applies_card_whip_damage` — apply_card 직접 호출로 Whip.damage+5, level=2, threshold=15 확인
+- `paused_blocks_enemy_movement` — Paused 상태에서 좀비 이동 없음 확인
+
+기존 1-D 테스트 13건 모두 유지 (`GameState::Playing` 수동 삽입 추가).
+
+#### 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `crates/game/src/survivor/levelup.rs` | 신규 |
+| `crates/game/src/survivor/xp.rs` | `XpAccumulator` 확장 (level/next_threshold), MagnetSystem 가드 |
+| `crates/game/src/survivor/player.rs` | PlayerMovementSystem 가드 |
+| `crates/game/src/survivor/enemy.rs` | EnemyAiSystem 가드 |
+| `crates/game/src/survivor/spawn.rs` | EnemySpawnSystem 가드 |
+| `crates/game/src/survivor/weapon.rs` | WhipSystem 가드 |
+| `crates/game/src/survivor/mod.rs` | `pub mod levelup` + 재수출 |
+| `crates/game/src/bin/survivor.rs` | LevelUpSystem 등록 (첫 번째) |
+| `crates/game/src/lib.rs` | 신규 테스트 3건 + 기존 setup 에 GameState::Playing 추가 |
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 16 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- `apply_card` 를 `LevelUpSystem` 의 `pub` 연관 함수로 분리 → 키 입력 없이 카드 효과만 단위 테스트 가능 (InputState::press 가 pub(crate) 라 외부 시뮬레이션 불가)
+- `PendingLevelUp.consumed` sentinel: `World::remove_resource` 미존재, `HitFlash`의 `f32::NEG_INFINITY` 전례와 동일한 패턴 적용

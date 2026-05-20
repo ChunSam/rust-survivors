@@ -1,6 +1,7 @@
 pub mod camera_follow;
 pub mod enemy;
 pub mod health;
+pub mod levelup;
 pub mod player;
 pub mod spawn;
 pub mod weapon;
@@ -10,6 +11,7 @@ pub mod xp;
 pub use camera_follow::CameraFollowSystem;
 pub use enemy::{EnemyAi, EnemyAiSystem, Zombie};
 pub use health::Health;
+pub use levelup::{CardKind, LevelUpSystem, PendingLevelUp};
 pub use player::{Player, PlayerMovementSystem, PlayerStats, Velocity};
 pub use spawn::{spawn_zombie, EnemySpawnSystem, SpawnTimer};
 pub use weapon::{HitFlash, HitFlashSystem, Whip, WhipSystem};
