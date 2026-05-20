@@ -3,7 +3,7 @@
 `crates/game/src/survivor/` — Vampire Survivors 풀 클론 모듈.
 탑다운 자동공격 로그라이트. 상세 로드맵: `CLAUDE.md` "Vampire Survivors 클론 로드맵" 섹션.
 
-**현재 단계**: Phase 1-A (서바이버 진입점 · Player · Camera follow)
+**현재 단계**: Phase 1-B (Zombie 적 + 스폰 시스템)
 
 ## 실행
 
@@ -28,10 +28,12 @@ Phase 1-B 이후 자동공격·레벨업 등 추가 예정.
 
 | 파일 | 내용 |
 |---|---|
-| `mod.rs` | 하위 모듈 선언 + 최상위 재수출 |
+| `mod.rs` | 하위 모듈 선언 + 최상위 재수출 + `LAYER_PLAYER`/`LAYER_ENEMY` 상수 |
 | `player.rs` | `Player` (태그), `Velocity(Vec2)`, `PlayerStats { move_speed }`, `PlayerMovementSystem` |
 | `camera_follow.rs` | `CameraFollowSystem { lerp, viewport }` — 플레이어 위치로 카메라 lerp 추적 |
-| `world_setup.rs` | `spawn_player(world)` — 초기 엔티티 스폰 |
+| `enemy.rs` | `Zombie` (태그), `EnemyAi { move_speed }`, `EnemyAiSystem` — 플레이어 추격 |
+| `spawn.rs` | `SpawnTimer { interval, elapsed }`, `EnemySpawnSystem`, `spawn_zombie(world, pos)` |
+| `world_setup.rs` | `spawn_player(world)` — 초기 엔티티 스폰 + `SpawnTimer` 리소스 삽입 |
 
 ### player.rs 주요 타입
 
@@ -65,20 +67,17 @@ CameraFollowSystem { lerp: 0.15, viewport: Vec2(800, 600) }
 | `PlayerStats` | move_speed=200.0 |
 | `Velocity` | (0, 0) |
 
-## 시스템 등록 순서 (Phase 1-A)
+## 시스템 등록 순서 (Phase 1-B)
 
 ```
 app.add_system(PlayerMovementSystem)
+app.add_system(EnemyAiSystem)
+app.add_system(EnemySpawnSystem::default())
 app.add_system(CameraFollowSystem::default())
 ```
 
-입력 처리 → 위치 갱신 → 카메라 follow 순서를 반드시 유지한다.
+입력 → 플레이어 이동 → 적 추격 → 스폰/정리 → 카메라 follow 순서를 반드시 유지한다.
 
-## 다음 단계: Phase 1-B — Zombie 적 + 스폰
+## 다음 단계: Phase 1-C — Whip 무기 + DamageSystem
 
-| 예정 파일 | 내용 |
-|---|---|
-| `enemy.rs` | `Zombie`, `EnemyAi`, `EnemyAiSystem` (플레이어 방향 추격) |
-| `spawn.rs` | `EnemySpawnSystem` — 카메라 외곽 원형 경계에서 주기 스폰, 거리 초과 시 `World::despawn` |
-
-`CollisionLayer` 부착도 Phase 1-B 에서 추가 — Phase 1-C `DamageSystem` 의 `SpatialGrid::query_radius` 준비.
+`SpatialGrid::query_radius` 로 Zombie hit 판정, XpGem 드롭, DamageSystem 등록.

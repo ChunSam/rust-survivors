@@ -7,7 +7,10 @@ pub mod survivor;
 
 #[cfg(test)]
 mod tests {
-    use super::survivor::{spawn_player, CameraFollowSystem, Player, PlayerStats};
+    use super::survivor::{
+        spawn_player, spawn_zombie, CameraFollowSystem, EnemyAiSystem, EnemySpawnSystem,
+        Player, PlayerStats, SpawnTimer, Zombie,
+    };
     use engine::{Camera, System, Transform, World};
     use glam::Vec2;
 
@@ -44,5 +47,66 @@ mod tests {
         // 카메라가 (0,0) 에서 (1000-400, 1000-300)=(600,700) 방향으로 lerp 0.15 만큼 움직였어야 함
         assert!(cam_after.x > cam_before.x, "camera should move toward player");
         assert!(cam_after.y > cam_before.y);
+    }
+
+    #[test]
+    fn enemy_ai_moves_toward_player() {
+        let mut world = World::new();
+        world.insert_resource(Camera::default());
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        if let Some(entity) = player_entity {
+            if let Some(t) = world.get_mut::<Transform>(entity) {
+                t.position = Vec2::new(0.0, 0.0);
+            }
+        }
+
+        // 좀비를 왼쪽(-100, 0)에 스폰
+        spawn_zombie(&mut world, Vec2::new(-100.0, 0.0));
+
+        let zombie_entity = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e);
+        let before_x = zombie_entity
+            .and_then(|e| world.get::<Transform>(e))
+            .map(|t| t.position.x)
+            .unwrap();
+
+        EnemyAiSystem.run(&mut world, 0.5);
+
+        let after_x = zombie_entity
+            .and_then(|e| world.get::<Transform>(e))
+            .map(|t| t.position.x)
+            .unwrap();
+
+        assert!(after_x > before_x, "zombie should move toward player (+x direction)");
+    }
+
+    #[test]
+    fn spawn_timer_triggers_after_interval() {
+        let mut world = World::new();
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+        world.insert_resource(SpawnTimer { interval: 1.0, elapsed: 0.0 });
+
+        EnemySpawnSystem::default().run(&mut world, 1.0);
+
+        let count = world.query::<Zombie>().count();
+        assert_eq!(count, 1, "one zombie should have spawned");
+    }
+
+    #[test]
+    fn enemy_despawned_when_far() {
+        let mut world = World::new();
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+        // 타이머 발화를 막으려고 interval 을 매우 크게 설정
+        world.insert_resource(SpawnTimer { interval: 999.0, elapsed: 0.0 });
+
+        // despawn_radius(900) 밖에 좀비 스폰
+        spawn_zombie(&mut world, Vec2::new(2000.0, 0.0));
+        assert_eq!(world.query::<Zombie>().count(), 1);
+
+        EnemySpawnSystem::default().run(&mut world, 0.0);
+
+        assert_eq!(world.query::<Zombie>().count(), 0, "far zombie should be despawned");
     }
 }
