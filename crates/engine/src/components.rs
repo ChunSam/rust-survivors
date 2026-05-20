@@ -16,11 +16,13 @@ pub struct Transform {
     pub scale:    Vec2,
     /// 회전 각도 (라디안, Z축)
     pub rotation: f32,
+    // z 가 클수록 화면에 위로 그려짐 (그림은 작은 z 부터 큰 z 순서로).
+    pub z: f32,
 }
 
 impl Transform {
     pub fn new(position: Vec2, scale: Vec2, rotation: f32) -> Self {
-        Self { position, scale, rotation }
+        Self { position, scale, rotation, z: 0.0 }
     }
 
     /// ECS → GPU에 넘길 4×4 모델 행렬 생성
@@ -39,6 +41,7 @@ impl Default for Transform {
             position: Vec2::ZERO,
             scale:    Vec2::ONE * 64.0, // 기본 64×64 픽셀
             rotation: 0.0,
+            z:        0.0,
         }
     }
 }
@@ -138,5 +141,23 @@ impl AnimationPlayer {
             .and_then(|c| c.frames.get(self.current_frame))
             .copied()
             .unwrap_or(UvRect::FULL)
+    }
+}
+
+// ─── 단위 테스트 ───────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transform_default_z_is_zero() {
+        assert_eq!(Transform::default().z, 0.0);
+    }
+
+    #[test]
+    fn transform_z_assignable() {
+        let mut t = Transform::default();
+        t.z = 5.0;
+        assert_eq!(t.z, 5.0);
     }
 }

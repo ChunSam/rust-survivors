@@ -3,17 +3,19 @@ use std::time::Instant;
 
 use winit::{
     application::ApplicationHandler,
-    event::{ElementState, KeyEvent, WindowEvent},
+    event::{ElementState, KeyEvent, MouseScrollDelta, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
     keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowId},
 };
+use glam::Vec2;
 
 use crate::{
+    camera::Camera,
     components::GameState,
     ecs::{System, World},
     input::InputState,
-    renderer::{GpuContext, SpriteRenderer},
+    renderer::{GpuContext, SpriteRenderer, TextQueue, TextRenderer},
 };
 
 /// 엔진 진입점.
@@ -36,6 +38,8 @@ pub struct App {
     window:           Option<Arc<Window>>,
     gpu:              Option<GpuContext>,
     sprite_renderer:  Option<SpriteRenderer>,
+    /// 스프라이트 pass 직후 텍스트를 덮어쓴다. GPU 초기화 이후 Some으로 채워진다.
+    text_renderer:    Option<TextRenderer>,
     last_frame:       Option<Instant>,
     /// GPU 초기화 전에 등록된 텍스처 경로를 보관한다. resumed()에서 실제로 로드한다.
     pending_textures: Vec<String>,
@@ -46,6 +50,8 @@ impl App {
         let mut world = World::new();
         world.insert_resource(InputState::default());
         world.insert_resource(GameState::Playing);
+        world.insert_resource(Camera::default()); // 카메라 기본값: 좌상단 (0,0), zoom=1
+        world.insert_resource(TextQueue::default()); // 텍스트 큐: 게임 시스템이 push, 렌더 후 clear
         Self {
             world,
             clear_color: wgpu::Color { r: 0.08, g: 0.08, b: 0.12, a: 1.0 },
@@ -53,6 +59,7 @@ impl App {
             window:           None,
             gpu:              None,
             sprite_renderer:  None,
+            text_renderer:    None,
             last_frame:       None,
             pending_textures: Vec::new(),
         }
@@ -79,6 +86,8 @@ impl App {
         self.world = World::new();
         self.world.insert_resource(InputState::default());
         self.world.insert_resource(GameState::Playing);
+        self.world.insert_resource(Camera::default()); // 씬 재시작 시 카메라도 기본값으로 초기화
+        self.world.insert_resource(TextQueue::default()); // 씬 전환 후에도 텍스트 큐 유지
     }
 
     /// 이벤트 루프를 시작한다. 창이 닫힐 때까지 블로킹된다.
@@ -141,6 +150,23 @@ impl App {
             );
         }
 
+        // 3단계: 텍스트 그리기 (스프라이트 위에 LoadOp::Load 로 합성)
+        // self.gpu 와 self.text_renderer 는 서로 다른 필드이므로 동시 빌림 가능하다.
+        // 단, `gpu` 변수가 `self.gpu.as_mut()` 에서 온 &mut 참조이므로,
+        // 동일 스코프에서 self.text_renderer 를 빌리면 컴파일러가 경계한다.
+        // → gpu 에서 필요한 값을 미리 복사/참조로 뽑아두고 text_renderer 를 열면 된다.
+        let (w, h) = (gpu.config.width, gpu.config.height);
+        let device = &gpu.device as *const wgpu::Device; // 포인터만 저장 (Drop 없음)
+        let queue  = &gpu.queue  as *const wgpu::Queue;
+        if let Some(tr) = &mut self.text_renderer {
+            // SAFETY: `device`/`queue` 포인터는 `gpu`(self.gpu) 가 살아있는 동안 유효하다.
+            // wgpu Device/Queue 는 내부적으로 Arc<T> 로 관리되어 여러 참조가 안전하다.
+            // 이 스코프에서 gpu 의 device/queue 를 mutation 하지 않는다.
+            let device = unsafe { &*device };
+            let queue  = unsafe { &*queue };
+            tr.render(device, queue, &mut enc, &view, &mut self.world, w, h);
+        }
+
         gpu.queue.submit(std::iter::once(enc.finish()));
         frame.present();
         Ok(())
@@ -171,7 +197,11 @@ impl ApplicationHandler for App {
             sprite_renderer.load_texture(&gpu.device, &gpu.queue, &path);
         }
 
+        // 텍스트 렌더러: 스프라이트와 동일한 surface format 을 사용한다.
+        let text_renderer = TextRenderer::new(&gpu.device, &gpu.queue, gpu.config.format);
+
         self.sprite_renderer = Some(sprite_renderer);
+        self.text_renderer   = Some(text_renderer);
         self.gpu             = Some(gpu);
         self.window          = Some(window);
         self.last_frame      = Some(Instant::now());
@@ -213,6 +243,34 @@ impl ApplicationHandler for App {
                 }
                 if key == KeyCode::Escape {
                     event_loop.exit();
+                }
+            }
+
+            // ── 마우스 커서 이동 ─────────────────────────────────────────────
+            WindowEvent::CursorMoved { position, .. } => {
+                if let Some(input) = self.world.resource_mut::<InputState>() {
+                    input.set_cursor(Vec2::new(position.x as f32, position.y as f32));
+                }
+            }
+
+            // ── 마우스 버튼 ──────────────────────────────────────────────────
+            WindowEvent::MouseInput { state, button, .. } => {
+                if let Some(input) = self.world.resource_mut::<InputState>() {
+                    match state {
+                        ElementState::Pressed  => input.press_mouse(button),
+                        ElementState::Released => input.release_mouse(button),
+                    }
+                }
+            }
+
+            // ── 마우스 휠 ────────────────────────────────────────────────────
+            WindowEvent::MouseWheel { delta, .. } => {
+                if let Some(input) = self.world.resource_mut::<InputState>() {
+                    match delta {
+                        MouseScrollDelta::LineDelta(_, y) => input.add_scroll(y),
+                        // 픽셀 단위 휠(트랙패드 등)을 line 단위로 환산: 20px ≈ 1 line (경험적 근사값)
+                        MouseScrollDelta::PixelDelta(p)   => input.add_scroll(p.y as f32 / 20.0),
+                    }
                 }
             }
 

@@ -36,12 +36,14 @@ impl GpuContext {
             .expect("어댑터를 찾지 못했습니다");
 
         // 4. 논리 디바이스 + 커맨드 큐
+        // wgpu 22 에서 DeviceDescriptor 에 memory_hints 필드가 추가됐다.
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label:             Some("main device"),
                     required_features: wgpu::Features::empty(),
                     required_limits:   wgpu::Limits::default(),
+                    memory_hints:      wgpu::MemoryHints::default(),
                 },
                 None,
             )
