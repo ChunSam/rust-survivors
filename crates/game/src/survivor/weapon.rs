@@ -1,4 +1,5 @@
 use engine::{CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
+use engine::components::GameState;
 use glam::Vec2;
 
 use super::health::Health;
@@ -91,6 +92,10 @@ impl Default for WhipSystem {
 
 impl System for WhipSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
         self.elapsed += dt;
 
         // Player + Transform + Whip 을 동시에 가진 엔티티에서 위치와 Whip 수치를 캐시

@@ -1,4 +1,5 @@
 use engine::{Entity, InputState, System, Transform, World};
+use engine::components::GameState;
 use glam::Vec2;
 use winit::keyboard::KeyCode;
 
@@ -25,6 +26,10 @@ pub struct PlayerMovementSystem;
 
 impl System for PlayerMovementSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
         // 1. 입력 읽기 — 정규화된 방향 벡터 계산
         let mut dir = Vec2::ZERO;
         if let Some(input) = world.resource::<InputState>() {

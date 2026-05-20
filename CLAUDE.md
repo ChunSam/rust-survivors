@@ -139,11 +139,11 @@ RedrawRequested    → update(dt) → render()
 - 학습 목적 우선 — 성능보다 코드 가독성·원리 이해를 중시
 - **Vampire Survivors 클론 한정**으로는 학습용을 넘어 **상용 빌드를 목표**로 진행 (아래 로드맵 참고)
 
-## 진행 상황 (2026-05-20)
+## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + 1-A(서바이버 진입점·Player·Camera follow) + 1-B(Zombie + 스폰) + 1-C(Whip + Damage + 히트플래시) + 1-D(XpGem + 자석)
-- **상태**: engine 26 tests · game lib 13 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **다음**: Phase 1-E (레벨업 + 카드 선택)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + 1-A(서바이버 진입점·Player·Camera follow) + 1-B(Zombie + 스폰) + 1-C(Whip + Damage + 히트플래시) + 1-D(XpGem + 자석) + 1-E(LevelUp + 카드)
+- **상태**: engine 26 tests · game lib 16 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **다음**: Phase 1-F (HUD + 사망 + GameOver)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

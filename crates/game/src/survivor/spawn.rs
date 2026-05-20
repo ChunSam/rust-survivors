@@ -1,4 +1,5 @@
 use engine::{Camera, Collider, CollisionLayer, Entity, Sprite, System, Transform, World};
+use engine::components::GameState;
 use glam::Vec2;
 use rand::Rng;
 use super::enemy::{EnemyAi, Zombie};
@@ -38,6 +39,10 @@ impl Default for EnemySpawnSystem {
 
 impl System for EnemySpawnSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
         // 카메라 좌상단 + 뷰포트 절반 = 화면 중심
         let camera_pos = world
             .resource::<Camera>()

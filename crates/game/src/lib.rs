@@ -8,11 +8,12 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        spawn_player, spawn_xp_gem, spawn_zombie, CameraFollowSystem, EnemyAiSystem,
-        EnemySpawnSystem, Health, HitFlash, MagnetSystem, Player, PlayerStats, SpawnTimer,
-        WhipSystem, XpAccumulator, XpGem, Zombie,
+        spawn_player, spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, EnemyAiSystem,
+        EnemySpawnSystem, Health, HitFlash, LevelUpSystem, MagnetSystem, PendingLevelUp, Player,
+        PlayerStats, SpawnTimer, WhipSystem, Whip, XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
+    use engine::components::GameState;
     use glam::Vec2;
 
     #[test]
@@ -53,6 +54,7 @@ mod tests {
     #[test]
     fn enemy_ai_moves_toward_player() {
         let mut world = World::new();
+        world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::default());
         spawn_player(&mut world);
 
@@ -86,6 +88,7 @@ mod tests {
     #[test]
     fn spawn_timer_triggers_after_interval() {
         let mut world = World::new();
+        world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
         world.insert_resource(SpawnTimer { interval: 1.0, elapsed: 0.0 });
 
@@ -98,6 +101,7 @@ mod tests {
     #[test]
     fn enemy_despawned_when_far() {
         let mut world = World::new();
+        world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
         // 타이머 발화를 막으려고 interval 을 매우 크게 설정
         world.insert_resource(SpawnTimer { interval: 999.0, elapsed: 0.0 });
@@ -115,6 +119,7 @@ mod tests {
 
     fn setup_whip_world() -> (World, /* zombie */ engine::Entity) {
         let mut world = World::new();
+        world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
         spawn_player(&mut world);
         // 플레이어를 원점으로 고정
@@ -182,6 +187,7 @@ mod tests {
     #[test]
     fn xp_gem_spawned_when_zombie_dies() {
         let mut world = World::new();
+        world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
         spawn_player(&mut world);
 
@@ -218,6 +224,7 @@ mod tests {
     #[test]
     fn xp_gem_attracted_within_magnet_radius() {
         let mut world = World::new();
+        world.insert_resource(GameState::Playing);
         spawn_player(&mut world);
 
         // 플레이어를 원점으로 고정
@@ -245,6 +252,7 @@ mod tests {
     #[test]
     fn xp_gem_picked_up_in_range() {
         let mut world = World::new();
+        world.insert_resource(GameState::Playing);
         spawn_player(&mut world);
 
         // 플레이어를 원점으로 고정
@@ -275,5 +283,88 @@ mod tests {
         // XpAccumulator 가 갱신됐는지 확인
         let after = world.get::<XpAccumulator>(pe).map(|a| a.current).unwrap();
         assert_eq!(after, 1, "XpAccumulator.current 가 1 이어야 함");
+    }
+
+    // ── Phase 1-E: 레벨업 + 카드 선택 테스트 ────────────────────────────────
+
+    /// XP 가 임계치(5)에 도달하면 GameState::Paused 로 전환하고 PendingLevelUp 이 삽입돼야 함
+    #[test]
+    fn levelup_triggered_when_xp_reaches_threshold() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        spawn_player(&mut world);
+
+        // XpAccumulator.current 를 임계치(5) 로 강제 설정
+        let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(acc) = world.get_mut::<XpAccumulator>(pe) {
+            acc.current = 5;
+        }
+
+        LevelUpSystem.run(&mut world, 0.0);
+
+        // GameState 가 Paused 로 전환됐는지
+        let state = world.resource::<GameState>().cloned();
+        assert_eq!(state, Some(GameState::Paused), "XP 임계치 도달 시 GameState::Paused 여야 함");
+
+        // PendingLevelUp 리소스가 삽입됐는지
+        let pending = world.resource::<PendingLevelUp>();
+        assert!(pending.is_some(), "PendingLevelUp 리소스가 삽입돼야 함");
+        assert!(!pending.unwrap().consumed, "consumed 는 false 여야 함");
+    }
+
+    /// apply_card(WhipDamage) 호출 시 Whip.damage +5, level+1, next_threshold 갱신
+    #[test]
+    fn levelup_applies_card_whip_damage() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        spawn_player(&mut world);
+
+        // 초기 값 확인
+        let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
+        let before_damage = world.get::<Whip>(pe).map(|w| w.damage).unwrap();
+        assert_eq!(before_damage, 10.0);
+
+        // apply_card 직접 호출 (키 입력 우회 — InputState::press 가 pub(crate))
+        LevelUpSystem::apply_card(&mut world, pe, CardKind::WhipDamage);
+
+        // Whip.damage +5 확인
+        let after_damage = world.get::<Whip>(pe).map(|w| w.damage).unwrap();
+        assert_eq!(after_damage, 15.0, "WhipDamage 카드 적용 후 damage 가 15.0 이어야 함");
+
+        // XpAccumulator.level +1, next_threshold 갱신 확인
+        // next_threshold(2) = 5 + 5*2 = 15
+        let acc = world.get::<XpAccumulator>(pe).unwrap();
+        assert_eq!(acc.level, 2, "레벨이 2 가 돼야 함");
+        assert_eq!(acc.next_threshold, 15, "L2 임계치는 next_threshold(2)=15 이어야 함");
+    }
+
+    /// GameState::Paused 상태에서 EnemyAiSystem 이 좀비를 이동시키지 않아야 함
+    #[test]
+    fn paused_blocks_enemy_movement() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Paused);
+        world.insert_resource(Camera::default());
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        if let Some(e) = pe {
+            if let Some(t) = world.get_mut::<Transform>(e) {
+                t.position = Vec2::ZERO;
+            }
+        }
+
+        spawn_zombie(&mut world, Vec2::new(100.0, 0.0));
+
+        let ze = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let before_x = world.get::<Transform>(ze).map(|t| t.position.x).unwrap();
+
+        EnemyAiSystem.run(&mut world, 1.0);
+
+        let after_x = world.get::<Transform>(ze).map(|t| t.position.x).unwrap();
+        assert_eq!(
+            after_x, before_x,
+            "Paused 상태에서 좀비는 이동하면 안 됨 (before={before_x}, after={after_x})"
+        );
     }
 }

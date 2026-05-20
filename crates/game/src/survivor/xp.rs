@@ -1,4 +1,5 @@
 use engine::{Collider, CollisionLayer, Entity, Sprite, System, Transform, World};
+use engine::components::GameState;
 use glam::Vec2;
 
 use super::player::Player;
@@ -11,10 +12,18 @@ pub struct XpGem {
 
 /// Player 에 부착되는 경험치 누적기.
 ///
-/// 1-D 에서는 누적만. 레벨업·임계치 처리는 1-E.
-#[derive(Default)]
+/// 1-E 에서 level / next_threshold 추가. 레벨업 전환은 `LevelUpSystem` 이 담당.
+#[derive(Debug, Clone, PartialEq)]
 pub struct XpAccumulator {
-    pub current: u32,
+    pub current:        u32,
+    pub level:          u32,
+    pub next_threshold: u32,
+}
+
+impl Default for XpAccumulator {
+    fn default() -> Self {
+        Self { current: 0, level: 1, next_threshold: 5 }  // L1 → 5 XP 로 L2 진입
+    }
 }
 
 /// Magnet 흡수 + 픽업 처리 시스템.
@@ -36,6 +45,10 @@ impl Default for MagnetSystem {
 
 impl System for MagnetSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
         // 1) Player 위치 캐시 (없으면 종료)
         // borrow checker: query 결과를 즉시 collect/map 해서 드롭 후 get_mut 호출
         let Some(player_pos) = world
