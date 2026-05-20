@@ -157,7 +157,12 @@ impl System for WhipSystem {
             hit_actual += 1;
             if died {
                 killed += 1;
+                // despawn 전에 위치를 캐치해 XpGem 을 드롭
+                let drop_pos = world.get::<Transform>(entity).map(|t| t.position);
                 world.despawn(entity);
+                if let Some(p) = drop_pos {
+                    super::xp::spawn_xp_gem(world, p, 1);
+                }
             } else {
                 // 살아있으면 HitFlash 부착 (덮어쓰기 — 기존 있어도 갱신)
                 world.add_component(entity, HitFlash { remaining: 0.1, original });

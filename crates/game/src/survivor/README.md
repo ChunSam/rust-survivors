@@ -3,7 +3,7 @@
 `crates/game/src/survivor/` — Vampire Survivors 풀 클론 모듈.
 탑다운 자동공격 로그라이트. 상세 로드맵: `CLAUDE.md` "Vampire Survivors 클론 로드맵" 섹션.
 
-**현재 단계**: Phase 1-C (Whip 무기 + DamageSystem)
+**현재 단계**: Phase 1-D (XpGem 드롭 + 자석 흡수)
 
 ## 실행
 
@@ -28,14 +28,15 @@ Phase 1-B 이후 자동공격·레벨업 등 추가 예정.
 
 | 파일 | 내용 |
 |---|---|
-| `mod.rs` | 하위 모듈 선언 + 최상위 재수출 + `LAYER_PLAYER`/`LAYER_ENEMY` 상수 |
+| `mod.rs` | 하위 모듈 선언 + 최상위 재수출 + `LAYER_PLAYER`/`LAYER_ENEMY`/`LAYER_XP` 상수 |
 | `player.rs` | `Player` (태그), `Velocity(Vec2)`, `PlayerStats { move_speed }`, `PlayerMovementSystem` |
 | `camera_follow.rs` | `CameraFollowSystem { lerp, viewport }` — 플레이어 위치로 카메라 lerp 추적 |
 | `enemy.rs` | `Zombie` (태그), `EnemyAi { move_speed }`, `EnemyAiSystem` — 플레이어 추격 |
 | `spawn.rs` | `SpawnTimer { interval, elapsed }`, `EnemySpawnSystem`, `spawn_zombie(world, pos)` |
 | `health.rs` | `Health { current, max }`, `take_damage(amount) -> bool` |
-| `weapon.rs` | `Whip` 컴포넌트, `WhipSystem` — 1초 cooldown, 좌/우 AABB, LAYER_ENEMY 쿼리, despawn |
-| `world_setup.rs` | `spawn_player(world)` — 초기 엔티티 스폰 + `SpawnTimer` 리소스 삽입 |
+| `weapon.rs` | `Whip` 컴포넌트, `WhipSystem` — 1초 cooldown, 좌/우 AABB, LAYER_ENEMY 쿼리, 사망 시 XpGem 드롭 + despawn |
+| `xp.rs` | `XpGem { value }`, `XpAccumulator { current }`, `MagnetSystem`, `spawn_xp_gem(world, pos, value)` |
+| `world_setup.rs` | `spawn_player(world)` — 초기 엔티티 스폰 + `SpawnTimer` 리소스 삽입 + `XpAccumulator` 부착 |
 
 ### player.rs 주요 타입
 
@@ -71,16 +72,18 @@ CameraFollowSystem { lerp: 0.15, viewport: Vec2(800, 600) }
 | `Health` | current=max=100.0 |
 | `Whip` | 기본값 (damage=10, cooldown=1.0) |
 
-## 시스템 등록 순서 (Phase 1-C)
+## 시스템 등록 순서 (Phase 1-D)
 
 ```
 app.add_system(PlayerMovementSystem)
 app.add_system(EnemyAiSystem)
 app.add_system(EnemySpawnSystem::default())
 app.add_system(CameraFollowSystem::default())
-app.add_system(WhipSystem::default())
+app.add_system(WhipSystem::default())       // 적 사망 시 XpGem 스폰
+app.add_system(MagnetSystem::default())     // XpGem 흡수
+app.add_system(HitFlashSystem)
 ```
 
-입력 → 플레이어 이동 → 적 추격 → 스폰/정리 → 카메라 follow → 무기 순서를 유지한다.
+입력 → 이동 → 추격 → 스폰/정리 → 카메라 → 무기(gem 드롭) → 자석(픽업) → 히트플래시 순서.
 
-## 다음 단계: Phase 1-D — XpGem 드롭 + 자석 + 레벨업 + 플레이어 사망
+## 다음 단계: Phase 1-E — 레벨업 + 카드 선택

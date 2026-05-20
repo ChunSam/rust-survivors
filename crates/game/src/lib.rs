@@ -8,8 +8,9 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        spawn_player, spawn_zombie, CameraFollowSystem, EnemyAiSystem, EnemySpawnSystem,
-        Health, HitFlash, Player, PlayerStats, SpawnTimer, WhipSystem, Zombie,
+        spawn_player, spawn_xp_gem, spawn_zombie, CameraFollowSystem, EnemyAiSystem,
+        EnemySpawnSystem, Health, HitFlash, MagnetSystem, Player, PlayerStats, SpawnTimer,
+        WhipSystem, XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use glam::Vec2;
@@ -174,5 +175,105 @@ mod tests {
         use engine::Sprite;
         let color = world.get::<Sprite>(zombie).map(|s| s.color).unwrap();
         assert_eq!(color, [1.0, 0.3, 0.3, 1.0], "hit 된 좀비의 sprite 색이 빨강이어야 함");
+    }
+
+    // ── Phase 1-D: XpGem 드롭 + 자석 흡수 테스트 ────────────────────────────
+
+    #[test]
+    fn xp_gem_spawned_when_zombie_dies() {
+        let mut world = World::new();
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+        spawn_player(&mut world);
+
+        // 플레이어를 원점으로 고정
+        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        if let Some(e) = player_entity {
+            if let Some(t) = world.get_mut::<Transform>(e) {
+                t.position = Vec2::ZERO;
+            }
+        }
+
+        // 좀비를 Whip AABB(우측 0..120, -30..30) 안에 배치하고 HP 를 5 로 낮춰 즉사
+        spawn_zombie(&mut world, Vec2::new(80.0, 0.0));
+        let zombie_entity = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(h) = world.get_mut::<Health>(zombie_entity) {
+            *h = Health::new(5.0);
+        }
+
+        // WhipSystem 발화 → zombie 즉사 → XpGem 스폰
+        WhipSystem::default().run(&mut world, 1.0);
+
+        assert_eq!(
+            world.query::<Zombie>().count(),
+            0,
+            "zombie 가 despawn 되어야 함"
+        );
+        assert_eq!(
+            world.query::<XpGem>().count(),
+            1,
+            "zombie 사망 시 XpGem 이 1개 스폰돼야 함"
+        );
+    }
+
+    #[test]
+    fn xp_gem_attracted_within_magnet_radius() {
+        let mut world = World::new();
+        spawn_player(&mut world);
+
+        // 플레이어를 원점으로 고정
+        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        if let Some(e) = player_entity {
+            if let Some(t) = world.get_mut::<Transform>(e) {
+                t.position = Vec2::ZERO;
+            }
+        }
+
+        // 자석 반경(80px) 안, 픽업 반경(20px) 밖에 gem 스폰
+        spawn_xp_gem(&mut world, Vec2::new(50.0, 0.0), 1);
+
+        MagnetSystem::default().run(&mut world, 0.1);
+
+        // gem 이 플레이어 쪽으로(x 감소 방향) 이동했어야 함
+        let gem_entity = world.query2::<XpGem, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let gem_x = world.get::<Transform>(gem_entity).map(|t| t.position.x).unwrap();
+        assert!(
+            gem_x < 50.0,
+            "자석 반경 안의 gem 이 플레이어 방향으로 이동해야 함 (x={gem_x} < 50.0)"
+        );
+    }
+
+    #[test]
+    fn xp_gem_picked_up_in_range() {
+        let mut world = World::new();
+        spawn_player(&mut world);
+
+        // 플레이어를 원점으로 고정
+        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        if let Some(e) = player_entity {
+            if let Some(t) = world.get_mut::<Transform>(e) {
+                t.position = Vec2::ZERO;
+            }
+        }
+
+        // 픽업 반경(20px) 안에 gem 스폰
+        spawn_xp_gem(&mut world, Vec2::new(10.0, 0.0), 1);
+
+        // XpAccumulator 초기값 확인
+        let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
+        let before = world.get::<XpAccumulator>(pe).map(|a| a.current).unwrap();
+        assert_eq!(before, 0, "픽업 전 XP 는 0 이어야 함");
+
+        MagnetSystem::default().run(&mut world, 0.1);
+
+        // gem 이 사라졌는지 확인
+        assert_eq!(
+            world.query::<XpGem>().count(),
+            0,
+            "픽업 반경 안의 gem 은 픽업돼 despawn 돼야 함"
+        );
+
+        // XpAccumulator 가 갱신됐는지 확인
+        let after = world.get::<XpAccumulator>(pe).map(|a| a.current).unwrap();
+        assert_eq!(after, 1, "XpAccumulator.current 가 1 이어야 함");
     }
 }
