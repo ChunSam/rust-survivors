@@ -4,29 +4,9 @@ use glam::Vec2;
 
 use super::health::Health;
 use super::hud::GameStats;
+use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
 use super::LAYER_ENEMY;
-
-/// Whip 무기 컴포넌트. 플레이어에 부착.
-pub struct Whip {
-    pub level:       u8,
-    pub damage:      f32,
-    pub area_width:  f32,
-    pub area_height: f32,
-    pub cooldown:    f32,
-}
-
-impl Default for Whip {
-    fn default() -> Self {
-        Self {
-            level:       1,
-            damage:      10.0,
-            area_width:  120.0,
-            area_height: 60.0,
-            cooldown:    1.0,
-        }
-    }
-}
 
 /// 히트플래시 컴포넌트. 피격된 엔티티에 일시적으로 부착.
 ///
@@ -77,16 +57,17 @@ impl System for HitFlashSystem {
 }
 
 /// Whip 발화 시스템. SpatialGrid 를 직접 소유 (PhysicsSystem 패턴).
+///
+/// Phase 2-A: cooldown/elapsed 트래킹이 WhipSystem.elapsed 에서
+/// WeaponInventory 슬롯의 elapsed 로 이전됨.
 pub struct WhipSystem {
-    pub grid:    SpatialGrid,
-    pub elapsed: f32,
+    pub grid: SpatialGrid,
 }
 
 impl Default for WhipSystem {
     fn default() -> Self {
         Self {
-            grid:    SpatialGrid::new(128.0),
-            elapsed: 0.0,
+            grid: SpatialGrid::new(128.0),
         }
     }
 }
@@ -97,25 +78,32 @@ impl System for WhipSystem {
             return;
         }
 
-        self.elapsed += dt;
-
-        // Player + Transform + Whip 을 동시에 가진 엔티티에서 위치와 Whip 수치를 캐시
-        let player_data: Option<(Vec2, f32, f32, f32, f32)> = world
-            .query3::<Player, Transform, Whip>()
+        // 1) Player 위치 캐시 (borrow 를 즉시 끊음)
+        let player_e_and_pos = world
+            .query2::<Player, Transform>()
             .next()
-            .map(|(_, _, t, w)| (t.position, w.damage, w.area_width, w.area_height, w.cooldown));
+            .map(|(e, _, t)| (e, t.position));
+        let Some((player_entity, player_pos)) = player_e_and_pos else { return };
 
-        let (player_pos, damage, area_width, area_height, cooldown) = match player_data {
-            Some(d) => d,
-            None => return,
+        // 2) WeaponInventory 의 Whip 슬롯 tick + 파라미터 복사
+        //    (get_mut borrow 를 블록 안에서 끊어야 이후 world 접근 가능)
+        let fire_info: Option<(f32, f32, f32)> = {
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
+            let Some(slot) = inv.whip_slot_mut() else { return };
+            if !slot.tick(dt) {
+                return;
+            }
+            // 발화. 파라미터를 값으로 복사해 반환 (borrow 해제).
+            #[allow(irrefutable_let_patterns)]
+            if let WeaponKind::Whip { damage, area_width, area_height } = slot.kind {
+                Some((damage, area_width, area_height))
+            } else {
+                None
+            }
         };
+        let Some((damage, area_width, area_height)) = fire_info else { return };
 
-        if self.elapsed < cooldown {
-            return;
-        }
-        self.elapsed -= cooldown;
-
-        // 발화 시점에만 grid 갱신 — 매 프레임 rebuild 비용 절감
+        // 3) 발화 시점에만 grid 갱신 — 매 프레임 rebuild 비용 절감
         self.grid.rebuild(world);
 
         let half_h = area_height * 0.5;

@@ -3,7 +3,7 @@
 `crates/game/src/survivor/` — Vampire Survivors 풀 클론 모듈.
 탑다운 자동공격 로그라이트. 상세 로드맵: `CLAUDE.md` "Vampire Survivors 클론 로드맵" 섹션.
 
-**현재 단계**: Phase 1-F 완료 — **Phase 1 Vertical Slice MVP 완료** (한 루프가 닫힘)
+**현재 단계**: Phase 2-A 완료 — WeaponInventory 인프라 구축 + Whip 마이그레이션 (동작 변화 없음)
 
 ## 실행
 
@@ -29,12 +29,13 @@ Phase 1-B 이후 자동공격·레벨업 등 추가 예정.
 | 파일 | 내용 |
 |---|---|
 | `mod.rs` | 하위 모듈 선언 + 최상위 재수출 + `LAYER_PLAYER`/`LAYER_ENEMY`/`LAYER_XP` 상수 |
+| `inventory.rs` | `WeaponKind` enum, `WeaponSlot { kind, level, cooldown, elapsed, tick() }`, `WeaponInventory { slots: [Option<WeaponSlot>; 6] }` |
 | `player.rs` | `Player` (태그), `Velocity(Vec2)`, `PlayerStats { move_speed }`, `PlayerMovementSystem` |
 | `camera_follow.rs` | `CameraFollowSystem { lerp, viewport }` — 플레이어 위치로 카메라 lerp 추적 |
 | `enemy.rs` | `Zombie` (태그), `EnemyAi { move_speed }`, `EnemyAiSystem` — 플레이어 추격 |
 | `spawn.rs` | `SpawnTimer { interval, elapsed }`, `EnemySpawnSystem`, `spawn_zombie(world, pos)` |
 | `health.rs` | `Health { current, max }`, `take_damage(amount) -> bool` |
-| `weapon.rs` | `Whip` 컴포넌트, `WhipSystem` — 1초 cooldown, 좌/우 AABB, LAYER_ENEMY 쿼리, 사망 시 XpGem 드롭 + despawn |
+| `weapon.rs` | `WhipSystem` — `WeaponInventory` slot tick → 발화, 좌/우 AABB, LAYER_ENEMY 쿼리, 사망 시 XpGem 드롭 + despawn |
 | `xp.rs` | `XpGem { value }`, `XpAccumulator { current, level, next_threshold }`, `MagnetSystem`, `spawn_xp_gem(world, pos, value)` |
 | `levelup.rs` | `CardKind` (WhipDamage/WhipArea/WhipCooldown), `PendingLevelUp { offered, consumed }`, `LevelUpSystem`, `apply_card` 헬퍼 |
 | `world_setup.rs` | `spawn_player(world)`, `setup_survivor_world(world)` — 초기 엔티티 스폰 + `SpawnTimer` + `GameStats` 리소스 삽입 |
@@ -73,9 +74,9 @@ CameraFollowSystem { lerp: 0.15, viewport: Vec2(800, 600) }
 | `PlayerStats` | move_speed=200.0 |
 | `Velocity` | (0, 0) |
 | `Health` | current=max=100.0 |
-| `Whip` | 기본값 (damage=10, cooldown=1.0) |
+| `WeaponInventory` | slot[0] = Whip (damage=10, area=120×60, cooldown=1.0) |
 
-## 시스템 등록 순서 (Phase 1-F — 현재)
+## 시스템 등록 순서 (Phase 2-A — 현재)
 
 ```
 app.add_system(LevelUpSystem)                        // 첫 번째 — 상태 전환·키 입력 처리
@@ -92,6 +93,8 @@ app.add_system(HitFlashSystem)
 app.add_system(HudSystem)                            // 마지막 — TextQueue push
 ```
 
-## 다음 단계: Phase 2 — 무기 풀 확장
+## 다음 단계: Phase 2-B — ProjectileSystem + Magic Wand
 
-Magic Wand, Knife, Axe, Cross, Garlic, Holy Water, King Bible, Fire Wand, Lightning Ring + 공용 `ProjectileSystem`.
+공용 `ProjectileSystem` (lifetime / pierce / damage) + Magic Wand 무기 추가.
+`WeaponKind::MagicWand { damage, projectile_speed, lifetime }` variant 추가.
+

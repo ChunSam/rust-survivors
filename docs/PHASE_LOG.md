@@ -515,3 +515,72 @@ cargo build --release --workspace           # ok
 | 1-F | HUD + 사망 + GameOver + R 재시작 |
 
 다음: **Phase 2 — 무기 풀 확장** (Magic Wand, Knife, Axe, Cross, Garlic, Holy Water, King Bible, Fire Wand, Lightning Ring + 공용 ProjectileSystem)
+
+---
+
+### Phase 2-A — WeaponInventory + Whip 마이그레이션 (2026-05-21)
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/inventory.rs` | `WeaponKind` enum, `WeaponSlot { kind, level, cooldown, elapsed }`, `WeaponInventory { slots: [Option<WeaponSlot>; 6] }` |
+
+#### 핵심 타입
+
+| 타입 | 설명 |
+|---|---|
+| `WeaponKind::Whip { damage, area_width, area_height }` | 무기 종류 + 파라미터. 2-B 에서 MagicWand 변종 추가 예정 |
+| `WeaponSlot::tick(dt) -> bool` | dt 누적 후 발화 가능 여부 반환 + elapsed 초기화 |
+| `WeaponInventory::with_whip_default()` | 슬롯 0 에 Whip(damage=10, area=120×60, cd=1.0) 초기화 |
+| `WeaponInventory::whip_slot() / whip_slot_mut()` | 첫 Whip 슬롯 참조 헬퍼 |
+
+#### 마이그레이션 내용
+
+| 항목 | 변경 전 | 변경 후 |
+|---|---|---|
+| 무기 컴포넌트 | `Whip { level, damage, area_width, area_height, cooldown }` | `WeaponInventory { slots: [Option<WeaponSlot>; 6] }` |
+| cooldown 트래킹 | `WhipSystem.elapsed: f32` 필드 | `WeaponInventory.slots[0].elapsed` |
+| 발화 로직 | `WhipSystem` 이 elapsed 직접 누적 | `slot.tick(dt)` 호출 — 슬롯이 자체 추적 |
+| 레벨업 강화 | `world.get_mut::<Whip>(pe)` 직접 수정 | `world.get_mut::<WeaponInventory>(pe)?.whip_slot_mut()?` 경로 |
+| 플레이어 스폰 | `Whip::default()` 부착 | `WeaponInventory::with_whip_default()` 부착 |
+
+#### 동작 변화
+
+**없음.** Whip 1초 cooldown, 데미지 10, 좌/우 AABB 범위(120×60) 완전히 동일.
+
+#### 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `crates/game/src/survivor/inventory.rs` | **신규** |
+| `crates/game/src/survivor/weapon.rs` | `Whip` 컴포넌트 제거. `WhipSystem.elapsed` 필드 제거. `WeaponInventory` slot tick 경로로 변경 |
+| `crates/game/src/survivor/levelup.rs` | `Whip` → `WeaponInventory::whip_slot_mut()` 경로로 강화 적용 |
+| `crates/game/src/survivor/world_setup.rs` | `Whip::default()` → `WeaponInventory::with_whip_default()` |
+| `crates/game/src/survivor/mod.rs` | `pub mod inventory` 추가. `Whip` 재수출 제거. `WeaponInventory/WeaponKind/WeaponSlot` 재수출 추가 |
+| `crates/game/src/lib.rs` | 임포트 수정 (`Whip` → `WeaponInventory/WeaponKind`). `levelup_applies_card_whip_damage` 테스트를 inventory 경로로 수정 |
+
+#### 테스트
+
+game lib 21 통과 (직전 19 + 신규 2):
+- `inventory_starts_with_whip_slot_0` — 슬롯 0 에 Whip, 나머지 5 슬롯 None 확인
+- `weapon_slot_tick_returns_true_on_cooldown` — 0.5+0.5=1.0 누적 시 발화 + elapsed 리셋 확인
+
+기존 테스트 수정 (1개):
+- `levelup_applies_card_whip_damage` — `Whip` 직접 접근 → `WeaponInventory::whip_slot()` 경로로 변경
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 21 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- **슬롯 6개 고정 배열**: Vampire Survivors 원작 무기 슬롯 수. `[Option<WeaponSlot>; 6]` — heap 할당 없이 스택 상주
+- **WeaponKind 단일 변종 경고**: `irrefutable_let_patterns` 경고 → `#[allow(...)]` 로 명시적 억제. 2-B 에서 MagicWand 변종 추가 시 자동 해소
+- **시스템 등록 변경 없음**: `WhipSystem` 이름 유지, `survivor.rs` 등록 순서 그대로
+
+다음: **Phase 2-B — ProjectileSystem + Magic Wand**

@@ -11,8 +11,8 @@ mod tests {
         restart_world, setup_survivor_world, spawn_player, spawn_xp_gem, spawn_zombie,
         CameraFollowSystem, CardKind, DeathSystem, EnemyAiSystem, EnemyContactDamageSystem,
         EnemySpawnSystem, GameStats, Health, HitFlash, LevelUpSystem, MagnetSystem,
-        PendingLevelUp, Player, PlayerStats, SpawnTimer, WhipSystem, Whip, XpAccumulator,
-        XpGem, Zombie,
+        PendingLevelUp, Player, PlayerStats, SpawnTimer, WeaponInventory, WeaponKind, WhipSystem,
+        XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
@@ -314,23 +314,29 @@ mod tests {
         assert!(!pending.unwrap().consumed, "consumed 는 false 여야 함");
     }
 
-    /// apply_card(WhipDamage) 호출 시 Whip.damage +5, level+1, next_threshold 갱신
+    /// apply_card(WhipDamage) 호출 시 WeaponInventory Whip 슬롯 damage +5, level+1, next_threshold 갱신
     #[test]
     fn levelup_applies_card_whip_damage() {
         let mut world = World::new();
         world.insert_resource(GameState::Playing);
         spawn_player(&mut world);
 
-        // 초기 값 확인
+        // 초기 값 확인 — WeaponInventory 경로로 접근
         let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
-        let before_damage = world.get::<Whip>(pe).map(|w| w.damage).unwrap();
+        let before_damage = world.get::<WeaponInventory>(pe)
+            .and_then(|inv| inv.whip_slot())
+            .map(|s| { let WeaponKind::Whip { damage, .. } = s.kind; damage })
+            .unwrap();
         assert_eq!(before_damage, 10.0);
 
         // apply_card 직접 호출 (키 입력 우회 — InputState::press 가 pub(crate))
         LevelUpSystem::apply_card(&mut world, pe, CardKind::WhipDamage);
 
-        // Whip.damage +5 확인
-        let after_damage = world.get::<Whip>(pe).map(|w| w.damage).unwrap();
+        // WeaponInventory Whip 슬롯 damage +5 확인
+        let after_damage = world.get::<WeaponInventory>(pe)
+            .and_then(|inv| inv.whip_slot())
+            .map(|s| { let WeaponKind::Whip { damage, .. } = s.kind; damage })
+            .unwrap();
         assert_eq!(after_damage, 15.0, "WhipDamage 카드 적용 후 damage 가 15.0 이어야 함");
 
         // XpAccumulator.level +1, next_threshold 갱신 확인
