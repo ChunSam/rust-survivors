@@ -22,7 +22,7 @@ pub fn spawn_player(world: &mut World) {
     world.add_component(e, PlayerStats::default());
     world.add_component(e, Velocity(Vec2::ZERO));
     world.add_component(e, Health::new(100.0));
-    world.add_component(e, WeaponInventory::with_whip_default());
+    world.add_component(e, WeaponInventory::with_starter_loadout());
     world.add_component(e, XpAccumulator::default());
     world.insert_resource(SpawnTimer::default());
 }

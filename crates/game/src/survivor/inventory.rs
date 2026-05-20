@@ -1,7 +1,7 @@
 /// 무기 종류 + 종류별 파라미터.
 ///
-/// Phase 2-A 는 Whip 만 inventory 에 마이그레이션. 다음 sub-phase 에서
-/// MagicWand 등 추가될 때 variant 가 늘어난다.
+/// Phase 2-A 는 Whip 만 inventory 에 마이그레이션.
+/// Phase 2-B 에서 MagicWand 추가.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WeaponKind {
     Whip {
@@ -9,7 +9,12 @@ pub enum WeaponKind {
         area_width:  f32,
         area_height: f32,
     },
-    // 다음 단계 (2-B) 에서 MagicWand { damage, projectile_speed, lifetime, ... } 추가
+    MagicWand {
+        damage:           f32,
+        projectile_speed: f32,
+        lifetime:         f32,
+        pierce:           u8,
+    },
 }
 
 /// 무기 인벤토리의 한 슬롯. cooldown 기반 발화 트래킹은 슬롯이 소유한다.
@@ -44,7 +49,8 @@ pub struct WeaponInventory {
 }
 
 impl WeaponInventory {
-    pub fn with_whip_default() -> Self {
+    /// Phase 2-B 스타터 로드아웃: Whip(slot[0]) + MagicWand(slot[1]).
+    pub fn with_starter_loadout() -> Self {
         let mut inv = Self::default();
         inv.slots[0] = Some(WeaponSlot {
             kind: WeaponKind::Whip {
@@ -56,7 +62,24 @@ impl WeaponInventory {
             cooldown: 1.0,
             elapsed:  0.0,
         });
+        inv.slots[1] = Some(WeaponSlot {
+            kind: WeaponKind::MagicWand {
+                damage:           8.0,
+                projectile_speed: 300.0,
+                lifetime:         1.5,
+                pierce:           0,
+            },
+            level:    1,
+            cooldown: 1.2,
+            elapsed:  0.0,
+        });
         inv
+    }
+
+    /// 하위 호환용 래퍼 — with_starter_loadout 으로 위임. 기존 호출자가 있으면 변경 권장.
+    #[deprecated(since = "0.2.0", note = "with_starter_loadout 를 사용하세요")]
+    pub fn with_whip_default() -> Self {
+        Self::with_starter_loadout()
     }
 
     /// 첫 매칭되는 Whip 슬롯 (있을 경우) 의 mutable 참조.
@@ -81,6 +104,29 @@ impl WeaponInventory {
         }
         None
     }
+
+    /// 첫 매칭되는 MagicWand 슬롯의 mutable 참조.
+    pub fn magic_wand_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        for slot in &mut self.slots {
+            if let Some(s) = slot {
+                if matches!(s.kind, WeaponKind::MagicWand { .. }) {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn magic_wand_slot(&self) -> Option<&WeaponSlot> {
+        for slot in &self.slots {
+            if let Some(s) = slot {
+                if matches!(s.kind, WeaponKind::MagicWand { .. }) {
+                    return Some(s);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[cfg(test)]
@@ -89,15 +135,25 @@ mod tests {
 
     #[test]
     fn inventory_starts_with_whip_slot_0() {
-        let inv = WeaponInventory::with_whip_default();
+        let inv = WeaponInventory::with_starter_loadout();
         assert!(inv.slots[0].is_some(), "슬롯 0 에 Whip 이 있어야 함");
-        for i in 1..6 {
+        // slot[1] 은 MagicWand
+        assert!(inv.slots[1].is_some(), "슬롯 1 에 MagicWand 가 있어야 함");
+        for i in 2..6 {
             assert!(inv.slots[i].is_none(), "슬롯 {i} 는 비어 있어야 함");
         }
         let slot = inv.slots[0].as_ref().unwrap();
         assert_eq!(slot.level, 1);
         assert_eq!(slot.cooldown, 1.0);
         assert!(matches!(slot.kind, WeaponKind::Whip { damage, .. } if damage == 10.0));
+        // MagicWand 슬롯 확인
+        let wand_slot = inv.slots[1].as_ref().unwrap();
+        assert_eq!(wand_slot.level, 1);
+        assert_eq!(wand_slot.cooldown, 1.2);
+        assert!(matches!(
+            wand_slot.kind,
+            WeaponKind::MagicWand { damage, pierce, .. } if damage == 8.0 && pierce == 0
+        ));
     }
 
     #[test]

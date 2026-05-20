@@ -584,3 +584,60 @@ cargo build --release --workspace           # ok
 - **시스템 등록 변경 없음**: `WhipSystem` 이름 유지, `survivor.rs` 등록 순서 그대로
 
 다음: **Phase 2-B — ProjectileSystem + Magic Wand**
+
+---
+
+### Phase 2-B — ProjectileSystem + Magic Wand (2026-05-21)
+
+#### 신규 파일
+
+| 파일 | 핵심 타입·함수 |
+|---|---|
+| `crates/game/src/survivor/projectile.rs` | `Projectile`, `ProjectileSystem`, `spawn_projectile` |
+
+#### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `crates/game/src/survivor/inventory.rs` | `WeaponKind::MagicWand { damage, projectile_speed, lifetime, pierce }` variant 추가. `with_starter_loadout()` 신설 (Whip slot[0] + MagicWand slot[1]). `with_whip_default` deprecated 래퍼로 유지. `magic_wand_slot_mut/magic_wand_slot` 헬퍼 추가 |
+| `crates/game/src/survivor/weapon.rs` | `MagicWandSystem` 추가 — 매 cooldown 마다 가장 가까운 적 1마리에게 직선 투사체 발사. `spawn_projectile` 헬퍼 임포트 |
+| `crates/game/src/survivor/world_setup.rs` | `with_whip_default()` → `with_starter_loadout()` |
+| `crates/game/src/survivor/mod.rs` | `pub mod projectile` 추가. `Projectile/ProjectileSystem/spawn_projectile/MagicWandSystem` 재수출 |
+| `crates/game/src/bin/survivor.rs` | `MagicWandSystem::default()` + `ProjectileSystem::default()` 등록 (WhipSystem 다음) |
+| `crates/game/src/lib.rs` | 신규 임포트 + 3개 테스트 추가 + `levelup_applies_card_whip_damage` irrefutable let 수정 |
+
+#### 신규 시스템: MagicWandSystem
+
+- 매 cooldown(1.2초)마다 SpatialGrid 로 반경 400px 안에서 가장 가까운 적 1마리 탐색.
+- `spawn_projectile` 헬퍼를 통해 연보라색(0.9, 0.7, 1.0) 10×10 투사체 스폰.
+- 이동·충돌·데미지·despawn 은 ProjectileSystem 이 전담.
+
+#### ProjectileSystem hit 처리 방식
+
+WhipSystem 과 별도 구현 (중복 허용). 이유:
+- Whip 은 AABB 배치 판정(좌/우 부채꼴), 투사체는 이동 중인 점(Circle) 판정 — 알고리즘이 달라 공유 시 오히려 복잡.
+- 각 시스템이 SpatialGrid 를 직접 소유(PhysicsSystem 패턴)하므로 별도 소유가 자연스러움.
+- Trade-off: HitFlash·XpGem·kills 처리 코드가 중복(~30줄). 추후 hit_handler 헬퍼 함수로 추출 가능하나 현 단계에서는 가독성을 우선.
+
+#### 테스트
+
+game lib 26 통과 (직전 21 + 신규 3 + projectile.rs 내 2):
+- `projectile_expires_after_lifetime` — lifetime 소진 후 despawn 확인
+- `projectile_damages_zombie_on_collision` — 투사체 이동 후 zombie 충돌 데미지 확인
+- `magic_wand_spawns_projectile_after_cooldown` — cooldown 경과 후 투사체 1개 스폰 확인
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 26 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- **with_starter_loadout**: 스타터 로드아웃을 단일 함수로 관리. `with_whip_default` 는 deprecated 래퍼로 하위 호환 유지
+- **ProjectileSystem 독립 grid**: MagicWandSystem 도 grid 를 소유 — 같은 프레임에 grid 가 2회 rebuild 되지만 엔티티 수가 적을 때는 무시할 수 있는 비용
+- **pierce=0 의미**: 1마리 타격 후 즉시 despawn (관통 없음). pierce=1 이면 2마리 관통.
+
+다음: **Phase 2-C — Knife + Axe**
