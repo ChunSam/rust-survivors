@@ -7,6 +7,7 @@ use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
 use super::LAYER_ENEMY;
+use super::projectile::spawn_projectile;
 
 /// 히트플래시 컴포넌트. 피격된 엔티티에 일시적으로 부착.
 ///
@@ -162,5 +163,92 @@ impl System for WhipSystem {
             }
         }
         // 매 발화 println 제거 — HudSystem 의 Kills 카운터로 대체됨
+    }
+}
+
+/// Magic Wand 발화 시스템.
+///
+/// 매 cooldown 마다 가장 가까운 적 1마리를 향해 직선 투사체를 발사한다.
+/// `spawn_projectile` 헬퍼를 통해 투사체를 생성하고,
+/// 이동·충돌·데미지는 `ProjectileSystem` 이 처리한다.
+pub struct MagicWandSystem {
+    pub grid:          SpatialGrid,
+    pub target_radius: f32, // 가장 가까운 적 탐색 반경 (px)
+}
+
+impl Default for MagicWandSystem {
+    fn default() -> Self {
+        Self {
+            grid:          SpatialGrid::new(128.0),
+            target_radius: 400.0,
+        }
+    }
+}
+
+impl System for MagicWandSystem {
+    fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
+        // 1) Player 위치 + entity 캐시 (borrow 를 즉시 끊음)
+        let Some((player_entity, player_pos)) = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, t)| (e, t.position))
+        else {
+            return;
+        };
+
+        // 2) MagicWand 슬롯 tick — cooldown 미달이면 즉시 반환
+        let fire_info: Option<(f32, f32, f32, u8)> = {
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
+            let Some(slot) = inv.magic_wand_slot_mut() else { return };
+            if !slot.tick(dt) {
+                return;
+            }
+            if let WeaponKind::MagicWand { damage, projectile_speed, lifetime, pierce } = slot.kind {
+                Some((damage, projectile_speed, lifetime, pierce))
+            } else {
+                None
+            }
+        };
+        let Some((damage, projectile_speed, lifetime, pierce)) = fire_info else { return };
+
+        // 3) grid rebuild + 가장 가까운 적 탐색
+        self.grid.rebuild(world);
+        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        if candidates.is_empty() {
+            return;
+        }
+
+        let nearest = candidates
+            .into_iter()
+            .filter_map(|e| world.get::<Transform>(e).map(|t| (e, t.position)))
+            .min_by(|a, b| {
+                let da = (a.1 - player_pos).length_squared();
+                let db = (b.1 - player_pos).length_squared();
+                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+            });
+        let Some((_target_entity, target_pos)) = nearest else { return };
+
+        // 4) 방향 벡터 정규화 + 투사체 스폰 (연보라색)
+        let dir = target_pos - player_pos;
+        let dir = if dir.length_squared() > 0.0 {
+            dir.normalize()
+        } else {
+            Vec2::new(1.0, 0.0)
+        };
+        let velocity = dir * projectile_speed;
+
+        spawn_projectile(
+            world,
+            player_pos,
+            velocity,
+            lifetime,
+            pierce,
+            damage,
+            [0.9, 0.7, 1.0], // 연보라색 — Magic Wand 컬러
+        );
     }
 }

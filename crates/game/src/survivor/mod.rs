@@ -6,6 +6,7 @@ pub mod hud;
 pub mod inventory;
 pub mod levelup;
 pub mod player;
+pub mod projectile;
 pub mod spawn;
 pub mod weapon;
 pub mod world_setup;
@@ -19,8 +20,9 @@ pub use hud::{GameStats, HudSystem};
 pub use inventory::{WeaponInventory, WeaponKind, WeaponSlot};
 pub use levelup::{CardKind, LevelUpSystem, PendingLevelUp};
 pub use player::{Player, PlayerMovementSystem, PlayerStats, Velocity};
+pub use projectile::{spawn_projectile, Projectile, ProjectileSystem};
 pub use spawn::{spawn_zombie, EnemySpawnSystem, SpawnTimer};
-pub use weapon::{HitFlash, HitFlashSystem, WhipSystem};
+pub use weapon::{HitFlash, HitFlashSystem, MagicWandSystem, WhipSystem};
 pub use world_setup::{setup_survivor_world, spawn_player};
 pub use xp::{spawn_xp_gem, MagnetSystem, XpAccumulator, XpGem};
 

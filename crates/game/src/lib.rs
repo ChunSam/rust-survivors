@@ -8,11 +8,12 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        restart_world, setup_survivor_world, spawn_player, spawn_xp_gem, spawn_zombie,
-        CameraFollowSystem, CardKind, DeathSystem, EnemyAiSystem, EnemyContactDamageSystem,
-        EnemySpawnSystem, GameStats, Health, HitFlash, LevelUpSystem, MagnetSystem,
-        PendingLevelUp, Player, PlayerStats, SpawnTimer, WeaponInventory, WeaponKind, WhipSystem,
-        XpAccumulator, XpGem, Zombie,
+        restart_world, setup_survivor_world, spawn_player, spawn_projectile, spawn_xp_gem,
+        spawn_zombie, CameraFollowSystem, CardKind, DeathSystem, EnemyAiSystem,
+        EnemyContactDamageSystem, EnemySpawnSystem, GameStats, Health, HitFlash, LevelUpSystem,
+        MagicWandSystem, MagnetSystem, PendingLevelUp, Player, PlayerStats, Projectile,
+        ProjectileSystem, SpawnTimer, WeaponInventory, WeaponKind, WhipSystem, XpAccumulator,
+        XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
@@ -325,7 +326,9 @@ mod tests {
         let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
         let before_damage = world.get::<WeaponInventory>(pe)
             .and_then(|inv| inv.whip_slot())
-            .map(|s| { let WeaponKind::Whip { damage, .. } = s.kind; damage })
+            .and_then(|s| {
+                if let WeaponKind::Whip { damage, .. } = s.kind { Some(damage) } else { None }
+            })
             .unwrap();
         assert_eq!(before_damage, 10.0);
 
@@ -335,7 +338,9 @@ mod tests {
         // WeaponInventory Whip 슬롯 damage +5 확인
         let after_damage = world.get::<WeaponInventory>(pe)
             .and_then(|inv| inv.whip_slot())
-            .map(|s| { let WeaponKind::Whip { damage, .. } = s.kind; damage })
+            .and_then(|s| {
+                if let WeaponKind::Whip { damage, .. } = s.kind { Some(damage) } else { None }
+            })
             .unwrap();
         assert_eq!(after_damage, 15.0, "WhipDamage 카드 적용 후 damage 가 15.0 이어야 함");
 
@@ -446,6 +451,97 @@ mod tests {
             state,
             Some(GameState::Playing),
             "재시작 후 GameState::Playing 이어야 함"
+        );
+    }
+
+    // ── Phase 2-B: ProjectileSystem + MagicWand 테스트 ──────────────────────
+
+    /// 수명이 소진된 투사체는 despawn 돼야 한다.
+    #[test]
+    fn projectile_expires_after_lifetime() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+
+        spawn_projectile(
+            &mut world,
+            Vec2::ZERO,
+            Vec2::new(100.0, 0.0),
+            0.5,
+            0,
+            5.0,
+            [1.0, 1.0, 1.0],
+        );
+
+        // dt = 1.0 → lifetime 0.5 소진
+        ProjectileSystem::default().run(&mut world, 1.0);
+
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            0,
+            "수명이 소진된 투사체는 despawn 돼야 함"
+        );
+    }
+
+    /// 투사체가 좀비와 충돌하면 데미지를 입힌다.
+    #[test]
+    fn projectile_damages_zombie_on_collision() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(GameStats::default());
+
+        // 좀비를 (30, 0) 에 스폰 (HP 30, Collider::Circle { radius: 20 })
+        spawn_zombie(&mut world, Vec2::new(30.0, 0.0));
+
+        // 투사체를 원점에서 +x 방향으로 발사
+        // dt=0.1 → new_pos=(10, 0)
+        // 거리 = 30 - 10 = 20, 합산 반경 = 20 + 6 = 26 → 충돌
+        spawn_projectile(
+            &mut world,
+            Vec2::ZERO,
+            Vec2::new(100.0, 0.0),
+            2.0,
+            0,
+            5.0,
+            [1.0, 1.0, 1.0],
+        );
+
+        ProjectileSystem::default().run(&mut world, 0.1);
+
+        // 좀비 HP 가 줄었거나 despawn 됐어야 함
+        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e);
+        if let Some(ze) = zombie_entity {
+            let hp = world.get::<Health>(ze).map(|h| h.current).unwrap_or(0.0);
+            assert!(hp < 30.0, "투사체 피격 후 좀비 HP 가 줄어야 함 (현재 {hp})");
+        }
+        // despawn 됐으면(즉사) 테스트도 통과
+    }
+
+    /// MagicWand cooldown 경과 후 투사체 1개가 스폰돼야 한다.
+    #[test]
+    fn magic_wand_spawns_projectile_after_cooldown() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+
+        // with_starter_loadout 으로 MagicWand 포함 플레이어 스폰
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // 적이 없으면 MagicWandSystem 이 발사를 건너뜀 — 좀비 1마리 스폰
+        spawn_zombie(&mut world, Vec2::new(100.0, 0.0));
+
+        // dt = 1.5 → cooldown 1.2 초과 → 발화
+        MagicWandSystem::default().run(&mut world, 1.5);
+
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            1,
+            "MagicWand cooldown 경과 후 투사체 1개가 스폰돼야 함"
         );
     }
 

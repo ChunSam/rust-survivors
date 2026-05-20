@@ -1,0 +1,267 @@
+use engine::{Collider, CollisionLayer, Entity, Sprite, SpatialGrid, System, Transform, World};
+use engine::components::GameState;
+use glam::Vec2;
+
+use super::enemy::Zombie;
+use super::health::Health;
+use super::hud::GameStats;
+use super::xp::spawn_xp_gem;
+use super::weapon::HitFlash;
+use super::LAYER_ENEMY;
+
+/// 직선 이동 투사체. velocity 단위는 px/s.
+#[derive(Debug, Clone)]
+pub struct Projectile {
+    pub velocity:   Vec2,
+    pub lifetime:   f32,          // 남은 수명 (초). 0 이하면 despawn
+    pub pierce:     u8,           // 남은 관통 횟수. 0 이면 다음 hit 후 despawn
+    pub damage:     f32,
+    pub layer_mask: CollisionLayer, // 어느 레이어를 타격할지
+    pub radius:     f32,          // 충돌 판정 반경 (px)
+}
+
+/// 모든 Projectile 의 lifetime / 이동 / 충돌 일괄 처리.
+///
+/// SpatialGrid 를 직접 소유 — WhipSystem / EnemyContactDamageSystem 패턴 답습.
+/// borrow checker 충돌을 피하기 위해 ECS 리소스로 넣지 않는다.
+pub struct ProjectileSystem {
+    pub grid: SpatialGrid,
+}
+
+impl Default for ProjectileSystem {
+    fn default() -> Self {
+        Self { grid: SpatialGrid::new(128.0) }
+    }
+}
+
+impl System for ProjectileSystem {
+    fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
+        // grid rebuild — 적(Zombie) 위치 기준으로 쿼리하기 위해 재구성
+        self.grid.rebuild(world);
+
+        // 1) 모든 Projectile 의 파라미터를 복사해 캐시 (borrow 끊기)
+        let projs: Vec<(Entity, Vec2, Vec2, f32, u8, f32, CollisionLayer, f32)> = world
+            .query2::<Projectile, Transform>()
+            .map(|(e, p, t)| {
+                (e, t.position, p.velocity, p.lifetime, p.pierce, p.damage, p.layer_mask, p.radius)
+            })
+            .collect();
+
+        let mut to_despawn: Vec<Entity> = Vec::new();
+        // (zombie_entity, damage)
+        let mut hits_buffer: Vec<(Entity, f32)> = Vec::new();
+        // (proj_entity, new_pos, new_lifetime, new_pierce)
+        let mut proj_updates: Vec<(Entity, Vec2, f32, u8)> = Vec::new();
+
+        for (proj_e, pos, vel, life, pierce, damage, mask, radius) in projs {
+            let new_pos  = pos + vel * dt;
+            let new_life = life - dt;
+
+            if new_life <= 0.0 {
+                to_despawn.push(proj_e);
+                continue;
+            }
+
+            // 투사체 충돌 반경으로 적 탐색
+            let candidates = self.grid.query_radius(new_pos, radius, mask);
+
+            let mut new_pierce = pierce;
+            let mut consumed   = false;
+
+            for cand in candidates {
+                // Zombie 컴포넌트를 가진 엔티티인지 이중 확인
+                let is_zombie = world.get::<Zombie>(cand).is_some();
+                if !is_zombie {
+                    continue;
+                }
+                hits_buffer.push((cand, damage));
+                if new_pierce == 0 {
+                    // 관통 횟수 소진 → 투사체 제거 예약
+                    consumed = true;
+                    break;
+                }
+                new_pierce -= 1;
+            }
+
+            if consumed {
+                to_despawn.push(proj_e);
+            } else {
+                proj_updates.push((proj_e, new_pos, new_life, new_pierce));
+            }
+        }
+
+        // 2) 투사체 위치·수명·관통 갱신
+        for (proj_e, new_pos, new_life, new_pierce) in proj_updates {
+            if let Some(t) = world.get_mut::<Transform>(proj_e) {
+                t.position = new_pos;
+            }
+            if let Some(p) = world.get_mut::<Projectile>(proj_e) {
+                p.lifetime = new_life;
+                p.pierce   = new_pierce;
+            }
+        }
+
+        // 3) 데미지 적용 + 사망 처리 + XpGem 드롭 + HitFlash + 처치 카운터
+        let mut killed_count: u32 = 0;
+        for (zombie, damage) in hits_buffer {
+            // Sprite 색을 빨강으로 — 원래 색 보존
+            let original = if let Some(s) = world.get_mut::<Sprite>(zombie) {
+                let orig = s.color;
+                s.color = [1.0, 0.3, 0.3, 1.0];
+                orig
+            } else {
+                continue; // Sprite 없으면 건너뜀
+            };
+
+            let died = if let Some(h) = world.get_mut::<Health>(zombie) {
+                h.take_damage(damage)
+            } else {
+                false
+            };
+
+            if died {
+                killed_count += 1;
+                // despawn 전에 위치를 꺼내 XpGem 드롭
+                let drop_pos = world.get::<Transform>(zombie).map(|t| t.position);
+                world.despawn(zombie);
+                if let Some(p) = drop_pos {
+                    spawn_xp_gem(world, p, 1);
+                }
+            } else {
+                // 살아있으면 HitFlash 부착 (1-C 패턴)
+                world.add_component(zombie, HitFlash { remaining: 0.1, original });
+            }
+        }
+
+        // 4) 수명 소진·관통 소진 투사체 despawn
+        for proj_e in to_despawn {
+            world.despawn(proj_e);
+        }
+
+        // 5) GameStats.kills 갱신
+        if killed_count > 0 {
+            if let Some(stats) = world.resource_mut::<GameStats>() {
+                stats.kills += killed_count;
+            }
+        }
+    }
+}
+
+/// 투사체 엔티티를 스폰한다.
+///
+/// 모든 무기 시스템(MagicWandSystem 등)이 이 헬퍼를 통해 투사체를 생성한다.
+///
+/// # 파라미터
+/// - `pos`      : 발사 위치 (px)
+/// - `velocity` : 초당 이동량 (px/s), 방향 + 속력 포함
+/// - `lifetime` : 수명 (초)
+/// - `pierce`   : 관통 횟수 (0 = 1마리 타격 후 소멸)
+/// - `damage`   : 타격 데미지
+/// - `color`    : RGB 색 (Sprite::colored 에 전달)
+pub fn spawn_projectile(
+    world:    &mut World,
+    pos:      Vec2,
+    velocity: Vec2,
+    lifetime: f32,
+    pierce:   u8,
+    damage:   f32,
+    color:    [f32; 3],
+) {
+    let e = world.spawn();
+    world.add_component(e, Transform {
+        position: pos,
+        scale:    Vec2::new(10.0, 10.0),
+        rotation: 0.0,
+        z:        0.4,
+    });
+    world.add_component(e, Sprite::colored(color[0], color[1], color[2]));
+    world.add_component(e, Projectile {
+        velocity,
+        lifetime,
+        pierce,
+        damage,
+        layer_mask: CollisionLayer(LAYER_ENEMY),
+        radius: 6.0,
+    });
+    // 충돌 그리드에 올리기 위한 Collider (ProjectileSystem 이 query_radius 로 detect)
+    world.add_component(e, Collider::Circle { radius: 6.0 });
+}
+
+// ─── 단위 테스트 ──────────────────────────────────────────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::World;
+    use engine::components::GameState;
+    use glam::Vec2;
+    use super::super::spawn::spawn_zombie;
+
+    fn playing_world() -> World {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world
+    }
+
+    /// 수명이 다한 Projectile 은 despawn 돼야 한다.
+    #[test]
+    fn projectile_expires_after_lifetime() {
+        let mut world = playing_world();
+
+        // lifetime 0.5초 투사체 스폰
+        spawn_projectile(
+            &mut world,
+            Vec2::ZERO,
+            Vec2::new(100.0, 0.0),
+            0.5,
+            0,
+            5.0,
+            [1.0, 1.0, 1.0],
+        );
+
+        // dt = 1.0 → lifetime 소진
+        ProjectileSystem::default().run(&mut world, 1.0);
+
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            0,
+            "수명이 소진된 투사체는 despawn 돼야 함"
+        );
+    }
+
+    /// 투사체가 좀비와 충돌하면 데미지를 입힌다.
+    #[test]
+    fn projectile_damages_zombie_on_collision() {
+        let mut world = playing_world();
+        world.insert_resource(GameStats::default());
+
+        // 좀비를 (30, 0) 에 스폰 (HP 30)
+        spawn_zombie(&mut world, Vec2::new(30.0, 0.0));
+
+        // 투사체를 원점에서 +x 방향으로 발사 — dt=0.1 에 (10, 0) 이동
+        // 좀비 Collider::Circle { radius:20 }, 투사체 radius:6
+        // 거리 = 30 - 10 = 20, 합산 반경 = 20 + 6 = 26 → 충돌
+        spawn_projectile(
+            &mut world,
+            Vec2::ZERO,
+            Vec2::new(100.0, 0.0),
+            2.0,
+            0,
+            5.0,
+            [1.0, 1.0, 1.0],
+        );
+
+        ProjectileSystem::default().run(&mut world, 0.1);
+
+        // 좀비 HP 가 줄었거나 despawn 됐어야 함
+        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e);
+        if let Some(ze) = zombie_entity {
+            let hp = world.get::<Health>(ze).map(|h| h.current).unwrap_or(0.0);
+            assert!(hp < 30.0, "투사체 피격 후 좀비 HP 가 줄어야 함 (현재 {hp})");
+        }
+        // despawn 됐으면 테스트 통과 (HP 5 미만 -> 즉사 가능성도 있음)
+    }
+}
