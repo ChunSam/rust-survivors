@@ -6,6 +6,7 @@ use super::health::Health;
 use super::hud::GameStats;
 use super::inventory::WeaponInventory;
 use super::passive::PassiveInventory;
+use super::pickup::GoldWallet;
 use super::player::{Player, PlayerStats, Velocity};
 use super::xp::XpAccumulator;
 
@@ -53,5 +54,9 @@ pub fn setup_survivor_world(world: &mut World) {
     }
     if world.resource::<StageProgress>().is_none() {
         world.insert_resource(StageProgress::default());
+    }
+    // Phase 7: GoldWallet — 사망해도 골드 유지 (메타 진행성). 최초 init 시만 삽입.
+    if world.resource::<GoldWallet>().is_none() {
+        world.insert_resource(GoldWallet::default());
     }
 }

@@ -1429,3 +1429,99 @@ cargo build --release --workspace           # ok
 #### 다음
 
 **Phase 6** — 무기 진화 + 보물상자 (Evolution 레시피 8종)
+
+---
+
+## Phase 6 — 무기 진화 + 보물상자 (2026-05-20 완료)
+
+### 신규 파일
+
+| 파일 | 핵심 타입·함수 |
+|---|---|
+| `crates/game/src/survivor/chest.rs` | `Chest`, `ChestPickupSystem`, `try_evolve`, `spawn_chest`, `EVOLUTION_RULES` |
+
+### 주요 기능
+
+- 진화 레시피 8종: Whip/MagicWand/Knife/Axe/Cross/FireWand/Garlic/HolyWater — 각 무기 Lv8 + 페어 패시브 Lv5 + 보물상자 픽업 시 진화 발동
+- `ChestPickupSystem` — 플레이어 반경 40px 안 Chest 자동 픽업 → `try_evolve()` 호출
+- 진화 시 `slot.evolved = true` + cooldown×0.7 + 무기별 스탯 강화 (damage×2 등)
+- 엘리트 사망 시 `spawn_chest()` 호출 (황금 28×24 사각형, z=0.4)
+
+### 신규 테스트 (+3 → 61)
+
+- `evolution_rules_count_is_eight` — EVOLUTION_RULES 길이 8 확인
+- `try_evolve_with_full_setup_marks_whip_evolved` — Whip Lv8 + HollowHeart Lv5 → evolved=true + damage≥20
+- `chest_pickup_despawns_chest` — ChestPickupSystem 실행 후 Chest 엔티티 0개 확인
+
+### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 61 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 다음
+
+**Phase 7** — 픽업 5종 (Coin/Chicken/Vacuum/Bomb/Rosary)
+
+---
+
+## Phase 7 — 픽업 5종 (2026-05-21 완료)
+
+### 신규 파일
+
+| 파일 | 핵심 타입·함수 |
+|---|---|
+| `crates/game/src/survivor/pickup.rs` | `PickupKind`, `Pickup`, `GoldWallet`, `PickupSystem`, `apply_pickup_effect`, `spawn_pickup`, `try_drop_normal_pickup`, `drop_boss_pickups` |
+
+### 픽업 5종 사양
+
+| 종류 | 드롭 조건 | 효과 |
+|---|---|---|
+| Coin | 적 사망 ~1.0% | `GoldWallet.current += 1` |
+| Chicken | 적 사망 ~0.5% | Player HP +20 (max clamp) |
+| Rosary | 적 사망 ~0.1% | 화면 내 모든 적 즉사 (9999 데미지) |
+| Vacuum | 보스 사망 100% | 모든 XpGem → Player 위치로 즉시 이동 |
+| Bomb | 보스 사망 100% | 화면 내 모든 적 100 데미지 |
+
+### 드롭 확률 (일반 적)
+
+`rand::random::<f32>()` roll 기반:
+- `roll < 0.001` → Rosary (0.1%)
+- `0.001 ≤ roll < 0.006` → Chicken (0.5%)
+- `0.006 ≤ roll < 0.016` → Coin (1.0%)
+- 그 외 → 픽업 없음 (일반 XpGem 만)
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `damage.rs` | 일반 적 사망 분기에 `try_drop_normal_pickup()` 추가 |
+| `boss.rs` | `BossDeathSystem` 에 `drop_boss_pickups()` 호출 추가 |
+| `world_setup.rs` | `setup_survivor_world` 에 `GoldWallet::default()` 삽입 |
+| `hud.rs` | HUD 라인에 Gold 표시 추가 |
+| `mod.rs` | `pub mod pickup` + 8종 재수출 |
+| `bin/survivor.rs` | `PickupSystem::default()` 등록 (ChestPickupSystem 직후) |
+
+### GoldWallet 정책
+
+사망 시 `restart_world` 에서 리셋하지 않음 — 메타 진행성 유지 (Phase 8 에서 영구 저장 예정).
+
+### 신규 테스트 (+3 → 64)
+
+- `chicken_heals_player` — HP 50 → Chicken → HP 70 확인
+- `bomb_kills_all_enemies` — 좀비 3마리 → Bomb → 적 0마리 확인
+- `coin_increments_gold_wallet` — Coin 2회 → gold == 2 확인
+
+### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 64 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 다음
+
+**Phase 8** — 메인 메뉴 + 메타 진행 + 저장

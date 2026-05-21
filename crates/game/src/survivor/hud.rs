@@ -6,6 +6,7 @@ use super::boss::{Boss, StageProgress};
 use super::health::Health;
 use super::levelup::PendingLevelUp;
 use super::passive::PassiveInventory;
+use super::pickup::GoldWallet;
 use super::player::Player;
 use super::xp::XpAccumulator;
 
@@ -45,14 +46,15 @@ impl System for HudSystem {
 
         let elapsed = world.resource::<GameStats>().map(|s| s.elapsed).unwrap_or(0.0);
         let kills   = world.resource::<GameStats>().map(|s| s.kills).unwrap_or(0);
+        let gold    = world.resource::<GoldWallet>().map(|w| w.current).unwrap_or(0);
         let mm = (elapsed as u32) / 60;
         let ss = (elapsed as u32) % 60;
 
         // 3) 좌상단 HUD 한 줄 (800×600 viewport 기준 좌상단 (10, 10))
         if let (Some((hp, hp_max)), Some((xp, lv, xp_max))) = (player_info, xp_info) {
             let line = format!(
-                "{:02}:{:02}  Lv {}  XP {}/{}  HP {:.0}/{:.0}  Passives {}  Kills {}",
-                mm, ss, lv, xp, xp_max, hp, hp_max, passive_count, kills
+                "{:02}:{:02}  Lv {}  XP {}/{}  HP {:.0}/{:.0}  Passives {}  Gold {}  Kills {}",
+                mm, ss, lv, xp, xp_max, hp, hp_max, passive_count, gold, kills
             );
             if let Some(q) = world.resource_mut::<TextQueue>() {
                 q.push(DrawText {
