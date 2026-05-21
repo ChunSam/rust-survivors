@@ -3,6 +3,7 @@ use engine::components::GameState;
 use engine::input::InputState;
 use rand::seq::SliceRandom;
 use winit::keyboard::KeyCode;
+use super::sfx::{SfxEvent, SfxQueue};
 use super::xp::XpAccumulator;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::passive::{PassiveInventory, PassiveKind};
@@ -547,6 +548,7 @@ impl System for LevelUpSystem {
 
                     world.insert_resource(PendingLevelUp { offered, consumed: false });
                     if let Some(gs) = world.resource_mut::<GameState>() { *gs = GameState::Paused; }
+                    if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::LevelUp); }
 
                     println!(
                         "LEVEL UP! (Level {}) — Press: 1={} 2={} 3={}",

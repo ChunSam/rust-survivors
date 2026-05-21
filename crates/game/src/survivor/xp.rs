@@ -3,6 +3,7 @@ use engine::components::GameState;
 use glam::Vec2;
 
 use super::player::{Player, PlayerStats};
+use super::sfx::{SfxEvent, SfxQueue};
 use super::LAYER_XP;
 
 /// 적이 떨어뜨리는 경험치 보석.
@@ -104,8 +105,10 @@ impl System for MagnetSystem {
             if let Some(pe) = player_entity {
                 if let Some(acc) = world.get_mut::<XpAccumulator>(pe) {
                     acc.current += total;
-                    // 매 픽업 println 제거 — HudSystem 의 XP 표시로 대체됨
                 }
+            }
+            if let Some(q) = world.resource_mut::<SfxQueue>() {
+                for _ in 0..to_pickup.len().min(3) { q.push(SfxEvent::XpGem); }
             }
         }
 

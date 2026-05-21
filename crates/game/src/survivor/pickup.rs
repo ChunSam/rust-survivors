@@ -11,6 +11,7 @@ use rand::Rng;
 
 use super::boss::CameraShake;
 use super::damage::apply_damage_to_enemy;
+use super::sfx::{SfxEvent, SfxQueue};
 use super::enemy::Enemy;
 use super::health::Health;
 use super::hud::GameStats;
@@ -97,6 +98,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                 wallet.current += 1;
                 println!("Coin picked: gold {}", wallet.current);
             }
+            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Pickup); }
         }
         PickupKind::Chicken => {
             if let Some(h) = world.get_mut::<Health>(player) {
@@ -104,6 +106,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                 h.current = healed;
                 println!("Chicken picked: HP {:.0}/{:.0}", healed, h.max);
             }
+            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Pickup); }
         }
         PickupKind::Vacuum => {
             // 모든 XpGem 의 Transform.position 을 player 위치로 즉시 이동
@@ -128,6 +131,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                 if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += killed; }
             }
             if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.40, 14.0); }
+            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Bomb); }
             println!("Bomb picked: {} enemies killed", killed);
         }
         PickupKind::Rosary => {
@@ -141,6 +145,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                 if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += count; }
             }
             if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.35, 10.0); }
+            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Bomb); }
             println!("Rosary picked: {} enemies cleared", count);
         }
     }

@@ -3,6 +3,7 @@ use engine::components::GameState;
 use engine::input::InputState;
 use winit::keyboard::KeyCode;
 use super::boss::{BossSpawnQueue, CameraShake, StageProgress};
+use super::sfx::{SfxEvent, SfxQueue};
 use super::enemy::Enemy;
 use super::player::{Player, PlayerStats};
 use super::health::Health;
@@ -83,6 +84,7 @@ impl System for EnemyContactDamageSystem {
         }
         if effective_damage > 0.0 {
             if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.15, 4.0); }
+            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::PlayerHit); }
         }
     }
 }

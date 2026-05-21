@@ -4,6 +4,7 @@ use engine::Entity;
 use super::damage_number::spawn_damage_number;
 use super::enemy::{Enemy, EnemyKind};
 use super::health::Health;
+use super::sfx::{SfxEvent, SfxQueue};
 use super::weapon::{HitFlash, FLASH_DURATION, SCALE_BUMP};
 use super::xp::spawn_xp_gem;
 
@@ -47,6 +48,11 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
 
     if let Some(p) = hit_pos {
         spawn_damage_number(world, p, damage);
+    }
+
+    // SFX 이벤트 push
+    if let Some(q) = world.resource_mut::<SfxQueue>() {
+        q.push(if died { SfxEvent::EnemyDie } else { SfxEvent::EnemyHit });
     }
 
     if died {

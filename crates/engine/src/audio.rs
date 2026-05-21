@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+use std::time::Duration;
 
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use rodio::source::SineWave;
 
 /// 오디오 재생 관리자 (ECS 리소스로 삽입)
 ///
@@ -84,6 +86,25 @@ impl AudioManager {
         if let Some(sink) = self.sinks.remove(channel) {
             sink.stop();
         }
+    }
+
+    /// 순수 사인파 톤을 재생한다. 오디오 파일 없이 간단한 SFX 생성 용도.
+    ///
+    /// - `channel`: 채널 이름 (같은 채널이면 이전 소리를 중단)
+    /// - `freq`: 주파수 (Hz)
+    /// - `duration_secs`: 재생 시간
+    /// - `volume`: 음량 배율 (0.0 ~ 1.0)
+    pub fn play_tone(&mut self, channel: &str, freq: f32, duration_secs: f32, volume: f32) {
+        if let Some(old) = self.sinks.remove(channel) { old.stop(); }
+        let sink = match Sink::try_new(&self.stream_handle) {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        let source = SineWave::new(freq)
+            .take_duration(Duration::from_secs_f32(duration_secs))
+            .amplify(volume);
+        sink.append(source);
+        self.sinks.insert(channel.to_string(), sink);
     }
 
     /// 채널 볼륨을 설정한다 (0.0 = 무음, 1.0 = 원본).

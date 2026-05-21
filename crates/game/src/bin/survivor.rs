@@ -62,6 +62,7 @@ use game::survivor::{
     PlayerMovementSystem,
     ProjectileSystem,
     RestartSystem,
+    SfxSystem,
     ShopInputSystem,
     SpawnDirectorSystem,
     StageSelectSystem,
@@ -120,6 +121,7 @@ fn main() {
     app.add_system(HitFlashSystem);
     app.add_system(DamageNumberSystem);               // Phase 11: 데미지 숫자 age/이동/despawn
     app.add_system(HudSystem);                        // 마지막 — TextQueue push (데미지 숫자 포함)
+    app.add_system(SfxSystem);                        // Phase 11-D: SfxQueue drain → AudioManager
 
     // 초기 엔티티 + 리소스 설정 (GameStats 포함)
     setup_survivor_world(&mut app.world);

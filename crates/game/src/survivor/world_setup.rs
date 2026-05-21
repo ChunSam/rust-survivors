@@ -1,6 +1,7 @@
 use engine::{Sprite, Transform, World};
 use glam::Vec2;
 use super::boss::{BossSpawnQueue, CameraShake, StageProgress};
+use super::sfx::SfxQueue;
 use super::character::SelectedCharacter;
 use super::director::SpawnDirector;
 use super::health::Health;
@@ -110,5 +111,9 @@ pub fn setup_survivor_world(world: &mut World) {
     if let Some(d) = world.resource_mut::<SpawnDirector>() {
         d.waves = waves;
         d.spawn_elapsed = 0.0;
+    }
+    // Phase 11-D: SfxQueue — 매 프레임 SfxSystem 이 drain 하므로 한 번만 삽입
+    if world.resource::<SfxQueue>().is_none() {
+        world.insert_resource(SfxQueue::default());
     }
 }
