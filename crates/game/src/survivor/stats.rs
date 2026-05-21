@@ -1,21 +1,63 @@
 //! PlayerStats 재계산 시스템 및 헬퍼.
 //!
 //! Phase 3-A: StatRecalcSystem 은 stub (no-op). 패시브가 없으므로 default 값 그대로.
-//! Phase 3-B 에서 PassiveInventory 합산 로직이 여기에 추가된다.
+//! Phase 3-B: PassiveInventory 합산 로직 추가.
+//!   1) default 로 시작
+//!   2) 각 패시브 효과 누적
+//!   3) PlayerStats 컴포넌트에 write
 
 use engine::{System, World};
 
+use super::passive::{PassiveInventory, PassiveKind};
 use super::player::{Player, PlayerStats};
 
 /// PlayerStats 를 매 프레임 재계산.
 ///
-/// Phase 3-A: stub — 아직 패시브가 없으므로 default 값 그대로. 변경 없음.
-/// Phase 3-B 에서 패시브 합산 로직 추가.
+/// Phase 3-B: PassiveInventory 를 읽어 PlayerStats 를 합산·갱신한다.
 pub struct StatRecalcSystem;
 
 impl System for StatRecalcSystem {
-    fn run(&mut self, _world: &mut World, _dt: f32) {
-        // 현재는 no-op. 패시브 도입 시 여기서 합산.
+    fn run(&mut self, world: &mut World, _dt: f32) {
+        // Player + PlayerStats + PassiveInventory 를 가진 엔티티 조회.
+        // borrow 를 즉시 끊기 위해 (entity, inv.clone()) 만 캐시한다.
+        let info = world
+            .query3::<Player, PlayerStats, PassiveInventory>()
+            .next()
+            .map(|(e, _, _, inv)| (e, inv.clone()));
+        let Some((player_entity, inv)) = info else {
+            return;
+        };
+
+        // 1) default 로 시작
+        let mut s = PlayerStats::default();
+
+        // 2) 각 패시브 효과 누적
+        for slot in &inv.passives {
+            let lv = slot.level as f32;
+            match slot.kind {
+                PassiveKind::Spinach       => s.might += lv,
+                PassiveKind::Armor         => s.armor += lv,
+                PassiveKind::HollowHeart   => s.max_health += 20.0 * lv,
+                PassiveKind::Pummarola     => s.recovery += 0.5 * lv,
+                PassiveKind::EmptyTome     => s.cooldown *= 0.92_f32.powf(lv),
+                PassiveKind::Candelabrador => s.area *= 1.10_f32.powf(lv),
+                PassiveKind::Bracer        => s.projectile_speed *= 1.10_f32.powf(lv),
+                PassiveKind::Spellbinder   => s.duration *= 1.10_f32.powf(lv),
+                PassiveKind::Duplicator    => s.amount += lv as i32,
+                PassiveKind::Wings         => s.move_speed *= 1.10_f32.powf(lv),
+                PassiveKind::Attractorb    => s.magnet *= 1.25_f32.powf(lv),
+                PassiveKind::Clover        => s.luck *= 1.10_f32.powf(lv),
+                PassiveKind::Crown         => s.growth *= 1.08_f32.powf(lv),
+                PassiveKind::StoneMask     => s.greed *= 1.10_f32.powf(lv),
+                PassiveKind::SkullOManiac  => s.curse *= 1.10_f32.powf(lv),
+                PassiveKind::Tiragisu      => s.revival += lv as u32,
+            }
+        }
+
+        // 3) PlayerStats 컴포넌트에 write
+        if let Some(stats) = world.get_mut::<PlayerStats>(player_entity) {
+            *stats = s;
+        }
     }
 }
 
@@ -29,4 +71,39 @@ pub fn read_player_stats(world: &World) -> PlayerStats {
         .next()
         .map(|(_, _, s)| s.clone())
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use engine::World;
+    use crate::survivor::passive::PassiveKind;
+    use crate::survivor::world_setup::spawn_player;
+    use crate::survivor::player::Player;
+
+    #[test]
+    fn stat_recalc_applies_spinach_might() {
+        let mut world = World::new();
+        world.insert_resource(engine::components::GameState::Playing);
+        spawn_player(&mut world);
+
+        let player_entity = world.query::<Player>().next().map(|(e, _)| e)
+            .expect("Player 엔티티가 없음");
+
+        // Spinach 3레벨
+        if let Some(inv) = world.get_mut::<PassiveInventory>(player_entity) {
+            inv.add_or_levelup(PassiveKind::Spinach);
+            inv.add_or_levelup(PassiveKind::Spinach);
+            inv.add_or_levelup(PassiveKind::Spinach);
+        }
+
+        StatRecalcSystem.run(&mut world, 0.0);
+
+        let stats = world.get_mut::<PlayerStats>(player_entity).unwrap();
+        assert!(
+            (stats.might - 3.0).abs() < 0.001,
+            "Spinach 3레벨 적용 후 might == 3.0 이어야 함 (현재 {})",
+            stats.might
+        );
+    }
 }

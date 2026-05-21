@@ -3,6 +3,7 @@ use glam::Vec2;
 use super::health::Health;
 use super::hud::GameStats;
 use super::inventory::WeaponInventory;
+use super::passive::PassiveInventory;
 use super::player::{Player, PlayerStats, Velocity};
 use super::spawn::SpawnTimer;
 use super::xp::XpAccumulator;
@@ -23,6 +24,7 @@ pub fn spawn_player(world: &mut World) {
     world.add_component(e, Velocity(Vec2::ZERO));
     world.add_component(e, Health::new(100.0));
     world.add_component(e, WeaponInventory::with_starter_loadout());
+    world.add_component(e, PassiveInventory::default());
     world.add_component(e, XpAccumulator::default());
     world.insert_resource(SpawnTimer::default());
 }

@@ -1112,4 +1112,26 @@ mod tests {
         }
         // despawn 됐으면(즉사) 테스트도 통과
     }
+
+    /// CardKind::PassiveSpinach 를 두 번 apply 하면 PassiveInventory 의 Spinach 레벨이 2 가 된다.
+    #[test]
+    fn apply_card_passive_spinach_levels_up() {
+        use super::survivor::{PassiveInventory, PassiveKind};
+
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        setup_survivor_world(&mut world);
+
+        let pe = world.query::<Player>().next().map(|(e, _)| e).unwrap();
+
+        // 첫 번째 카드 적용 → Spinach level 1
+        LevelUpSystem::apply_card(&mut world, pe, CardKind::PassiveSpinach);
+        let lv1 = world.get::<PassiveInventory>(pe).map(|i| i.level_of(PassiveKind::Spinach)).unwrap();
+        assert_eq!(lv1, 1, "첫 번째 PassiveSpinach 카드 적용 후 level 1 이어야 함");
+
+        // 두 번째 카드 적용 → Spinach level 2
+        LevelUpSystem::apply_card(&mut world, pe, CardKind::PassiveSpinach);
+        let lv2 = world.get::<PassiveInventory>(pe).map(|i| i.level_of(PassiveKind::Spinach)).unwrap();
+        assert_eq!(lv2, 2, "두 번째 PassiveSpinach 카드 적용 후 level 2 이어야 함");
+    }
 }

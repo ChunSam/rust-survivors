@@ -6,6 +6,7 @@ use super::player::Player;
 use super::health::Health;
 use super::xp::XpAccumulator;
 use super::levelup::PendingLevelUp;
+use super::passive::PassiveInventory;
 
 /// 게임 진행 통계. 매 프레임 누적/조회.
 #[derive(Debug, Default)]
@@ -35,6 +36,11 @@ impl System for HudSystem {
             .query2::<Player, XpAccumulator>()
             .next()
             .map(|(_, _, acc)| (acc.current, acc.level, acc.next_threshold));
+        let passive_count = world
+            .query2::<Player, PassiveInventory>()
+            .next()
+            .map(|(_, _, inv)| inv.passives.len())
+            .unwrap_or(0);
 
         let elapsed = world.resource::<GameStats>().map(|s| s.elapsed).unwrap_or(0.0);
         let kills   = world.resource::<GameStats>().map(|s| s.kills).unwrap_or(0);
@@ -44,8 +50,8 @@ impl System for HudSystem {
         // 3) 좌상단 HUD 한 줄 (800×600 viewport 기준 좌상단 (10, 10))
         if let (Some((hp, hp_max)), Some((xp, lv, xp_max))) = (player_info, xp_info) {
             let line = format!(
-                "{:02}:{:02}  Lv {}  XP {}/{}  HP {:.0}/{:.0}  Kills {}",
-                mm, ss, lv, xp, xp_max, hp, hp_max, kills
+                "{:02}:{:02}  Lv {}  XP {}/{}  HP {:.0}/{:.0}  Passives {}  Kills {}",
+                mm, ss, lv, xp, xp_max, hp, hp_max, passive_count, kills
             );
             if let Some(q) = world.resource_mut::<TextQueue>() {
                 q.push(DrawText {

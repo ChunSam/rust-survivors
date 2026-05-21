@@ -5,6 +5,7 @@ use rand::seq::SliceRandom;
 use winit::keyboard::KeyCode;
 use super::xp::XpAccumulator;
 use super::inventory::{WeaponInventory, WeaponKind};
+use super::passive::{PassiveInventory, PassiveKind};
 use super::player::Player;
 
 /// 카드 강화 종류 — 10 무기 × 2~3 카드씩 총 28 variant.
@@ -58,6 +59,24 @@ pub enum CardKind {
     LightningDamage,      // damage += 8
     LightningStrikeCount, // strike_count += 1
     LightningCooldown,    // cooldown *= 0.85
+
+    // ── Passives (16) — 각각 add_or_levelup
+    PassiveSpinach,
+    PassiveArmor,
+    PassiveHollowHeart,
+    PassivePummarola,
+    PassiveEmptyTome,
+    PassiveCandelabrador,
+    PassiveBracer,
+    PassiveSpellbinder,
+    PassiveDuplicator,
+    PassiveWings,
+    PassiveAttractorb,
+    PassiveClover,
+    PassiveCrown,
+    PassiveStoneMask,
+    PassiveSkullOManiac,
+    PassiveTiragisu,
 }
 
 /// 풀 카드 풀 — ALL_CARDS.choose_multiple 로 3장 랜덤 추출.
@@ -91,6 +110,23 @@ const ALL_CARDS: &[CardKind] = &[
     CardKind::LightningDamage,
     CardKind::LightningStrikeCount,
     CardKind::LightningCooldown,
+    // Passives
+    CardKind::PassiveSpinach,
+    CardKind::PassiveArmor,
+    CardKind::PassiveHollowHeart,
+    CardKind::PassivePummarola,
+    CardKind::PassiveEmptyTome,
+    CardKind::PassiveCandelabrador,
+    CardKind::PassiveBracer,
+    CardKind::PassiveSpellbinder,
+    CardKind::PassiveDuplicator,
+    CardKind::PassiveWings,
+    CardKind::PassiveAttractorb,
+    CardKind::PassiveClover,
+    CardKind::PassiveCrown,
+    CardKind::PassiveStoneMask,
+    CardKind::PassiveSkullOManiac,
+    CardKind::PassiveTiragisu,
 ];
 
 impl CardKind {
@@ -135,6 +171,23 @@ impl CardKind {
             CardKind::LightningDamage      => "Lightning: DMG +8",
             CardKind::LightningStrikeCount => "Lightning: +1 Strike",
             CardKind::LightningCooldown    => "Lightning: CD -15%",
+            // Passives — PassiveKind::label 로 위임
+            CardKind::PassiveSpinach       => PassiveKind::Spinach.label(),
+            CardKind::PassiveArmor         => PassiveKind::Armor.label(),
+            CardKind::PassiveHollowHeart   => PassiveKind::HollowHeart.label(),
+            CardKind::PassivePummarola     => PassiveKind::Pummarola.label(),
+            CardKind::PassiveEmptyTome     => PassiveKind::EmptyTome.label(),
+            CardKind::PassiveCandelabrador => PassiveKind::Candelabrador.label(),
+            CardKind::PassiveBracer        => PassiveKind::Bracer.label(),
+            CardKind::PassiveSpellbinder   => PassiveKind::Spellbinder.label(),
+            CardKind::PassiveDuplicator    => PassiveKind::Duplicator.label(),
+            CardKind::PassiveWings         => PassiveKind::Wings.label(),
+            CardKind::PassiveAttractorb    => PassiveKind::Attractorb.label(),
+            CardKind::PassiveClover        => PassiveKind::Clover.label(),
+            CardKind::PassiveCrown         => PassiveKind::Crown.label(),
+            CardKind::PassiveStoneMask     => PassiveKind::StoneMask.label(),
+            CardKind::PassiveSkullOManiac  => PassiveKind::SkullOManiac.label(),
+            CardKind::PassiveTiragisu      => PassiveKind::Tiragisu.label(),
         }
     }
 }
@@ -400,6 +453,53 @@ impl LevelUpSystem {
                         slot.level += 1;
                     }
                 }
+
+                // ── Passives ─────────────────────────────────────────────────
+                // 무기 카드와 달리 WeaponInventory 가 아닌 PassiveInventory 를
+                // 갱신해야 하므로 여기서는 no-op. match 종료 후 별도 분기에서 처리.
+                CardKind::PassiveSpinach
+                | CardKind::PassiveArmor
+                | CardKind::PassiveHollowHeart
+                | CardKind::PassivePummarola
+                | CardKind::PassiveEmptyTome
+                | CardKind::PassiveCandelabrador
+                | CardKind::PassiveBracer
+                | CardKind::PassiveSpellbinder
+                | CardKind::PassiveDuplicator
+                | CardKind::PassiveWings
+                | CardKind::PassiveAttractorb
+                | CardKind::PassiveClover
+                | CardKind::PassiveCrown
+                | CardKind::PassiveStoneMask
+                | CardKind::PassiveSkullOManiac
+                | CardKind::PassiveTiragisu => {}
+            }
+        }
+
+        // 패시브 카드: PassiveInventory 에 add_or_levelup. WeaponInventory mut 빌림
+        // 이 끝난 시점에 처리한다.
+        let passive_kind = match card {
+            CardKind::PassiveSpinach       => Some(PassiveKind::Spinach),
+            CardKind::PassiveArmor         => Some(PassiveKind::Armor),
+            CardKind::PassiveHollowHeart   => Some(PassiveKind::HollowHeart),
+            CardKind::PassivePummarola     => Some(PassiveKind::Pummarola),
+            CardKind::PassiveEmptyTome     => Some(PassiveKind::EmptyTome),
+            CardKind::PassiveCandelabrador => Some(PassiveKind::Candelabrador),
+            CardKind::PassiveBracer        => Some(PassiveKind::Bracer),
+            CardKind::PassiveSpellbinder   => Some(PassiveKind::Spellbinder),
+            CardKind::PassiveDuplicator    => Some(PassiveKind::Duplicator),
+            CardKind::PassiveWings         => Some(PassiveKind::Wings),
+            CardKind::PassiveAttractorb    => Some(PassiveKind::Attractorb),
+            CardKind::PassiveClover        => Some(PassiveKind::Clover),
+            CardKind::PassiveCrown         => Some(PassiveKind::Crown),
+            CardKind::PassiveStoneMask     => Some(PassiveKind::StoneMask),
+            CardKind::PassiveSkullOManiac  => Some(PassiveKind::SkullOManiac),
+            CardKind::PassiveTiragisu      => Some(PassiveKind::Tiragisu),
+            _ => None,
+        };
+        if let Some(kind) = passive_kind {
+            if let Some(inv) = world.get_mut::<PassiveInventory>(player_entity) {
+                inv.add_or_levelup(kind);
             }
         }
 
