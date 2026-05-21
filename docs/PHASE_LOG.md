@@ -1309,3 +1309,70 @@ cargo build --release --workspace           # ok
 ### 다음
 
 **Phase 4-B** — SpawnDirector + waves.ron (시간축 wave 정의)
+
+---
+
+### Phase 4-B — SpawnDirector + waves.ron (2026-05-21)
+
+게임 진행 시간에 따라 wave 가 변하는 시간축 스폰 시스템. 기존 고정 cooldown 1.0초 균등 random 스폰(`EnemySpawnSystem`) 을 `SpawnDirectorSystem` 으로 교체.
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `assets/data/waves.ron` | 6개 wave 정의 (0~30분 커버). 각 wave 에 `start_time`, `end_time`, `spawn_interval`, `enemies` 풀 + weight |
+| `crates/game/src/survivor/director.rs` | `EnemyEntry`, `WaveDef`, `WavesFile` (Deserialize 구조체) + `SpawnDirector` (ECS 리소스) + `SpawnDirectorSystem` (System) |
+
+#### 제거된 코드
+
+| 항목 | 파일 |
+|---|---|
+| `SpawnTimer` 구조체 | `spawn.rs` (약 10줄) |
+| `EnemySpawnSystem` (균등 random) | `spawn.rs` (약 44줄) |
+| `pick_random_enemy_kind` 헬퍼 | `spawn.rs` (약 15줄) |
+| `SpawnTimer::default()` 삽입 | `world_setup.rs` |
+| `SpawnTimer` 리셋 | `death.rs` |
+
+#### waves.ron 구조
+
+| Wave | 시간 | interval | 등장 적 |
+|---|---|---|---|
+| 0 | 0:00~1:00 | 1.2s | Zombie(w6) + Bat(w2) |
+| 1 | 1:00~3:00 | 1.0s | Zombie + Bat + Skeleton + Ghost |
+| 2 | 3:00~6:00 | 0.8s | Zombie + Bat + Skeleton + Ghost + Mage + Mantis |
+| 3 | 6:00~12:00 | 0.6s | Skeleton + Ghost + Mage + Mantis + Slime + Plant |
+| 4 | 12:00~20:00 | 0.5s | Mage + Mantis + Slime + Plant + Mummy |
+| 5 | 20:00~30:00 | 0.4s | Mantis + Slime + Mummy + Knight |
+
+30분 이후엔 마지막 wave (Knight/Mummy) 반복.
+
+#### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `crates/game/src/survivor/spawn.rs` | `SpawnTimer`, `EnemySpawnSystem`, `pick_random_enemy_kind` 제거. `spawn_enemy`, `spawn_zombie`, `spawn_enemy_with_splits` 유지 |
+| `crates/game/src/survivor/world_setup.rs` | `SpawnTimer::default()` 삽입 → `SpawnDirector::default()` 삽입으로 교체 |
+| `crates/game/src/survivor/death.rs` | `SpawnTimer` 리셋 → `SpawnDirector.spawn_elapsed = 0.0` 리셋 |
+| `crates/game/src/survivor/mod.rs` | `director` 모듈 추가, `SpawnDirector/SpawnDirectorSystem/…` 재수출. `EnemySpawnSystem/SpawnTimer` 재수출 제거 |
+| `crates/game/src/bin/survivor.rs` | `EnemySpawnSystem` → `SpawnDirectorSystem::default()` 교체 |
+| `crates/game/src/lib.rs` | 임포트 갱신 + 신규 테스트 3건 + `spawn_timer_triggers_after_interval` 를 director 기반으로 전환 |
+
+#### 테스트
+
+game lib 52 통과 (직전 50 + 신규 3 - 교체 1):
+- `waves_ron_loads_at_least_one_wave` — `SpawnDirector::default()` → `waves.len() > 0`
+- `director_picks_zombie_in_first_wave` — wave 0 에서 50회 pick → Zombie 10회 이상 (weight 6/8)
+- `spawn_director_spawns_enemy_after_interval` — `dt=2.0` → 적 1마리 이상 스폰
+- `enemy_despawned_when_far` — 기존 테스트를 `SpawnDirectorSystem` 기반으로 갱신
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 52 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 다음
+
+**Phase 4-C** — 패턴 스폰 (line / circle / surround / swarm)

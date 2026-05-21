@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4-A (적 10종 + AI 변종 6개)**
-- **상태**: engine 26 tests · game lib 50 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성 (4-A)**: `EnemyKind` 10 variant (Zombie/Bat/Ghost/Skeleton/Mage/Mantis/Plant/Slime/Mummy/Knight) + `EnemyAiKind` 6 variant (Chase/Hover/Kite/Dash/Stay/Split) + `Enemy` 컴포넌트 (kind+contact_damage+split_remaining). `EnemyAiSystem` 분기 처리. `EnemySpawnSystem`: 균등 random 10종 스폰. `EnemyContactDamageSystem`: enemy.contact_damage 동적 합산. `apply_damage_to_zombie` → `apply_damage_to_enemy` rename (6곳). Slime split 무한 방지 (`split_remaining`).
-- **다음**: Phase 4-B (SpawnDirector + waves.ron 시간축 wave)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4-A (적 10종 + AI 변종 6개)** + **Phase 4-B (SpawnDirector + waves.ron 시간축 wave)**
+- **상태**: engine 26 tests · game lib 52 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성 (4-B)**: `waves.ron` 6 wave (0~30분). `SpawnDirector` ECS 리소스 (wave 정의 + spawn_elapsed cooldown). `SpawnDirectorSystem` (시간축 wave 선택 + weight random 스폰 + despawn 정리). `EnemySpawnSystem`/`SpawnTimer` 제거 (5파일 영향). restart 시 `SpawnDirector.spawn_elapsed` 리셋.
+- **다음**: Phase 4-C (패턴 스폰 — line/circle/surround/swarm)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

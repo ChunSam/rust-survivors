@@ -12,11 +12,12 @@ mod tests {
         spawn_enemy, spawn_holy_water_pool, spawn_player, spawn_projectile,
         spawn_projectile_ex, spawn_xp_gem, spawn_zombie, CameraFollowSystem,
         CardKind, CrossSystem, DeathSystem, Enemy, EnemyAiSystem, EnemyContactDamageSystem,
-        EnemyKind, EnemySpawnSystem, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
+        EnemyKind, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
         HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, KingBibleSystem, KnifeSystem,
         LevelUpSystem, LightningFlash, LightningRingSystem, MagicWandSystem, MagnetSystem,
         OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player, PlayerStats, Projectile,
-        ProjectileBehavior, ProjectileSystem, SpawnTimer, WeaponInventory, WeaponKind, WhipSystem,
+        ProjectileBehavior, ProjectileSystem, SpawnDirector, SpawnDirectorSystem,
+        WeaponInventory, WeaponKind, WhipSystem,
         XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
@@ -183,18 +184,42 @@ mod tests {
         assert!(after_x > before_x, "zombie should move toward player (+x direction)");
     }
 
+    // ── Phase 4-B: SpawnDirector 테스트 ─────────────────────────────────────
+
     #[test]
-    fn spawn_timer_triggers_after_interval() {
+    fn waves_ron_loads_at_least_one_wave() {
+        let director = SpawnDirector::default();
+        assert!(!director.waves.is_empty(), "waves.ron 은 최소 1개 wave 를 포함해야 함");
+    }
+
+    #[test]
+    fn director_picks_zombie_in_first_wave() {
+        use super::survivor::director::SpawnDirector as SD;
+        let director = SD::default();
+        let wave = director.current_wave(0.0).expect("wave 0 이 존재해야 함");
+        let mut rng = rand::thread_rng();
+        let mut zombie_count = 0u32;
+        for _ in 0..50 {
+            if let Some(EnemyKind::Zombie) = SD::pick_enemy_from(wave, &mut rng) {
+                zombie_count += 1;
+            }
+        }
+        assert!(zombie_count >= 10, "wave 0 에서 50회 중 Zombie 가 10회 이상 선택되어야 함 (weight 6/8), 실제: {}", zombie_count);
+    }
+
+    #[test]
+    fn spawn_director_spawns_enemy_after_interval() {
         let mut world = World::new();
         world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
-        world.insert_resource(SpawnTimer { interval: 1.0, elapsed: 0.0 });
+        world.insert_resource(SpawnDirector::default());
+        world.insert_resource(GameStats::default());
 
-        EnemySpawnSystem::default().run(&mut world, 1.0);
+        // dt=2.0 → 첫 번째 wave 의 spawn_interval(1.2) 초과 → 적 1마리 스폰
+        SpawnDirectorSystem::default().run(&mut world, 2.0);
 
-        // EnemySpawnSystem 이 랜덤 종류를 스폰하므로 Enemy 컴포넌트로 개수 확인
         let count = world.query::<Enemy>().count();
-        assert_eq!(count, 1, "one enemy should have spawned");
+        assert!(count >= 1, "SpawnDirectorSystem 이 dt=2.0 후 적 1마리 이상 스폰해야 함, 실제: {}", count);
     }
 
     #[test]
@@ -202,14 +227,15 @@ mod tests {
         let mut world = World::new();
         world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
-        // 타이머 발화를 막으려고 interval 을 매우 크게 설정
-        world.insert_resource(SpawnTimer { interval: 999.0, elapsed: 0.0 });
+        world.insert_resource(SpawnDirector::default());
+        world.insert_resource(GameStats::default());
 
         // despawn_radius(900) 밖에 좀비 스폰
         spawn_zombie(&mut world, Vec2::new(2000.0, 0.0));
         assert_eq!(world.query::<Zombie>().count(), 1);
 
-        EnemySpawnSystem::default().run(&mut world, 0.0);
+        // dt=0 → cooldown 미달이므로 추가 스폰 없음, despawn 만 동작
+        SpawnDirectorSystem::default().run(&mut world, 0.0);
 
         assert_eq!(world.query::<Zombie>().count(), 0, "far zombie should be despawned");
     }

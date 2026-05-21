@@ -108,7 +108,7 @@ impl System for DeathSystem {
 /// 월드 리셋 로직 헬퍼 — 테스트에서 직접 호출 가능하므로 pub 으로 분리.
 ///
 /// - Transform 컴포넌트를 가진 모든 게임 엔티티 despawn (Player/Zombie/XpGem 포함).
-/// - 게임 진행 리소스(GameStats, PendingLevelUp, SpawnTimer) 초기화.
+/// - 게임 진행 리소스(GameStats, PendingLevelUp, SpawnDirector) 초기화.
 /// - setup_survivor_world 로 Player 재스폰 + 리소스 재설정.
 /// - GameState 를 Playing 으로 전환.
 pub fn restart_world(world: &mut World) {
@@ -128,8 +128,9 @@ pub fn restart_world(world: &mut World) {
     if let Some(p) = world.resource_mut::<super::levelup::PendingLevelUp>() {
         p.consumed = true; // LevelUpSystem 이 다음 프레임에서 skip
     }
-    if let Some(timer) = world.resource_mut::<super::spawn::SpawnTimer>() {
-        *timer = super::spawn::SpawnTimer::default();
+    // SpawnDirector cooldown 리셋 (waves 정의는 유지, 내부 카운터만 초기화)
+    if let Some(d) = world.resource_mut::<super::director::SpawnDirector>() {
+        d.spawn_elapsed = 0.0;
     }
 
     // Player + 관련 리소스 재설정
