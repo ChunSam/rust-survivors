@@ -8,12 +8,13 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        restart_world, setup_survivor_world, spawn_player, spawn_projectile, spawn_projectile_ex,
-        spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, CrossSystem, DeathSystem,
-        EnemyAiSystem, EnemyContactDamageSystem, EnemySpawnSystem, FireWandSystem, GameStats,
-        Health, HitFlash, KnifeSystem, LevelUpSystem, MagicWandSystem, MagnetSystem,
-        PendingLevelUp, Player, PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem,
-        SpawnTimer, WeaponInventory, WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
+        restart_world, setup_survivor_world, spawn_holy_water_pool, spawn_player, spawn_projectile,
+        spawn_projectile_ex, spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, CrossSystem,
+        DeathSystem, EnemyAiSystem, EnemyContactDamageSystem, EnemySpawnSystem, FireWandSystem,
+        GameStats, GarlicSystem, Health, HitFlash, HolyWaterPool, HolyWaterPoolSystem,
+        HolyWaterSystem, KnifeSystem, LevelUpSystem, MagicWandSystem, MagnetSystem, PendingLevelUp,
+        Player, PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnTimer,
+        WeaponInventory, WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
@@ -650,13 +651,13 @@ mod tests {
 
     // ── Phase 2-D: Cross + FireWand + Inventory Vec 테스트 ──────────────────
 
-    /// with_starter_loadout 에 6개 무기가 모두 채워져야 한다 (Whip/MagicWand/Knife/Axe/Cross/FireWand).
+    /// with_starter_loadout 에 8개 무기가 모두 채워져야 한다 (Whip/MagicWand/Knife/Axe/Cross/FireWand/Garlic/HolyWater).
     #[test]
     fn inventory_starter_loadout_has_six_weapons() {
         let inv = WeaponInventory::with_starter_loadout();
 
         // Vec 기반 — len() 으로 확인
-        assert_eq!(inv.slots.len(), 6, "6개 슬롯이 있어야 함");
+        assert_eq!(inv.slots.len(), 8, "8개 슬롯이 있어야 함");
 
         // 각 슬롯의 kind 확인 (순서 보장)
         assert!(
@@ -682,6 +683,14 @@ mod tests {
         assert!(
             matches!(inv.slots[5].kind, WeaponKind::FireWand { .. }),
             "슬롯 5 는 FireWand 여야 함"
+        );
+        assert!(
+            matches!(inv.slots[6].kind, WeaponKind::Garlic { .. }),
+            "슬롯 6 은 Garlic 이어야 함"
+        );
+        assert!(
+            matches!(inv.slots[7].kind, WeaponKind::HolyWater { .. }),
+            "슬롯 7 은 HolyWater 여야 함"
         );
     }
 
@@ -749,6 +758,95 @@ mod tests {
             1,
             "FireWand cooldown 경과 후 투사체 1개가 스폰돼야 함"
         );
+    }
+
+    // ── Phase 2-E: Garlic + HolyWater 테스트 ────────────────────────────────
+
+    /// GarlicSystem cooldown 경과 후 반경 안 좀비에게 데미지가 들어가야 한다.
+    #[test]
+    fn garlic_damages_zombies_in_radius() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
+
+        // Garlic 포함 스타터 로드아웃으로 플레이어 스폰
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // Garlic radius = 70px 안에 좀비 스폰 (50px)
+        spawn_zombie(&mut world, Vec2::new(50.0, 0.0));
+        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
+
+        // 초기 HP 확인 (30)
+        let before_hp = world.get::<Health>(zombie_entity).map(|h| h.current).unwrap();
+        assert_eq!(before_hp, 30.0);
+
+        // dt = 1.0 → cooldown 0.5 초과 → 발화
+        GarlicSystem::default().run(&mut world, 1.0);
+
+        // 좀비 HP 가 줄었거나 despawn 됐어야 함 (damage 4 적용)
+        let zombie_alive = world.query::<Zombie>().next().map(|(e, _)| e);
+        if let Some(ze) = zombie_alive {
+            let hp = world.get::<Health>(ze).map(|h| h.current).unwrap();
+            assert!(hp < 30.0, "Garlic 피격 후 좀비 HP 가 줄어야 함 (현재 {hp})");
+        }
+        // despawn 됐으면(즉사) 테스트도 통과
+    }
+
+    /// HolyWaterSystem cooldown 경과 후 풀 엔티티가 1개 이상 스폰돼야 한다.
+    #[test]
+    fn holy_water_spawns_pool_after_cooldown() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
+
+        // HolyWater 포함 스타터 로드아웃으로 플레이어 스폰
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // dt = 4.0 → cooldown 3.0 초과 → 발화
+        HolyWaterSystem.run(&mut world, 4.0);
+
+        assert!(
+            world.query::<HolyWaterPool>().count() >= 1,
+            "HolyWater cooldown 경과 후 풀이 최소 1개 스폰돼야 함"
+        );
+    }
+
+    /// HolyWaterPool 이 tick_cooldown 경과 후 반경 안 좀비에게 데미지를 가해야 한다.
+    #[test]
+    fn pool_damages_zombie_on_tick() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(GameStats::default());
+
+        // 원점에 풀 스폰 (damage=5, radius=50, lifetime=3, tick_cooldown=0.5)
+        spawn_holy_water_pool(&mut world, Vec2::ZERO, 5.0, 50.0, 3.0, 0.5);
+
+        // 풀 반경(50px) 안에 좀비 스폰 (30px)
+        spawn_zombie(&mut world, Vec2::new(30.0, 0.0));
+        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
+
+        // dt = 0.6 → tick_cooldown(0.5) 초과 → 1회 tick 발화
+        HolyWaterPoolSystem::default().run(&mut world, 0.6);
+
+        // 좀비 HP 가 줄었거나 despawn 됐어야 함 (damage 5 적용)
+        let zombie_alive = world.query::<Zombie>().next().map(|(e, _)| e);
+        if let Some(ze) = zombie_alive {
+            let hp = world.get::<Health>(ze).map(|h| h.current).unwrap();
+            assert!(hp < 30.0, "Pool tick 후 좀비 HP 가 줄어야 함 (현재 {hp})");
+        }
+        // despawn 됐으면(즉사) 테스트도 통과
     }
 
     /// Boomerang 투사체는 return_at 경과 후 velocity 가 반전돼야 한다.

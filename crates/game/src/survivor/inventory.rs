@@ -4,6 +4,7 @@
 /// Phase 2-B 에서 MagicWand 추가.
 /// Phase 2-C 에서 Knife, Axe 추가.
 /// Phase 2-D 에서 Cross, FireWand 추가.
+/// Phase 2-E 에서 Garlic, HolyWater 추가.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WeaponKind {
     Whip {
@@ -52,6 +53,19 @@ pub enum WeaponKind {
         projectile_speed: f32,
         lifetime:         f32,
         pierce:           u8,
+    },
+    /// 플레이어 중심 오라. cooldown 마다 반경 안 모든 적에게 tick 데미지.
+    Garlic {
+        damage: f32,   // tick 당 데미지 (cooldown 마다 1회)
+        radius: f32,   // 플레이어 중심 오라 반경
+    },
+    /// 플레이어 주변 랜덤 위치에 지속 풀을 드롭. tick_cooldown 마다 area-damage.
+    HolyWater {
+        damage:        f32,  // 풀 tick 당 데미지
+        radius:        f32,  // 풀의 area-damage 반경
+        pool_lifetime: f32,  // 풀이 유지되는 시간(초)
+        tick_cooldown: f32,  // 풀이 데미지 가하는 간격
+        drop_count:    u8,   // 한 번 발화 시 풀 N 개 드롭 (시작 1)
     },
 }
 
@@ -162,6 +176,24 @@ impl WeaponInventory {
             cooldown: 2.5,
             elapsed:  0.0,
         });
+        inv.slots.push(WeaponSlot {
+            kind: WeaponKind::Garlic { damage: 4.0, radius: 70.0 },
+            level:    1,
+            cooldown: 0.5,
+            elapsed:  0.0,
+        });
+        inv.slots.push(WeaponSlot {
+            kind: WeaponKind::HolyWater {
+                damage:        5.0,
+                radius:        50.0,
+                pool_lifetime: 3.0,
+                tick_cooldown: 0.5,
+                drop_count:    1,
+            },
+            level:    1,
+            cooldown: 3.0,
+            elapsed:  0.0,
+        });
         inv
     }
 
@@ -224,6 +256,24 @@ impl WeaponInventory {
     pub fn fire_wand_slot(&self) -> Option<&WeaponSlot> {
         self.slots.iter().find(|s| matches!(s.kind, WeaponKind::FireWand { .. }))
     }
+
+    /// 첫 매칭되는 Garlic 슬롯의 mutable 참조.
+    pub fn garlic_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::Garlic { .. }))
+    }
+
+    pub fn garlic_slot(&self) -> Option<&WeaponSlot> {
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::Garlic { .. }))
+    }
+
+    /// 첫 매칭되는 HolyWater 슬롯의 mutable 참조.
+    pub fn holy_water_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::HolyWater { .. }))
+    }
+
+    pub fn holy_water_slot(&self) -> Option<&WeaponSlot> {
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::HolyWater { .. }))
+    }
 }
 
 #[cfg(test)]
@@ -234,13 +284,15 @@ mod tests {
     fn inventory_starts_with_whip_slot_0() {
         let inv = WeaponInventory::with_starter_loadout();
         // Vec 기반 — 인덱스로 직접 접근
-        assert_eq!(inv.slots.len(), 6, "6개 슬롯이 있어야 함");
+        assert_eq!(inv.slots.len(), 8, "8개 슬롯이 있어야 함");
         assert!(matches!(inv.slots[0].kind, WeaponKind::Whip { .. }), "슬롯 0 은 Whip 이어야 함");
         assert!(matches!(inv.slots[1].kind, WeaponKind::MagicWand { .. }), "슬롯 1 은 MagicWand 여야 함");
         assert!(matches!(inv.slots[2].kind, WeaponKind::Knife { .. }), "슬롯 2 는 Knife 여야 함");
         assert!(matches!(inv.slots[3].kind, WeaponKind::Axe { .. }), "슬롯 3 은 Axe 여야 함");
         assert!(matches!(inv.slots[4].kind, WeaponKind::Cross { .. }), "슬롯 4 는 Cross 여야 함");
         assert!(matches!(inv.slots[5].kind, WeaponKind::FireWand { .. }), "슬롯 5 는 FireWand 여야 함");
+        assert!(matches!(inv.slots[6].kind, WeaponKind::Garlic { .. }), "슬롯 6 은 Garlic 이어야 함");
+        assert!(matches!(inv.slots[7].kind, WeaponKind::HolyWater { .. }), "슬롯 7 은 HolyWater 여야 함");
 
         let slot = &inv.slots[0];
         assert_eq!(slot.level, 1);
