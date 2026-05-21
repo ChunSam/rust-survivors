@@ -1,8 +1,15 @@
 use engine::{Camera, System, Transform, World};
 use glam::Vec2;
 use rand::Rng;
-use super::boss::CameraShake;
+use super::boss::{Boss, CameraShake};
 use super::player::Player;
+
+/// 보스 활성 여부에 따른 줌 목표값.
+const ZOOM_NORMAL: f32 = 1.0;
+/// 보스가 살아있을 때 줌아웃 → 전투 공간 확보.
+const ZOOM_BOSS:   f32 = 0.80;
+/// zoom 보간 속도 (1.0 = 즉시, 0.01 = 매우 느림).
+const ZOOM_LERP:   f32 = 0.015;
 
 /// 카메라를 플레이어 위치로 lerp 따라가게 한다.
 pub struct CameraFollowSystem {
@@ -62,6 +69,13 @@ impl System for CameraFollowSystem {
             if let Some(cam) = world.resource_mut::<Camera>() {
                 cam.position += offset;
             }
+        }
+
+        // 4. 동적 줌 — 보스 살아있으면 줌아웃, 없으면 복귀 (Phase 11-F)
+        let boss_alive = world.query::<Boss>().next().is_some();
+        let target_zoom = if boss_alive { ZOOM_BOSS } else { ZOOM_NORMAL };
+        if let Some(cam) = world.resource_mut::<Camera>() {
+            cam.zoom += (target_zoom - cam.zoom) * ZOOM_LERP;
         }
     }
 }
