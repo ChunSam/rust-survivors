@@ -4,6 +4,7 @@ use engine::Entity;
 use super::damage_number::spawn_damage_number;
 use super::enemy::{Enemy, EnemyKind};
 use super::health::Health;
+use super::particle::spawn_death_burst;
 use super::sfx::{SfxEvent, SfxQueue};
 use super::weapon::{HitFlash, FLASH_DURATION, SCALE_BUMP};
 use super::xp::spawn_xp_gem;
@@ -56,12 +57,18 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
     }
 
     if died {
-        let drop_pos = world.get::<Transform>(enemy).map(|t| t.position);
-        let kind     = world.get::<Enemy>(enemy).map(|e| e.kind);
-        let splits   = world.get::<Enemy>(enemy).map(|e| e.split_remaining).unwrap_or(0);
-        let is_elite = world.get::<Enemy>(enemy).map(|e| e.is_elite).unwrap_or(false);
+        let drop_pos    = world.get::<Transform>(enemy).map(|t| t.position);
+        let enemy_color = original; // 피격 전 원래 색 = 적 고유 색
+        let kind        = world.get::<Enemy>(enemy).map(|e| e.kind);
+        let splits      = world.get::<Enemy>(enemy).map(|e| e.split_remaining).unwrap_or(0);
+        let is_elite    = world.get::<Enemy>(enemy).map(|e| e.is_elite).unwrap_or(false);
 
         world.despawn(enemy);
+
+        // 사망 파티클 (despawn 후 스폰)
+        if let Some(p) = drop_pos {
+            spawn_death_burst(world, p, [enemy_color[0], enemy_color[1], enemy_color[2], 1.0]);
+        }
 
         if let Some(p) = drop_pos {
             if is_elite {

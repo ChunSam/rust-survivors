@@ -40,6 +40,7 @@ use game::survivor::{
     CrossSystem,
     DamageNumberSystem,
     DeathSystem,
+    ParticleSystem,
     EnemyAiSystem,
     EnemyContactDamageSystem,
     FireWandSystem,
@@ -120,6 +121,7 @@ fn main() {
     app.add_system(PickupSystem::default());          // Phase 7: 픽업 5종 자동 픽업
     app.add_system(HitFlashSystem);
     app.add_system(DamageNumberSystem);               // Phase 11: 데미지 숫자 age/이동/despawn
+    app.add_system(ParticleSystem::default());         // Phase 11-E: 파티클 이동/페이드/despawn
     app.add_system(HudSystem);                        // 마지막 — TextQueue push (데미지 숫자 포함)
     app.add_system(SfxSystem);                        // Phase 11-D: SfxQueue drain → AudioManager
 

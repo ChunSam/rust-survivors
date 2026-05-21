@@ -2,6 +2,7 @@ use engine::{Collider, CollisionLayer, Entity, Sprite, System, Transform, World}
 use engine::components::GameState;
 use glam::Vec2;
 
+use super::particle::spawn_collect_burst;
 use super::player::{Player, PlayerStats};
 use super::sfx::{SfxEvent, SfxQueue};
 use super::LAYER_XP;
@@ -110,6 +111,8 @@ impl System for MagnetSystem {
             if let Some(q) = world.resource_mut::<SfxQueue>() {
                 for _ in 0..to_pickup.len().min(3) { q.push(SfxEvent::XpGem); }
             }
+            // XP 수집 파티클 — 플레이어 위치에 스폰 (과부하 방지: 배치당 1번)
+            spawn_collect_burst(world, player_pos);
         }
 
         // 5) 픽업된 gem 은 despawn
