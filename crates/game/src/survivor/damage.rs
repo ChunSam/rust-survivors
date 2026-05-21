@@ -29,11 +29,24 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
         let drop_pos = world.get::<Transform>(enemy).map(|t| t.position);
         let kind     = world.get::<Enemy>(enemy).map(|e| e.kind);
         let splits   = world.get::<Enemy>(enemy).map(|e| e.split_remaining).unwrap_or(0);
+        let is_elite = world.get::<Enemy>(enemy).map(|e| e.is_elite).unwrap_or(false);
 
         world.despawn(enemy);
 
         if let Some(p) = drop_pos {
-            spawn_xp_gem(world, p, 1);
+            if is_elite {
+                // 엘리트 드롭: 큰 XpGem(value 10) + 작은 XpGem 3개 흩어짐 (보물상자 placeholder)
+                spawn_xp_gem(world, p, 10);
+                for _ in 0..3 {
+                    let offset = Vec2::new(
+                        rand::random::<f32>() * 30.0 - 15.0,
+                        rand::random::<f32>() * 30.0 - 15.0,
+                    );
+                    spawn_xp_gem(world, p + offset, 1);
+                }
+            } else {
+                spawn_xp_gem(world, p, 1);
+            }
 
             // Slime split — split_remaining > 0 이면 자식 2마리 스폰
             // 자식 슬라임은 split_remaining = 0 으로 설정 → 무한 split 방지

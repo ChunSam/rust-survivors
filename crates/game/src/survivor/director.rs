@@ -12,7 +12,7 @@ use rand::Rng;
 use serde::Deserialize;
 use super::enemy::EnemyKind;
 use super::hud::GameStats;
-use super::spawn::spawn_enemy;
+use super::spawn::spawn_enemy_elite;
 use engine::Transform;
 
 const WAVES_RON: &str = include_str!("../../../../assets/data/waves.ron");
@@ -24,6 +24,20 @@ pub struct EnemyEntry {
     pub weight: u32,
 }
 
+/// 스폰 패턴 (Phase 4-C).
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+pub enum SpawnPattern {
+    Random,    // 외곽 random angle (각자 random)
+    Line,      // 한 방향에서 일렬 (perp 60px 간격)
+    Circle,    // 등간격 원형
+    Surround,  // 등간격 원형 (count >= 4 권장)
+    Swarm,     // 한 점 cluster ±20px
+}
+
+fn default_pattern() -> SpawnPattern { SpawnPattern::Random }
+fn default_count_per_burst() -> u8 { 1 }
+fn default_elite_chance() -> f32 { 0.0 }
+
 /// 하나의 wave 정의. start_time ~ end_time 구간 동안 spawn_interval 마다 적 스폰.
 #[derive(Debug, Deserialize, Clone)]
 pub struct WaveDef {
@@ -31,6 +45,12 @@ pub struct WaveDef {
     pub end_time:       f32,
     pub spawn_interval: f32,
     pub enemies:        Vec<EnemyEntry>,
+    #[serde(default = "default_pattern")]
+    pub pattern:         SpawnPattern,
+    #[serde(default = "default_count_per_burst")]
+    pub count_per_burst: u8,
+    #[serde(default = "default_elite_chance")]
+    pub elite_chance:    f32,
 }
 
 /// waves.ron 최상위 구조체.
@@ -164,14 +184,10 @@ impl System for SpawnDirectorSystem {
             }
         };
 
-        // 5) 스폰
+        // 5) 스폰 (패턴 + count_per_burst + elite_chance)
         if should_spawn {
             let mut rng = rand::thread_rng();
-            if let Some(kind) = SpawnDirector::pick_enemy_from(&wave_clone, &mut rng) {
-                let angle = rng.gen_range(0.0..std::f32::consts::TAU);
-                let pos   = center + Vec2::new(angle.cos(), angle.sin()) * self.spawn_radius;
-                spawn_enemy(world, pos, kind);
-            }
+            spawn_pattern(world, &wave_clone, center, self.spawn_radius, &mut rng);
         }
 
         // 6) despawn_radius 밖 적 정리
@@ -184,6 +200,54 @@ impl System for SpawnDirectorSystem {
             .collect();
         for e in to_despawn {
             world.despawn(e);
+        }
+    }
+}
+
+/// 한 발화 분량의 적을 wave 의 패턴/카운트/엘리트 확률에 따라 스폰.
+pub fn spawn_pattern(
+    world: &mut World,
+    wave: &WaveDef,
+    center: Vec2,
+    spawn_radius: f32,
+    rng: &mut impl Rng,
+) {
+    let count = wave.count_per_burst.max(1) as usize;
+    let positions: Vec<Vec2> = match wave.pattern {
+        SpawnPattern::Random => (0..count).map(|_| {
+            let a = rng.gen_range(0.0..std::f32::consts::TAU);
+            center + Vec2::new(a.cos(), a.sin()) * spawn_radius
+        }).collect(),
+        SpawnPattern::Line => {
+            let a = rng.gen_range(0.0..std::f32::consts::TAU);
+            let dir = Vec2::new(a.cos(), a.sin());
+            let perp = Vec2::new(-dir.y, dir.x);
+            let base = center + dir * spawn_radius;
+            (0..count).map(|i| {
+                let offset = (i as f32 - (count as f32 - 1.0) * 0.5) * 60.0;
+                base + perp * offset
+            }).collect()
+        }
+        SpawnPattern::Circle | SpawnPattern::Surround => {
+            (0..count).map(|i| {
+                let a = (i as f32 / count as f32) * std::f32::consts::TAU;
+                center + Vec2::new(a.cos(), a.sin()) * spawn_radius
+            }).collect()
+        }
+        SpawnPattern::Swarm => {
+            let a = rng.gen_range(0.0..std::f32::consts::TAU);
+            let anchor = center + Vec2::new(a.cos(), a.sin()) * spawn_radius;
+            (0..count).map(|_| {
+                anchor + Vec2::new(rng.gen_range(-20.0..20.0), rng.gen_range(-20.0..20.0))
+            }).collect()
+        }
+    };
+
+    for pos in positions {
+        if let Some(kind) = SpawnDirector::pick_enemy_from(wave, rng) {
+            let is_elite = wave.elite_chance > 0.0
+                && rng.gen_bool(wave.elite_chance.clamp(0.0, 1.0) as f64);
+            spawn_enemy_elite(world, pos, kind, is_elite);
         }
     }
 }

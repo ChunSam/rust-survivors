@@ -8,14 +8,33 @@ use super::LAYER_ENEMY;
 ///
 /// Slime 은 split_remaining = 2 로 초기화.
 pub fn spawn_enemy(world: &mut World, pos: Vec2, kind: EnemyKind) {
-    // Slime 기본 split 횟수 = 2
+    spawn_enemy_elite(world, pos, kind, false);
+}
+
+/// 엘리트 여부를 지정해 스폰. 엘리트는 HP×5 / scale×1.5 / contact_damage×1.5 + 노란빛 색.
+pub fn spawn_enemy_elite(world: &mut World, pos: Vec2, kind: EnemyKind, is_elite: bool) {
     let splits = if matches!(kind, EnemyKind::Slime) { 2 } else { 0 };
-    spawn_enemy_with_splits(world, pos, kind, splits);
+    spawn_enemy_full(world, pos, kind, splits, is_elite);
 }
 
 /// split_remaining 을 직접 지정해 스폰 (Slime split child 스폰에 사용).
 pub fn spawn_enemy_with_splits(world: &mut World, pos: Vec2, kind: EnemyKind, split_remaining: u8) {
-    let stats = kind.stats();
+    spawn_enemy_full(world, pos, kind, split_remaining, false);
+}
+
+/// 모든 옵션을 받는 내부 헬퍼.
+pub fn spawn_enemy_full(world: &mut World, pos: Vec2, kind: EnemyKind, split_remaining: u8, is_elite: bool) {
+    let mut stats = kind.stats();
+    if is_elite {
+        stats.hp *= 5.0;
+        stats.scale *= 1.5;
+        stats.color = [
+            (stats.color[0] * 1.2).clamp(0.0, 1.0),
+            (stats.color[1] * 0.9).clamp(0.0, 1.0),
+            (stats.color[2] * 0.6).clamp(0.0, 1.0),
+        ];
+        stats.contact_damage *= 1.5;
+    }
 
     let ai_kind = match kind {
         EnemyKind::Ghost  => EnemyAiKind::Hover { stop_at: 80.0 },
@@ -44,6 +63,7 @@ pub fn spawn_enemy_with_splits(world: &mut World, pos: Vec2, kind: EnemyKind, sp
         kind,
         contact_damage: stats.contact_damage,
         split_remaining,
+        is_elite,
     });
     world.add_component(e, EnemyAi { move_speed: stats.move_speed, ai: ai_kind });
     world.add_component(e, Health::new(stats.hp));

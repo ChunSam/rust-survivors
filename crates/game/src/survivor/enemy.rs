@@ -69,13 +69,15 @@ pub enum EnemyAiKind {
     Split,
 }
 
-/// 적 컴포넌트 — 종류·접촉 데미지·슬라임 split 카운터.
+/// 적 컴포넌트 — 종류·접촉 데미지·슬라임 split 카운터·엘리트 여부.
 #[derive(Debug, Clone)]
 pub struct Enemy {
     pub kind:            EnemyKind,
     pub contact_damage:  f32,
     /// Slime 만 사용. 남은 split 횟수(2 → 1회 split 후 0 → 더 이상 split 안 함).
     pub split_remaining: u8,
+    /// true 이면 엘리트 (HP×5, scale×1.5, 사망 시 추가 드롭).
+    pub is_elite:        bool,
 }
 
 /// 적 AI 파라미터 컴포넌트.
