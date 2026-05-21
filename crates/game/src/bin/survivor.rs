@@ -36,7 +36,6 @@ use game::survivor::{
     DeathSystem,
     EnemyAiSystem,
     EnemyContactDamageSystem,
-    EnemySpawnSystem,
     FireWandSystem,
     GarlicSystem,
     HealthRegenSystem,
@@ -55,6 +54,7 @@ use game::survivor::{
     PlayerMovementSystem,
     ProjectileSystem,
     RestartSystem,
+    SpawnDirectorSystem,
     StatRecalcSystem,
     WhipSystem,
 };
@@ -67,7 +67,7 @@ fn main() {
     // 시스템 등록 순서:
     // StatRecalc (패시브 합산 → PlayerStats 갱신) — 첫 시스템
     // → LevelUp (상태 전환·키 입력) → 플레이어 이동 → 적 추격 → 스폰/정리
-    // → 접촉 데미지 → HP 회복(HealthRegen) → 사망 → 재시작 → 카메라 follow
+    // → SpawnDirector(시간축 wave 스폰+despawn) → 접촉 데미지 → HP 회복(HealthRegen) → 사망 → 재시작 → 카메라 follow
     // → 무기: Whip → MagicWand → Knife → Axe → Cross → FireWand
     //       → Garlic(오라) → HolyWater(풀 스폰) → HolyWaterPool(풀 tick)
     //       → KingBible(책 스폰) → OrbitingBook(책 회전+tick) → LightningRing(번개) → LightningFlash(flash lifetime)
@@ -77,7 +77,7 @@ fn main() {
     app.add_system(LevelUpSystem);
     app.add_system(PlayerMovementSystem);
     app.add_system(EnemyAiSystem);
-    app.add_system(EnemySpawnSystem::default());
+    app.add_system(SpawnDirectorSystem::default());
     app.add_system(EnemyContactDamageSystem::default());
     app.add_system(HealthRegenSystem);             // Phase 3-A: recovery stat 적용 (0.0 default → no-op)
     app.add_system(DeathSystem);
