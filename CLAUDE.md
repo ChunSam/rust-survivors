@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F 완료 + **Phase 2-A(WeaponInventory + Whip 마이그레이션)** + **Phase 2-B(ProjectileSystem + Magic Wand)** + **Phase 2-C(ProjectileBehavior + Knife + Axe)**
-- **상태**: engine 26 tests · game lib 29 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성**: `ProjectileBehavior` enum(Straight/Arc). Knife(가장 가까운 적 방향 amount개 직선). Axe(위로 던져 중력 포물선). 스타터 로드아웃 4슬롯(Whip/MagicWand/Knife/Axe).
-- **다음**: Phase 2-D (Cross + Fire Wand)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F 완료 + **Phase 2-A(WeaponInventory + Whip 마이그레이션)** + **Phase 2-B(ProjectileSystem + Magic Wand)** + **Phase 2-C(ProjectileBehavior + Knife + Axe)** + **Phase 2-D(Cross + Fire Wand + Inventory Vec)**
+- **상태**: engine 26 tests · game lib 32 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성**: `ProjectileBehavior::Boomerang { return_at, elapsed, returned }` 추가. Cross(부메랑 황금색, pierce 3). FireWand(랜덤 적 타깃 주황색). `WeaponInventory.slots` 를 `Vec<WeaponSlot>` 으로 변경 — 스타터 로드아웃 6무기 모두 보유.
+- **다음**: Phase 2-E (Garlic + Holy Water — 지속 area damage)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

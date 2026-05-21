@@ -9,11 +9,11 @@ pub mod survivor;
 mod tests {
     use super::survivor::{
         restart_world, setup_survivor_world, spawn_player, spawn_projectile, spawn_projectile_ex,
-        spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, DeathSystem,
-        EnemyAiSystem, EnemyContactDamageSystem, EnemySpawnSystem, GameStats, Health, HitFlash,
-        KnifeSystem, LevelUpSystem, MagicWandSystem, MagnetSystem, PendingLevelUp, Player,
-        PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnTimer, WeaponInventory,
-        WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
+        spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, CrossSystem, DeathSystem,
+        EnemyAiSystem, EnemyContactDamageSystem, EnemySpawnSystem, FireWandSystem, GameStats,
+        Health, HitFlash, KnifeSystem, LevelUpSystem, MagicWandSystem, MagnetSystem,
+        PendingLevelUp, Player, PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem,
+        SpawnTimer, WeaponInventory, WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
@@ -648,35 +648,151 @@ mod tests {
         );
     }
 
-    /// with_starter_loadout 에 4개 슬롯이 채워져야 한다 (Whip/MagicWand/Knife/Axe).
+    // ── Phase 2-D: Cross + FireWand + Inventory Vec 테스트 ──────────────────
+
+    /// with_starter_loadout 에 6개 무기가 모두 채워져야 한다 (Whip/MagicWand/Knife/Axe/Cross/FireWand).
     #[test]
-    fn inventory_starter_loadout_has_four_slots_filled() {
+    fn inventory_starter_loadout_has_six_weapons() {
         let inv = WeaponInventory::with_starter_loadout();
 
-        // 슬롯 0~3 은 Some, 4~5 는 None
-        assert!(inv.slots[0].is_some(), "슬롯 0 (Whip) 이 있어야 함");
-        assert!(inv.slots[1].is_some(), "슬롯 1 (MagicWand) 이 있어야 함");
-        assert!(inv.slots[2].is_some(), "슬롯 2 (Knife) 가 있어야 함");
-        assert!(inv.slots[3].is_some(), "슬롯 3 (Axe) 가 있어야 함");
-        assert!(inv.slots[4].is_none(), "슬롯 4 는 비어 있어야 함");
-        assert!(inv.slots[5].is_none(), "슬롯 5 는 비어 있어야 함");
+        // Vec 기반 — len() 으로 확인
+        assert_eq!(inv.slots.len(), 6, "6개 슬롯이 있어야 함");
 
-        // 각 슬롯의 kind 확인
+        // 각 슬롯의 kind 확인 (순서 보장)
         assert!(
-            matches!(inv.slots[0].as_ref().unwrap().kind, WeaponKind::Whip { .. }),
+            matches!(inv.slots[0].kind, WeaponKind::Whip { .. }),
             "슬롯 0 은 Whip 이어야 함"
         );
         assert!(
-            matches!(inv.slots[1].as_ref().unwrap().kind, WeaponKind::MagicWand { .. }),
+            matches!(inv.slots[1].kind, WeaponKind::MagicWand { .. }),
             "슬롯 1 은 MagicWand 이어야 함"
         );
         assert!(
-            matches!(inv.slots[2].as_ref().unwrap().kind, WeaponKind::Knife { .. }),
+            matches!(inv.slots[2].kind, WeaponKind::Knife { .. }),
             "슬롯 2 는 Knife 여야 함"
         );
         assert!(
-            matches!(inv.slots[3].as_ref().unwrap().kind, WeaponKind::Axe { .. }),
+            matches!(inv.slots[3].kind, WeaponKind::Axe { .. }),
             "슬롯 3 은 Axe 여야 함"
+        );
+        assert!(
+            matches!(inv.slots[4].kind, WeaponKind::Cross { .. }),
+            "슬롯 4 는 Cross 여야 함"
+        );
+        assert!(
+            matches!(inv.slots[5].kind, WeaponKind::FireWand { .. }),
+            "슬롯 5 는 FireWand 여야 함"
+        );
+    }
+
+    /// CrossSystem cooldown 경과 후 Boomerang behavior 투사체 1개가 스폰돼야 한다.
+    #[test]
+    fn cross_spawns_boomerang_projectile() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
+
+        // Cross 포함 스타터 로드아웃으로 플레이어 스폰
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, engine::Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<engine::Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // 적 없으면 CrossSystem 이 발사를 건너뜀 — 좀비 1마리 스폰
+        spawn_zombie(&mut world, Vec2::new(80.0, 0.0));
+
+        // dt = 2.0 → cooldown 1.8 초과 → 발화
+        CrossSystem::default().run(&mut world, 2.0);
+
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            1,
+            "Cross cooldown 경과 후 투사체 1개가 스폰돼야 함"
+        );
+
+        // 스폰된 투사체의 behavior 가 Boomerang 인지 확인
+        let proj_e = world.query::<Projectile>().next().map(|(e, _)| e).unwrap();
+        let behavior = world.get::<Projectile>(proj_e).map(|p| p.behavior).unwrap();
+        assert!(
+            matches!(behavior, ProjectileBehavior::Boomerang { .. }),
+            "Cross 투사체의 behavior 는 Boomerang 이어야 함"
+        );
+    }
+
+    /// FireWandSystem cooldown 경과 후 투사체 1개가 스폰돼야 한다 (랜덤 적 타깃).
+    #[test]
+    fn fire_wand_spawns_projectile_after_cooldown() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
+
+        // FireWand 포함 스타터 로드아웃으로 플레이어 스폰
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, engine::Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<engine::Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // 적 없으면 FireWandSystem 이 발사를 건너뜀 — 좀비 1마리 스폰
+        spawn_zombie(&mut world, Vec2::new(100.0, 0.0));
+
+        // dt = 3.0 → cooldown 2.5 초과 → 발화
+        FireWandSystem::default().run(&mut world, 3.0);
+
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            1,
+            "FireWand cooldown 경과 후 투사체 1개가 스폰돼야 함"
+        );
+    }
+
+    /// Boomerang 투사체는 return_at 경과 후 velocity 가 반전돼야 한다.
+    #[test]
+    fn boomerang_velocity_reverses_after_return_at() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+
+        // return_at = 0.5 초인 Boomerang 투사체 스폰
+        spawn_projectile_ex(
+            &mut world,
+            Vec2::ZERO,
+            Vec2::new(100.0, 0.0),
+            5.0, // lifetime (충분히 길게)
+            0,
+            5.0,
+            [1.0, 1.0, 0.0],
+            ProjectileBehavior::Boomerang { return_at: 0.5, elapsed: 0.0, returned: false },
+        );
+
+        // dt = 0.6 → elapsed = 0.6 >= return_at(0.5) → 반전 발생
+        ProjectileSystem::default().run(&mut world, 0.6);
+
+        // 투사체가 아직 살아 있어야 함 (lifetime 5.0 - 0.6 = 4.4 > 0)
+        assert_eq!(
+            world.query::<Projectile>().count(),
+            1,
+            "아직 수명이 남은 투사체여야 함"
+        );
+
+        let proj_e = world.query::<Projectile>().next().map(|(e, _)| e).unwrap();
+        let proj = world.get::<Projectile>(proj_e).unwrap();
+
+        // velocity.x 가 음수로 반전돼야 함
+        assert!(
+            proj.velocity.x < 0.0,
+            "반전 후 velocity.x 가 음수여야 함 (현재 {})",
+            proj.velocity.x
+        );
+
+        // behavior.returned 가 true 여야 함
+        assert!(
+            matches!(proj.behavior, ProjectileBehavior::Boomerang { returned: true, .. }),
+            "반전 후 behavior.returned 가 true 여야 함"
         );
     }
 }

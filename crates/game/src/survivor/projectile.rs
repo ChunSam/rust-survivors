@@ -13,6 +13,7 @@ use super::LAYER_ENEMY;
 ///
 /// - `Straight`: 매 프레임 velocity 그대로 이동 (직선)
 /// - `Arc`: velocity.y 가 매 프레임 += gravity * dt (포물선). 도끼처럼 위로 던져 중력으로 떨어질 때 사용.
+/// - `Boomerang`: `elapsed` 가 `return_at` 에 도달하면 velocity 반전 (부메랑). `returned` 플래그로 한 번만 반전.
 ///
 /// ## Y 축 방향 주의
 /// 렌더 좌표계는 `(0,0) = 좌상단, y 클수록 아래`. 따라서:
@@ -22,6 +23,13 @@ use super::LAYER_ENEMY;
 pub enum ProjectileBehavior {
     Straight,
     Arc { gravity: f32 },
+    /// 부메랑 동작. `elapsed` 가 `return_at` 초에 도달하면 velocity 반전.
+    /// `returned = true` 이면 이미 반전 완료 — 다시 반전하지 않는다.
+    Boomerang {
+        return_at: f32,
+        elapsed:   f32,
+        returned:  bool,
+    },
 }
 
 /// 투사체 컴포넌트. velocity 단위는 px/s.
@@ -70,16 +78,24 @@ impl System for ProjectileSystem {
         let mut to_despawn: Vec<Entity> = Vec::new();
         // (zombie_entity, damage)
         let mut hits_buffer: Vec<(Entity, f32)> = Vec::new();
-        // (proj_entity, new_pos, new_lifetime, new_pierce, new_velocity)
-        let mut proj_updates: Vec<(Entity, Vec2, f32, u8, Vec2)> = Vec::new();
+        // (proj_entity, new_pos, new_lifetime, new_pierce, new_velocity, new_behavior)
+        let mut proj_updates: Vec<(Entity, Vec2, f32, u8, Vec2, ProjectileBehavior)> = Vec::new();
 
         for (proj_e, pos, vel, life, pierce, damage, mask, radius, behavior) in projs {
-            // behavior 에 따라 velocity 갱신 (Arc 는 중력 적용)
+            // behavior 에 따라 velocity 갱신 (Arc 는 중력, Boomerang 은 반전)
             let mut new_velocity = vel;
-            match behavior {
+            let mut new_behavior = behavior;
+            match new_behavior {
                 ProjectileBehavior::Straight => {}
                 ProjectileBehavior::Arc { gravity } => {
                     new_velocity.y += gravity * dt;
+                }
+                ProjectileBehavior::Boomerang { return_at, ref mut elapsed, ref mut returned } => {
+                    *elapsed += dt;
+                    if !*returned && *elapsed >= return_at {
+                        new_velocity = -new_velocity;
+                        *returned = true;
+                    }
                 }
             }
             let new_pos  = pos + new_velocity * dt;
@@ -114,12 +130,12 @@ impl System for ProjectileSystem {
             if consumed {
                 to_despawn.push(proj_e);
             } else {
-                proj_updates.push((proj_e, new_pos, new_life, new_pierce, new_velocity));
+                proj_updates.push((proj_e, new_pos, new_life, new_pierce, new_velocity, new_behavior));
             }
         }
 
-        // 2) 투사체 위치·수명·관통·속도 갱신
-        for (proj_e, new_pos, new_life, new_pierce, new_velocity) in proj_updates {
+        // 2) 투사체 위치·수명·관통·속도·behavior 갱신 (behavior 는 Boomerang elapsed/returned 상태 포함)
+        for (proj_e, new_pos, new_life, new_pierce, new_velocity, new_behavior) in proj_updates {
             if let Some(t) = world.get_mut::<Transform>(proj_e) {
                 t.position = new_pos;
             }
@@ -127,6 +143,7 @@ impl System for ProjectileSystem {
                 p.lifetime  = new_life;
                 p.pierce    = new_pierce;
                 p.velocity  = new_velocity;
+                p.behavior  = new_behavior;
             }
         }
 
@@ -203,7 +220,8 @@ pub fn spawn_projectile(
 /// `ProjectileBehavior` 를 명시적으로 지정하는 투사체 스폰 헬퍼.
 ///
 /// `spawn_projectile` 이 내부적으로 이 함수를 `Straight` 로 호출한다.
-/// `Arc { gravity }` 를 전달하면 포물선(도끼 등) 투사체를 만들 수 있다.
+/// `Arc { gravity }` 를 전달하면 포물선(도끼 등) 투사체를,
+/// `Boomerang { return_at, elapsed: 0.0, returned: false }` 를 전달하면 부메랑 투사체를 만들 수 있다.
 ///
 /// # 파라미터
 /// - `pos`      : 발사 위치 (px)
@@ -212,7 +230,7 @@ pub fn spawn_projectile(
 /// - `pierce`   : 관통 횟수 (0 = 1마리 타격 후 소멸)
 /// - `damage`   : 타격 데미지
 /// - `color`    : RGB 색 (Sprite::colored 에 전달)
-/// - `behavior` : 이동 방식 (`Straight` 또는 `Arc { gravity }`)
+/// - `behavior` : 이동 방식 (`Straight`, `Arc { gravity }`, `Boomerang { return_at, elapsed, returned }`)
 pub fn spawn_projectile_ex(
     world:    &mut World,
     pos:      Vec2,

@@ -3,6 +3,7 @@
 /// Phase 2-A 는 Whip 만 inventory 에 마이그레이션.
 /// Phase 2-B 에서 MagicWand 추가.
 /// Phase 2-C 에서 Knife, Axe 추가.
+/// Phase 2-D 에서 Cross, FireWand 추가.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WeaponKind {
     Whip {
@@ -35,6 +36,23 @@ pub enum WeaponKind {
         pierce:        u8,
         amount:        u8,
     },
+    /// 가장 가까운 적 방향으로 발사 후 `return_at` 초 뒤 방향 반전 (부메랑).
+    /// `ProjectileBehavior::Boomerang` 사용.
+    Cross {
+        damage:           f32,
+        projectile_speed: f32,
+        lifetime:         f32,
+        pierce:           u8,
+        amount:           u8,
+        return_at:        f32, // 발사 후 이 시간(초)에 방향 반전
+    },
+    /// 랜덤 적을 향해 고데미지 단발 투사체를 발사. `ProjectileBehavior::Straight` 사용.
+    FireWand {
+        damage:           f32,
+        projectile_speed: f32,
+        lifetime:         f32,
+        pierce:           u8,
+    },
 }
 
 /// 무기 인벤토리의 한 슬롯. cooldown 기반 발화 트래킹은 슬롯이 소유한다.
@@ -60,19 +78,20 @@ impl WeaponSlot {
     }
 }
 
-/// Player 컴포넌트. 슬롯 6개 고정 (Vampire Survivors 원작 무기 슬롯 수).
+/// Player 컴포넌트. 슬롯은 동적 Vec (Vampire Survivors 원작 최대 6개).
 ///
-/// Phase 2-A 는 첫 슬롯에 Whip 만 채워둔다.
+/// Phase 2-D: `[Option<WeaponSlot>; 6]` → `Vec<WeaponSlot>` 으로 변경.
+/// None/Some 래핑 제거 — 동적 push 방식.
 #[derive(Debug, Clone, Default)]
 pub struct WeaponInventory {
-    pub slots: [Option<WeaponSlot>; 6],
+    pub slots: Vec<WeaponSlot>,
 }
 
 impl WeaponInventory {
-    /// Phase 2-C 스타터 로드아웃: Whip(slot[0]) + MagicWand(slot[1]) + Knife(slot[2]) + Axe(slot[3]).
+    /// Phase 2-D 스타터 로드아웃: Whip + MagicWand + Knife + Axe + Cross + FireWand (6무기).
     pub fn with_starter_loadout() -> Self {
         let mut inv = Self::default();
-        inv.slots[0] = Some(WeaponSlot {
+        inv.slots.push(WeaponSlot {
             kind: WeaponKind::Whip {
                 damage:      10.0,
                 area_width:  120.0,
@@ -82,7 +101,7 @@ impl WeaponInventory {
             cooldown: 1.0,
             elapsed:  0.0,
         });
-        inv.slots[1] = Some(WeaponSlot {
+        inv.slots.push(WeaponSlot {
             kind: WeaponKind::MagicWand {
                 damage:           8.0,
                 projectile_speed: 300.0,
@@ -93,7 +112,7 @@ impl WeaponInventory {
             cooldown: 1.2,
             elapsed:  0.0,
         });
-        inv.slots[2] = Some(WeaponSlot {
+        inv.slots.push(WeaponSlot {
             kind: WeaponKind::Knife {
                 damage:           6.0,
                 projectile_speed: 400.0,
@@ -106,7 +125,7 @@ impl WeaponInventory {
             cooldown: 0.8,
             elapsed:  0.0,
         });
-        inv.slots[3] = Some(WeaponSlot {
+        inv.slots.push(WeaponSlot {
             kind: WeaponKind::Axe {
                 damage:        12.0,
                 initial_speed: 250.0,
@@ -117,6 +136,30 @@ impl WeaponInventory {
             },
             level:    1,
             cooldown: 1.5,
+            elapsed:  0.0,
+        });
+        inv.slots.push(WeaponSlot {
+            kind: WeaponKind::Cross {
+                damage:           14.0,
+                projectile_speed: 280.0,
+                lifetime:         3.0,
+                pierce:           3,
+                amount:           1,
+                return_at:        0.7,
+            },
+            level:    1,
+            cooldown: 1.8,
+            elapsed:  0.0,
+        });
+        inv.slots.push(WeaponSlot {
+            kind: WeaponKind::FireWand {
+                damage:           25.0,
+                projectile_speed: 250.0,
+                lifetime:         1.5,
+                pierce:           0,
+            },
+            level:    1,
+            cooldown: 2.5,
             elapsed:  0.0,
         });
         inv
@@ -130,94 +173,56 @@ impl WeaponInventory {
 
     /// 첫 매칭되는 Whip 슬롯 (있을 경우) 의 mutable 참조.
     pub fn whip_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
-        for slot in &mut self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::Whip { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::Whip { .. }))
     }
 
     pub fn whip_slot(&self) -> Option<&WeaponSlot> {
-        for slot in &self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::Whip { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::Whip { .. }))
     }
 
     /// 첫 매칭되는 MagicWand 슬롯의 mutable 참조.
     pub fn magic_wand_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
-        for slot in &mut self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::MagicWand { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::MagicWand { .. }))
     }
 
     pub fn magic_wand_slot(&self) -> Option<&WeaponSlot> {
-        for slot in &self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::MagicWand { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::MagicWand { .. }))
     }
 
     /// 첫 매칭되는 Knife 슬롯의 mutable 참조.
     pub fn knife_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
-        for slot in &mut self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::Knife { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::Knife { .. }))
     }
 
     pub fn knife_slot(&self) -> Option<&WeaponSlot> {
-        for slot in &self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::Knife { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::Knife { .. }))
     }
 
     /// 첫 매칭되는 Axe 슬롯의 mutable 참조.
     pub fn axe_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
-        for slot in &mut self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::Axe { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::Axe { .. }))
     }
 
     pub fn axe_slot(&self) -> Option<&WeaponSlot> {
-        for slot in &self.slots {
-            if let Some(s) = slot {
-                if matches!(s.kind, WeaponKind::Axe { .. }) {
-                    return Some(s);
-                }
-            }
-        }
-        None
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::Axe { .. }))
+    }
+
+    /// 첫 매칭되는 Cross 슬롯의 mutable 참조.
+    pub fn cross_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::Cross { .. }))
+    }
+
+    pub fn cross_slot(&self) -> Option<&WeaponSlot> {
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::Cross { .. }))
+    }
+
+    /// 첫 매칭되는 FireWand 슬롯의 mutable 참조.
+    pub fn fire_wand_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::FireWand { .. }))
+    }
+
+    pub fn fire_wand_slot(&self) -> Option<&WeaponSlot> {
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::FireWand { .. }))
     }
 }
 
@@ -228,21 +233,21 @@ mod tests {
     #[test]
     fn inventory_starts_with_whip_slot_0() {
         let inv = WeaponInventory::with_starter_loadout();
-        assert!(inv.slots[0].is_some(), "슬롯 0 에 Whip 이 있어야 함");
-        // slot[1] 은 MagicWand
-        assert!(inv.slots[1].is_some(), "슬롯 1 에 MagicWand 가 있어야 함");
-        // slot[2] 는 Knife, slot[3] 은 Axe
-        assert!(inv.slots[2].is_some(), "슬롯 2 에 Knife 가 있어야 함");
-        assert!(inv.slots[3].is_some(), "슬롯 3 에 Axe 가 있어야 함");
-        for i in 4..6 {
-            assert!(inv.slots[i].is_none(), "슬롯 {i} 는 비어 있어야 함");
-        }
-        let slot = inv.slots[0].as_ref().unwrap();
+        // Vec 기반 — 인덱스로 직접 접근
+        assert_eq!(inv.slots.len(), 6, "6개 슬롯이 있어야 함");
+        assert!(matches!(inv.slots[0].kind, WeaponKind::Whip { .. }), "슬롯 0 은 Whip 이어야 함");
+        assert!(matches!(inv.slots[1].kind, WeaponKind::MagicWand { .. }), "슬롯 1 은 MagicWand 여야 함");
+        assert!(matches!(inv.slots[2].kind, WeaponKind::Knife { .. }), "슬롯 2 는 Knife 여야 함");
+        assert!(matches!(inv.slots[3].kind, WeaponKind::Axe { .. }), "슬롯 3 은 Axe 여야 함");
+        assert!(matches!(inv.slots[4].kind, WeaponKind::Cross { .. }), "슬롯 4 는 Cross 여야 함");
+        assert!(matches!(inv.slots[5].kind, WeaponKind::FireWand { .. }), "슬롯 5 는 FireWand 여야 함");
+
+        let slot = &inv.slots[0];
         assert_eq!(slot.level, 1);
         assert_eq!(slot.cooldown, 1.0);
         assert!(matches!(slot.kind, WeaponKind::Whip { damage, .. } if damage == 10.0));
         // MagicWand 슬롯 확인
-        let wand_slot = inv.slots[1].as_ref().unwrap();
+        let wand_slot = &inv.slots[1];
         assert_eq!(wand_slot.level, 1);
         assert_eq!(wand_slot.cooldown, 1.2);
         assert!(matches!(
@@ -250,14 +255,14 @@ mod tests {
             WeaponKind::MagicWand { damage, pierce, .. } if damage == 8.0 && pierce == 0
         ));
         // Knife 슬롯 확인
-        let knife_slot = inv.slots[2].as_ref().unwrap();
+        let knife_slot = &inv.slots[2];
         assert_eq!(knife_slot.cooldown, 0.8);
         assert!(matches!(
             knife_slot.kind,
             WeaponKind::Knife { damage, amount, .. } if damage == 6.0 && amount == 1
         ));
         // Axe 슬롯 확인
-        let axe_slot = inv.slots[3].as_ref().unwrap();
+        let axe_slot = &inv.slots[3];
         assert_eq!(axe_slot.cooldown, 1.5);
         assert!(matches!(
             axe_slot.kind,

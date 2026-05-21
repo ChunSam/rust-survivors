@@ -3,7 +3,7 @@
 `crates/game/src/survivor/` — Vampire Survivors 풀 클론 모듈.
 탑다운 자동공격 로그라이트. 상세 로드맵: `CLAUDE.md` "Vampire Survivors 클론 로드맵" 섹션.
 
-**현재 단계**: Phase 2-A 완료 — WeaponInventory 인프라 구축 + Whip 마이그레이션 (동작 변화 없음)
+**현재 단계**: Phase 2-D 완료 — Cross(부메랑) + FireWand(랜덤 타깃) 추가. `WeaponInventory.slots` 를 `Vec<WeaponSlot>` 으로 변경, 6 무기 모두 보유.
 
 ## 실행
 
@@ -29,13 +29,14 @@ Phase 1-B 이후 자동공격·레벨업 등 추가 예정.
 | 파일 | 내용 |
 |---|---|
 | `mod.rs` | 하위 모듈 선언 + 최상위 재수출 + `LAYER_PLAYER`/`LAYER_ENEMY`/`LAYER_XP` 상수 |
-| `inventory.rs` | `WeaponKind` enum, `WeaponSlot { kind, level, cooldown, elapsed, tick() }`, `WeaponInventory { slots: [Option<WeaponSlot>; 6] }` |
+| `inventory.rs` | `WeaponKind` enum (Whip/MagicWand/Knife/Axe/Cross/FireWand), `WeaponSlot { kind, level, cooldown, elapsed, tick() }`, `WeaponInventory { slots: Vec<WeaponSlot> }` |
+| `projectile.rs` | `Projectile { velocity, lifetime, pierce, damage, layer_mask, radius, behavior }`, `ProjectileBehavior` (Straight / Arc{gravity} / Boomerang{return_at, elapsed, returned}), `ProjectileSystem`, `spawn_projectile{_ex}` 헬퍼 |
 | `player.rs` | `Player` (태그), `Velocity(Vec2)`, `PlayerStats { move_speed }`, `PlayerMovementSystem` |
 | `camera_follow.rs` | `CameraFollowSystem { lerp, viewport }` — 플레이어 위치로 카메라 lerp 추적 |
 | `enemy.rs` | `Zombie` (태그), `EnemyAi { move_speed }`, `EnemyAiSystem` — 플레이어 추격 |
 | `spawn.rs` | `SpawnTimer { interval, elapsed }`, `EnemySpawnSystem`, `spawn_zombie(world, pos)` |
 | `health.rs` | `Health { current, max }`, `take_damage(amount) -> bool` |
-| `weapon.rs` | `WhipSystem` — `WeaponInventory` slot tick → 발화, 좌/우 AABB, LAYER_ENEMY 쿼리, 사망 시 XpGem 드롭 + despawn |
+| `weapon.rs` | `WhipSystem` (좌/우 AABB), `MagicWandSystem`/`KnifeSystem`/`CrossSystem` (가장 가까운 적 방향), `AxeSystem` (위로 던지는 포물선), `FireWandSystem` (랜덤 적 타깃), `HitFlash`/`HitFlashSystem` |
 | `xp.rs` | `XpGem { value }`, `XpAccumulator { current, level, next_threshold }`, `MagnetSystem`, `spawn_xp_gem(world, pos, value)` |
 | `levelup.rs` | `CardKind` (WhipDamage/WhipArea/WhipCooldown), `PendingLevelUp { offered, consumed }`, `LevelUpSystem`, `apply_card` 헬퍼 |
 | `world_setup.rs` | `spawn_player(world)`, `setup_survivor_world(world)` — 초기 엔티티 스폰 + `SpawnTimer` + `GameStats` 리소스 삽입 |
@@ -74,9 +75,9 @@ CameraFollowSystem { lerp: 0.15, viewport: Vec2(800, 600) }
 | `PlayerStats` | move_speed=200.0 |
 | `Velocity` | (0, 0) |
 | `Health` | current=max=100.0 |
-| `WeaponInventory` | slot[0] = Whip (damage=10, area=120×60, cooldown=1.0) |
+| `WeaponInventory` | slots[0..6] = Whip / MagicWand / Knife / Axe / Cross / FireWand (with_starter_loadout) |
 
-## 시스템 등록 순서 (Phase 2-A — 현재)
+## 시스템 등록 순서 (Phase 2-D — 현재)
 
 ```
 app.add_system(LevelUpSystem)                        // 첫 번째 — 상태 전환·키 입력 처리
@@ -87,14 +88,19 @@ app.add_system(EnemyContactDamageSystem::default())  // 적 접촉 → 플레이
 app.add_system(DeathSystem)                          // HP 0 → GameOver
 app.add_system(RestartSystem)                        // R 키 → 재시작
 app.add_system(CameraFollowSystem::default())
-app.add_system(WhipSystem::default())                // 적 사망 시 XpGem 스폰 + kills 카운트
+app.add_system(WhipSystem::default())                // 좌/우 AABB
+app.add_system(MagicWandSystem::default())           // 가까운 적 직선
+app.add_system(KnifeSystem::default())               // 가까운 적 amount개 직선
+app.add_system(AxeSystem::default())                 // 위로 던지는 포물선
+app.add_system(CrossSystem::default())               // 가까운 적 방향 부메랑
+app.add_system(FireWandSystem::default())            // 랜덤 적 큰 데미지
+app.add_system(ProjectileSystem::default())          // 모든 투사체 이동·hit·despawn
 app.add_system(MagnetSystem::default())              // XpGem 흡수
 app.add_system(HitFlashSystem)
 app.add_system(HudSystem)                            // 마지막 — TextQueue push
 ```
 
-## 다음 단계: Phase 2-B — ProjectileSystem + Magic Wand
+## 다음 단계: Phase 2-E — Garlic + Holy Water (지속 area damage)
 
-공용 `ProjectileSystem` (lifetime / pierce / damage) + Magic Wand 무기 추가.
-`WeaponKind::MagicWand { damage, projectile_speed, lifetime }` variant 추가.
+플레이어 주변에 머무르는 *지속 area damage* 패턴 도입. Garlic 은 플레이어 중심 오라, Holy Water 는 떨어뜨려 남는 풀.
 

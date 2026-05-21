@@ -1,6 +1,7 @@
 use engine::{CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
 use engine::components::GameState;
 use glam::Vec2;
+use rand::seq::SliceRandom;
 
 use super::health::Health;
 use super::hud::GameStats;
@@ -414,5 +415,187 @@ impl System for AxeSystem {
                 ProjectileBehavior::Arc { gravity },
             );
         }
+    }
+}
+
+/// Cross 발화 시스템.
+///
+/// 매 cooldown 마다 가장 가까운 적 방향으로 `amount` 개의 부메랑 투사체를 발사한다.
+/// `ProjectileBehavior::Boomerang { return_at, elapsed: 0.0, returned: false }` 를 사용한다.
+/// 황금색. pierce 가 크므로 적을 관통하며 갔다가 돌아온다.
+pub struct CrossSystem {
+    pub grid:          SpatialGrid,
+    pub target_radius: f32,
+}
+
+impl Default for CrossSystem {
+    fn default() -> Self {
+        Self {
+            grid:          SpatialGrid::new(128.0),
+            target_radius: 400.0,
+        }
+    }
+}
+
+impl System for CrossSystem {
+    fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
+        // 1) Player 위치 + entity 캐시
+        let Some((player_entity, player_pos)) = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, t)| (e, t.position))
+        else {
+            return;
+        };
+
+        // 2) Cross 슬롯 tick — cooldown 미달이면 즉시 반환
+        let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
+            let Some(slot) = inv.cross_slot_mut() else { return };
+            if !slot.tick(dt) {
+                return;
+            }
+            if let WeaponKind::Cross { damage, projectile_speed, lifetime, pierce, amount, return_at } = slot.kind {
+                Some((damage, projectile_speed, lifetime, pierce, amount, return_at))
+            } else {
+                None
+            }
+        };
+        let Some((damage, projectile_speed, lifetime, pierce, amount, return_at)) = fire_info else { return };
+
+        // 3) grid rebuild + 가장 가까운 적 탐색
+        self.grid.rebuild(world);
+        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        if candidates.is_empty() {
+            return;
+        }
+
+        let nearest = candidates
+            .into_iter()
+            .filter_map(|e| world.get::<Transform>(e).map(|t| (e, t.position)))
+            .min_by(|a, b| {
+                let da = (a.1 - player_pos).length_squared();
+                let db = (b.1 - player_pos).length_squared();
+                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+            });
+        let Some((_target_entity, target_pos)) = nearest else { return };
+
+        // 4) 방향 벡터 계산
+        let dir = target_pos - player_pos;
+        let base_dir = if dir.length_squared() > 0.0 {
+            dir.normalize()
+        } else {
+            Vec2::new(1.0, 0.0)
+        };
+        let base_angle = base_dir.y.atan2(base_dir.x);
+
+        // 5) amount 개 부메랑 투사체 발사 (황금색)
+        for i in 0..amount {
+            let angle = if amount == 1 {
+                base_angle
+            } else {
+                // 부채꼴 분산 (Cross 는 spread 작게)
+                let spread = 0.2_f32;
+                base_angle - spread * 0.5 + spread * (i as f32) / ((amount - 1) as f32)
+            };
+            let velocity = Vec2::new(angle.cos(), angle.sin()) * projectile_speed;
+            spawn_projectile_ex(
+                world,
+                player_pos,
+                velocity,
+                lifetime,
+                pierce,
+                damage,
+                [0.9, 0.9, 0.5], // 황금색 — Cross 컬러
+                ProjectileBehavior::Boomerang { return_at, elapsed: 0.0, returned: false },
+            );
+        }
+    }
+}
+
+/// Fire Wand 발화 시스템.
+///
+/// 매 cooldown 마다 탐색 범위 안의 적 중 *랜덤* 1마리를 향해 고데미지 단발 투사체를 발사한다.
+/// MagicWand(가장 가까운 적) 와 달리 무작위 타깃 선택.
+/// 주황색. pierce 없음, 데미지 큼.
+pub struct FireWandSystem {
+    pub grid:          SpatialGrid,
+    pub target_radius: f32,
+}
+
+impl Default for FireWandSystem {
+    fn default() -> Self {
+        Self {
+            grid:          SpatialGrid::new(128.0),
+            target_radius: 400.0,
+        }
+    }
+}
+
+impl System for FireWandSystem {
+    fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
+        // 1) Player 위치 + entity 캐시
+        let Some((player_entity, player_pos)) = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, t)| (e, t.position))
+        else {
+            return;
+        };
+
+        // 2) FireWand 슬롯 tick — cooldown 미달이면 즉시 반환
+        let fire_info: Option<(f32, f32, f32, u8)> = {
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
+            let Some(slot) = inv.fire_wand_slot_mut() else { return };
+            if !slot.tick(dt) {
+                return;
+            }
+            if let WeaponKind::FireWand { damage, projectile_speed, lifetime, pierce } = slot.kind {
+                Some((damage, projectile_speed, lifetime, pierce))
+            } else {
+                None
+            }
+        };
+        let Some((damage, projectile_speed, lifetime, pierce)) = fire_info else { return };
+
+        // 3) grid rebuild + 후보 적 수집
+        self.grid.rebuild(world);
+        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        if candidates.is_empty() {
+            return;
+        }
+
+        // 4) 후보 중 랜덤 1마리 선택
+        let mut rng = rand::thread_rng();
+        let Some(&target_entity) = candidates.choose(&mut rng) else { return };
+        let Some(target_pos) = world.get::<Transform>(target_entity).map(|t| t.position) else { return };
+
+        // 5) 방향 벡터 정규화 + 투사체 스폰 (주황색)
+        let dir = target_pos - player_pos;
+        let dir = if dir.length_squared() > 0.0 {
+            dir.normalize()
+        } else {
+            Vec2::new(1.0, 0.0)
+        };
+        let velocity = dir * projectile_speed;
+
+        spawn_projectile_ex(
+            world,
+            player_pos,
+            velocity,
+            lifetime,
+            pierce,
+            damage,
+            [1.0, 0.4, 0.1], // 주황색 — Fire Wand 컬러
+            ProjectileBehavior::Straight,
+        );
     }
 }
