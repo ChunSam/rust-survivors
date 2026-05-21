@@ -1,9 +1,10 @@
-use engine::{System, World};
+use engine::{Camera, System, Transform, World};
 use engine::components::GameState;
 use engine::renderer::text::{DrawText, TextQueue};
 use glam::Vec2;
 use super::boss::Boss;
 use super::character::{CharacterCursor, CharacterKind};
+use super::damage_number::DamageNumber;
 use super::health::Health;
 use super::levelup::PendingLevelUp;
 use super::meta::{MetaSave, SurvivorMode};
@@ -13,6 +14,11 @@ use super::player::Player;
 use super::powerup::{PowerUpKind, ShopCursor};
 use super::stage::{StageCursor, StageKind};
 use super::xp::XpAccumulator;
+
+/// HUD 렌더링 시 가정하는 뷰포트 크기. App 윈도우 크기와 일치해야 한다.
+/// (별도 리소스로 빼면 더 정확하지만 현재 800×600 고정이므로 상수 사용)
+const VIEWPORT_W: f32 = 800.0;
+const VIEWPORT_H: f32 = 600.0;
 
 /// 게임 진행 통계. 매 프레임 누적/조회.
 #[derive(Debug, Default)]
@@ -366,5 +372,43 @@ impl System for HudSystem {
         // 7) StageClear 오버레이 — Phase 8-A: SurvivorMode::StageClear 로 전환 후 처리하므로
         //    InGame 모드에서는 표시하지 않음 (ModeTransitionSystem 이 다음 프레임에 전환).
         // (기존 cleared 체크 제거 — SurvivorMode 분기에서 처리됨)
+
+        // 8) 데미지 숫자(floating combat text) — Phase 11 폴리쉬.
+        //    월드 좌표 → 화면 좌표 변환 후 TextQueue 에 push. 페이드는 알파 채널로.
+        let cam_pos = world
+            .resource::<Camera>()
+            .map(|c| c.position)
+            .unwrap_or(Vec2::ZERO);
+        // borrow checker: query2 가 &World 빌림이라 같은 스코프에서 resource_mut 불가
+        // → 먼저 그릴 항목을 모은 뒤 텍스트 큐에 push
+        let damage_items: Vec<(Vec2, f32, u8)> = world
+            .query2::<DamageNumber, Transform>()
+            .filter_map(|(_, dn, t)| {
+                let screen = t.position - cam_pos;
+                // 뷰포트 밖이면 그리지 않음 (텍스트 prepare 비용 절약)
+                if screen.x < -40.0
+                    || screen.x > VIEWPORT_W + 40.0
+                    || screen.y < -40.0
+                    || screen.y > VIEWPORT_H + 40.0
+                {
+                    return None;
+                }
+                let alpha = ((1.0 - dn.fade()) * 255.0).clamp(0.0, 255.0) as u8;
+                Some((screen, dn.value, alpha))
+            })
+            .collect();
+
+        if !damage_items.is_empty() {
+            if let Some(q) = world.resource_mut::<TextQueue>() {
+                for (pos, value, alpha) in damage_items {
+                    q.push(DrawText {
+                        text:     format!("{:.0}", value),
+                        position: pos,
+                        size:     16.0,
+                        color:    [255, 230, 120, alpha], // 따뜻한 노란색
+                    });
+                }
+            }
+        }
     }
 }

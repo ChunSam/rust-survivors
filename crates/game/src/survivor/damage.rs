@@ -1,6 +1,7 @@
 use engine::{Sprite, Transform, World};
 use engine::Entity;
 
+use super::damage_number::spawn_damage_number;
 use super::enemy::{Enemy, EnemyKind};
 use super::health::Health;
 use super::weapon::HitFlash;
@@ -19,11 +20,19 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
         return false;
     };
 
+    // 데미지 숫자 스폰 — 적 위치를 먼저 캐시한 뒤 spawn 호출
+    // (Health borrow 와 World mut 가 겹치지 않도록 순서 분리)
+    let hit_pos = world.get::<Transform>(enemy).map(|t| t.position);
+
     let died = if let Some(h) = world.get_mut::<Health>(enemy) {
         h.take_damage(damage)
     } else {
         false
     };
+
+    if let Some(p) = hit_pos {
+        spawn_damage_number(world, p, damage);
+    }
 
     if died {
         let drop_pos = world.get::<Transform>(enemy).map(|t| t.position);

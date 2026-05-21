@@ -38,6 +38,7 @@ use game::survivor::{
     CharacterSelectSystem,
     ChestPickupSystem,
     CrossSystem,
+    DamageNumberSystem,
     DeathSystem,
     EnemyAiSystem,
     EnemyContactDamageSystem,
@@ -117,7 +118,8 @@ fn main() {
     app.add_system(ChestPickupSystem::default());     // Phase 6: Chest 픽업 + 진화 시도
     app.add_system(PickupSystem::default());          // Phase 7: 픽업 5종 자동 픽업
     app.add_system(HitFlashSystem);
-    app.add_system(HudSystem);                        // 마지막 — TextQueue push
+    app.add_system(DamageNumberSystem);               // Phase 11: 데미지 숫자 age/이동/despawn
+    app.add_system(HudSystem);                        // 마지막 — TextQueue push (데미지 숫자 포함)
 
     // 초기 엔티티 + 리소스 설정 (GameStats 포함)
     setup_survivor_world(&mut app.world);

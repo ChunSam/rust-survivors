@@ -4,6 +4,68 @@ Vampire Survivors 클론 개발 진행 상황. 각 sub-phase 완료 시 항목 �
 
 ---
 
+## Phase 11-A — 데미지 숫자 (floating combat text) (2026-05-22)
+
+> Phase 11 폴리쉬의 첫 항목. 적이 피격될 때마다 데미지 값이 적 위치 위로 떠올랐다가 페이드아웃.
+
+### 신규 파일
+
+| 파일 | 핵심 타입·함수 |
+|---|---|
+| `crates/game/src/survivor/damage_number.rs` | `DamageNumber { value, age, lifetime }` 컴포넌트, `spawn_damage_number()`, `DamageNumberSystem` (age 증가 + 위로 이동 + 만료 despawn) |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `survivor/damage.rs` | `apply_damage_to_enemy()` 가 피격 위치에서 `spawn_damage_number(world, p, damage)` 호출 |
+| `survivor/hud.rs` | InGame 모드 마지막 블록 (#8) 추가 — `query2::<DamageNumber, Transform>` 으로 모든 데미지 숫자를 카메라 좌표(`pos - camera.position`)로 변환 후 `TextQueue` 에 push. 페이드는 알파 채널 `(1 - fade) * 255` 적용. 뷰포트 밖이면 skip. |
+| `survivor/mod.rs` | `pub mod damage_number` + `DamageNumber`, `DamageNumberSystem`, `spawn_damage_number` 재수출 |
+| `bin/survivor.rs` | `DamageNumberSystem` 등록 (HitFlashSystem → HudSystem 사이) |
+
+### 동작
+
+1. 무기 시스템이 `apply_damage_to_enemy(world, enemy, dmg)` 호출
+2. 적 위치에서 `±8px` jitter 한 좌표 + y -16px 에 `DamageNumber` 엔티티 스폰 (lifetime 0.6s)
+3. 매 프레임 `DamageNumberSystem` 이 `age += dt` + `position.y -= 40 * dt`
+4. `HudSystem` 이 카메라 변환 + 알파 페이드 적용 + TextQueue push
+5. age ≥ lifetime → despawn
+
+### 디자인 결정
+
+| 결정 | 이유 |
+|---|---|
+| 별도 컴포넌트 (Sprite 없이) | 텍스트 전용 — `Transform` 만 있으면 위치 추적 충분. Sprite 안 붙이면 SpriteRenderer 가 그리지 않으므로 인스턴스 버퍼 낭비 0 |
+| HUD 안에서 렌더 | 텍스트 큐는 `HudSystem` 만 사용 → 카메라 변환 한 곳에 모으는 게 자연스러움. 별도 `DamageNumberRenderSystem` 분리 안 함 |
+| 800×600 상수 사용 | 현재 윈도우 크기 고정. 추후 리사이즈 대응 시 `CameraFollowSystem::viewport` 같은 리소스 도입 후 통일 |
+| jitter `±8px` | 같은 프레임 멀티히트 시 숫자 겹침 방지 (시각 노이즈) |
+| 알파 페이드만 (크기 변화 X) | glyphon `Buffer` 는 metrics 가 고정. 매 프레임 새 Buffer 만들면 비용 큼. 알파만 변경하는 게 안전 |
+
+### borrow checker 주의
+
+- `query2<DamageNumber, Transform>` 가 `&World` 빌림 중에는 `world.resource_mut::<TextQueue>()` 호출 불가
+  → 먼저 `Vec<(Vec2, f32, u8)>` 로 항목을 수집한 뒤, 별도 스코프에서 큐에 push
+- `DamageNumberSystem` 도 동일 패턴: `query2` 로 entity 만 수집 → 별도 패스에서 `get_mut` + `despawn`
+
+### 테스트 (+3 → 80)
+
+| 테스트 | 내용 |
+|---|---|
+| `fade_progresses_from_zero_to_one` | `age/lifetime` 비율이 0→1 로 진행 + `age > lifetime` 시 1.0 clamp |
+| `spawn_creates_entity_with_components` | `spawn_damage_number` 가 `DamageNumber + Transform` 둘 다 부착, y 정확히 `pos.y - 16`, x jitter `±8` 안 |
+| `system_moves_up_and_despawns_after_lifetime` | dt 0.1 → 위로 이동 / dt 1.0 → 수명 초과 시 despawn |
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 80 / doc 2 통과
+```
+
+#### 다음
+
+**Phase 11-B** — 히트 플래시 개선 / 파티클 / SFX 중 택1
+
+---
+
 ## Phase 10 — 다중 스테이지 3종 + StageSelect (2026-05-21) — **Phase 10 완료 / 풀 클론 핵심 시스템 완성**
 
 > **Phase 10 완료 = Vampire Survivors 풀 클론 핵심 시스템 100% 구현**
