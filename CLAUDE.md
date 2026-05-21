@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4 전체 (적 다양화)** — 4-A(적 10종+AI 6)/4-B(SpawnDirector+waves.ron)/4-C+4-D(패턴 5+엘리트) + **Phase 5 (보스 3종 + 멀티 페이즈 + 화면 흔들기 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)** + **Phase 7 (픽업 5종 — Coin/Chicken/Vacuum/Bomb/Rosary)**
-- **상태**: engine 26 tests · game lib 68 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성 (Phase 8-A)**: `SurvivorMode` (Title/Shop/InGame/StageClear) + `ModeTransitionSystem` (최상단 등록, GameState 동기화). `MetaSave` (RON 영구 저장: gold_total/kills_total/best_time/powerup_levels/unlocked_stages 등). Title 화면 (ENTER → InGame 전환). StageClear 화면 (메타 누적 저장 → ENTER → Title 복귀).
-- **다음**: Phase 8-B (PowerUp 매장 18종)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4 전체 (적 다양화)** — 4-A(적 10종+AI 6)/4-B(SpawnDirector+waves.ron)/4-C+4-D(패턴 5+엘리트) + **Phase 5 (보스 3종 + 멀티 페이즈 + 화면 흔들기 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)** + **Phase 7 (픽업 5종 — Coin/Chicken/Vacuum/Bomb/Rosary)** + **Phase 8 완료 (메인 메뉴 + 메타 진행 + 저장)** — 8-A(SurvivorMode+MetaSave+Title) + 8-B(PowerUp 매장 19종)
+- **상태**: engine 26 tests · game lib 71 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성 (Phase 8-B)**: `PowerUpKind` 19종 (로드맵 18종 + Banish 확장). `ShopInputSystem` (W/S 커서 이동, Enter 구매, Esc 복귀). `try_purchase` (gold 차감 + 즉시 저장). `apply_powerups` — `StatRecalcSystem` 이 패시브 합산 후 호출. Shop HUD (19종 목록 + gold + 커서 강조). Title 에 "S = SHOP" 힌트. Note: 로드맵 표기는 18종이나 Banish 포함해 19종 구현.
+- **다음**: Phase 9 (캐릭터 6+ + 해금 시스템)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

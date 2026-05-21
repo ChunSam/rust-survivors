@@ -1580,4 +1580,44 @@ cargo build --release --workspace           # ok
 
 #### 다음
 
-**Phase 8-B** — PowerUp 매장 18종
+**Phase 8-B** — PowerUp 매장 19종
+
+---
+
+## Phase 8-B — PowerUp 매장 19종 (2026-05-21) — Phase 8 완료
+
+`SurvivorMode::Shop` 화면에서 영구 stat buff 를 gold 로 구매하는 시스템.
+
+### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/powerup.rs` | `PowerUpKind`(19종) · `ShopCursor` · `ShopInputSystem` · `try_purchase` · `apply_powerups` |
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `stats.rs` | `StatRecalcSystem` — 패시브 합산 후 `apply_powerups` 호출 (Phase 8-B) |
+| `hud.rs` | Shop 화면 UI (19종 목록 + gold 표시 + 커서 강조). Title 화면에 "S = SHOP" 힌트 추가 |
+| `meta.rs` | `ModeTransitionSystem` — Title 에서 `KeyS` 입력 시 Shop 진입 |
+| `world_setup.rs` | `ShopCursor::default()` 리소스 최초 init 삽입 |
+| `mod.rs` | `pub mod powerup` 추가 + `ShopInputSystem` 재수출 |
+| `bin/survivor.rs` | `ShopInputSystem` 등록 (ModeTransitionSystem 직후) |
+
+### PowerUp 19종
+
+CLAUDE.md 로드맵 18종(Might/Armor/MaxHealth/Recovery/Cooldown/Area/Speed/Duration/Amount/MoveSpeed/Magnet/Growth/Greed/Luck/Curse/Revival/Reroll/Skip) + **Banish** = 19종.
+Reroll/Skip/Banish 는 최대 Lv 3, 나머지는 Lv 5. 비용 = (current_lv + 1) × 100 gold.
+
+### 테스트 (game lib: 68 → 71)
+
+| 테스트 | 내용 |
+|---|---|
+| `powerup_count_is_nineteen` | `PowerUpKind::ALL.len() == 19` |
+| `try_purchase_succeeds_with_enough_gold` | gold 200 → Might Lv1(100g) 구매 성공, gold 100 남음 |
+| `apply_powerups_increases_might` | Might Lv3 → `stats.might == 3.0` |
+
+#### 다음
+
+**Phase 9** — 캐릭터 6+ + 해금 시스템
