@@ -22,7 +22,7 @@ pub use levelup::{CardKind, LevelUpSystem, PendingLevelUp};
 pub use player::{Player, PlayerMovementSystem, PlayerStats, Velocity};
 pub use projectile::{spawn_projectile, spawn_projectile_ex, Projectile, ProjectileBehavior, ProjectileSystem};
 pub use spawn::{spawn_zombie, EnemySpawnSystem, SpawnTimer};
-pub use weapon::{AxeSystem, HitFlash, HitFlashSystem, KnifeSystem, MagicWandSystem, WhipSystem};
+pub use weapon::{AxeSystem, CrossSystem, FireWandSystem, HitFlash, HitFlashSystem, KnifeSystem, MagicWandSystem, WhipSystem};
 pub use world_setup::{setup_survivor_world, spawn_player};
 pub use xp::{spawn_xp_gem, MagnetSystem, XpAccumulator, XpGem};
 

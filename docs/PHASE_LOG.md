@@ -746,3 +746,69 @@ cargo build --release --workspace           # ok
 - `KnifeSystem` spread: `amount == 1` 이면 정방향 1발, `> 1` 이면 `-spread/2 ~ +spread/2` 균등 분산.
 
 다음: **Phase 2-D — Cross + Fire Wand**
+
+---
+
+### Phase 2-D — Cross + Fire Wand + Inventory Vec 변경 (2026-05-21)
+
+#### 신규 컴포넌트 / 시스템
+
+- `ProjectileBehavior::Boomerang { return_at, elapsed, returned }` — `elapsed` 가 `return_at` 에 도달하면 velocity 반전. `returned` 플래그로 1회만 반전. `ProjectileSystem` 이 매 프레임 `Projectile.behavior` 를 다시 set 해 상태 갱신.
+- `WeaponKind::Cross { damage, projectile_speed, lifetime, pierce, amount, return_at }` — 황금색 부메랑 투사체. pierce 3 (관통하며 돌아옴).
+- `WeaponKind::FireWand { damage, projectile_speed, lifetime, pierce }` — 주황색 단발 큰 데미지. 랜덤 zombie 타깃.
+- `CrossSystem` (KnifeSystem 패턴 답습 + Boomerang behavior)
+- `FireWandSystem` (target_radius 400 안 후보 적 모두 수집 → `rand` 로 1마리 랜덤 선택 → Straight 단발 발사)
+
+#### 인프라 변경
+
+- `WeaponInventory.slots`: `[Option<WeaponSlot>; 6]` → `Vec<WeaponSlot>` 로 변경. 동적 push, 6 무기 모두 보유.
+- 모든 slot 헬퍼(`whip_slot_mut` / `magic_wand_slot_mut` / `knife_slot_mut` / `axe_slot_mut`)에 `cross_slot_mut` / `fire_wand_slot_mut` 추가.
+- `with_starter_loadout`: 6 무기 모두 push (Whip / MagicWand / Knife / Axe / Cross / FireWand).
+- 기존 `inventory_starter_loadout_has_four_slots_filled` 테스트는 `inventory_starter_loadout_has_six_weapons` 로 갱신 (None 검증 제거).
+
+#### 시스템 등록 순서
+
+```
+LevelUpSystem
+PlayerMovementSystem
+EnemyAiSystem
+EnemySpawnSystem
+EnemyContactDamageSystem
+DeathSystem
+RestartSystem
+CameraFollowSystem
+WhipSystem
+MagicWandSystem
+KnifeSystem
+AxeSystem
+CrossSystem::default()       ← 신규
+FireWandSystem::default()    ← 신규
+ProjectileSystem
+MagnetSystem
+HitFlashSystem
+HudSystem
+```
+
+#### 테스트
+
+game lib 32 통과 (직전 29 + 신규 3):
+- `inventory_starter_loadout_has_six_weapons`
+- `cross_spawns_boomerang_projectile`
+- `boomerang_velocity_reverses_after_return_at`
+- (추가) `fire_wand_spawns_projectile_after_cooldown`
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 32 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- `Boomerang` 의 상태(`elapsed` / `returned`)는 `ProjectileBehavior` enum variant 안에 저장. `ProjectileSystem` 이 캐시 후 갱신된 behavior 를 `Projectile.behavior` 에 다시 write — Straight/Arc 에는 영향 없음.
+- 무기 슬롯 6 한도(`[Option<_>; 6]`) 대신 `Vec` 채택 → 학습 단계에서 슬롯 관리 UX 없이도 모든 무기를 보유한 *시각 검증 가능*. 원작의 6 슬롯 게이트는 추후 Phase 8 메뉴 작업에서 도입 가능.
+- `FireWand` 의 *랜덤 타깃* 은 `rand::seq::SliceRandom::choose` 사용. `MagicWand` / `Knife` / `Cross` 의 *가장 가까운 적* 패턴과 의도적 차별화.
+
+다음: **Phase 2-E — Garlic + Holy Water (지속 area damage)**
