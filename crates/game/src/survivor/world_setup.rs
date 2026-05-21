@@ -6,6 +6,7 @@ use super::health::Health;
 use super::hud::GameStats;
 use super::inventory::WeaponInventory;
 use super::meta::{MetaSave, SurvivorMode};
+use super::powerup::ShopCursor;
 use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
 use super::player::{Player, PlayerStats, Velocity};
@@ -67,5 +68,9 @@ pub fn setup_survivor_world(world: &mut World) {
     // Phase 8-A: SurvivorMode — 최초 시작 시 Title.
     if world.resource::<SurvivorMode>().is_none() {
         world.insert_resource(SurvivorMode::default());
+    }
+    // Phase 8-B: ShopCursor — 최초 init 시 삽입.
+    if world.resource::<ShopCursor>().is_none() {
+        world.insert_resource(ShopCursor::default());
     }
 }

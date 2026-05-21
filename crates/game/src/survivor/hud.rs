@@ -9,6 +9,7 @@ use super::meta::{MetaSave, SurvivorMode};
 use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
 use super::player::Player;
+use super::powerup::{PowerUpKind, ShopCursor};
 use super::xp::XpAccumulator;
 
 /// 게임 진행 통계. 매 프레임 누적/조회.
@@ -39,6 +40,12 @@ impl System for HudSystem {
                         position: Vec2::new(280.0, 280.0),
                         size:     22.0,
                         color:    [255, 255, 255, 255],
+                    });
+                    q.push(DrawText {
+                        text:     "S = SHOP".to_string(),
+                        position: Vec2::new(330.0, 380.0),
+                        size:     18.0,
+                        color:    [200, 200, 255, 255],
                     });
                 }
                 // 메타 정보 표시
@@ -78,7 +85,56 @@ impl System for HudSystem {
                 return;
             }
             SurvivorMode::Shop => {
-                // Phase 8-B
+                let meta_clone  = world.resource::<MetaSave>().cloned();
+                let cursor_idx  = world.resource::<ShopCursor>().map(|c| c.index).unwrap_or(0);
+                if let Some(q) = world.resource_mut::<TextQueue>() {
+                    q.push(DrawText {
+                        text:     "POWERUP SHOP".to_string(),
+                        position: Vec2::new(280.0, 30.0),
+                        size:     32.0,
+                        color:    [255, 220, 80, 255],
+                    });
+                    if let Some(meta) = &meta_clone {
+                        q.push(DrawText {
+                            text:     format!("Gold: {}", meta.gold_total),
+                            position: Vec2::new(550.0, 30.0),
+                            size:     20.0,
+                            color:    [255, 255, 100, 255],
+                        });
+                    }
+                    // PowerUp 목록 (19종) — 현재 커서 위치 강조
+                    for (i, kind) in PowerUpKind::ALL.iter().enumerate() {
+                        let lv   = meta_clone.as_ref()
+                            .map(|m| *m.powerup_levels.get(kind.key()).unwrap_or(&0))
+                            .unwrap_or(0);
+                        let cost = kind.cost(lv);
+                        let prefix = if i == cursor_idx { ">" } else { " " };
+                        let color  = if i == cursor_idx {
+                            [255, 255, 80, 255]
+                        } else {
+                            [200, 200, 200, 255]
+                        };
+                        q.push(DrawText {
+                            text: format!(
+                                "{} {:<12} Lv {}/{}  cost {}",
+                                prefix,
+                                kind.key(),
+                                lv,
+                                kind.max_level(),
+                                cost
+                            ),
+                            position: Vec2::new(80.0, 80.0 + i as f32 * 26.0),
+                            size:     16.0,
+                            color,
+                        });
+                    }
+                    q.push(DrawText {
+                        text:     "W/S = navigate  ENTER = buy  ESC = back".to_string(),
+                        position: Vec2::new(150.0, 80.0 + PowerUpKind::ALL.len() as f32 * 26.0 + 20.0),
+                        size:     14.0,
+                        color:    [180, 180, 180, 255],
+                    });
+                }
                 return;
             }
             SurvivorMode::InGame => {

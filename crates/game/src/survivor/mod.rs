@@ -16,6 +16,7 @@ pub mod lightning;
 pub mod meta;
 pub mod passive;
 pub mod pickup;
+pub mod powerup;
 pub mod player;
 pub mod projectile;
 pub mod spawn;
@@ -26,6 +27,7 @@ pub mod xp;
 
 pub use area::{GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, spawn_holy_water_pool};
 pub use meta::{MetaSave, ModeTransitionSystem, SurvivorMode};
+pub use powerup::{apply_powerups, try_purchase, PowerUpKind, ShopCursor, ShopInputSystem};
 pub use chest::{Chest, ChestPickupSystem, EvolutionRule, EVOLUTION_RULES, try_evolve, spawn_chest};
 pub use pickup::{
     apply_pickup_effect, drop_boss_pickups, spawn_pickup, try_drop_normal_pickup,

@@ -5,9 +5,12 @@
 //!   1) default 로 시작
 //!   2) 각 패시브 효과 누적
 //!   3) PlayerStats 컴포넌트에 write
+//! Phase 8-B: PowerUp 효과 합산 추가.
+//!   패시브 합산 후 MetaSave.powerup_levels 기반으로 apply_powerups 호출.
 
 use engine::{System, World};
 
+use super::meta::MetaSave;
 use super::passive::{PassiveInventory, PassiveKind};
 use super::player::{Player, PlayerStats};
 
@@ -54,7 +57,14 @@ impl System for StatRecalcSystem {
             }
         }
 
-        // 3) PlayerStats 컴포넌트에 write
+        // 3) PowerUp 효과 누적 (Phase 8-B)
+        // MetaSave 를 clone 해서 borrow 분리 — query3 로 얻은 world 빌림과 충돌 방지.
+        let meta_clone = world.resource::<MetaSave>().cloned();
+        if let Some(meta) = meta_clone {
+            super::powerup::apply_powerups(&mut s, &meta);
+        }
+
+        // 4) PlayerStats 컴포넌트에 write
         if let Some(stats) = world.get_mut::<PlayerStats>(player_entity) {
             *stats = s;
         }

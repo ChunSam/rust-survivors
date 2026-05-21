@@ -13,6 +13,7 @@ use winit::keyboard::KeyCode;
 
 use super::hud::GameStats;
 use super::pickup::GoldWallet;
+use super::powerup::ShopCursor;
 
 const APP_NAME: &str = "rust-vampire-survivors";
 const SAVE_FILE: &str = "save.ron";
@@ -97,10 +98,14 @@ impl System for ModeTransitionSystem {
 
         match mode {
             SurvivorMode::Title => {
-                let enter_pressed = world
-                    .resource::<InputState>()
-                    .map(|i| i.just_pressed(KeyCode::Enter))
-                    .unwrap_or(false);
+                // 입력 캐시 (borrow 분리)
+                let (enter_pressed, shop_pressed) = {
+                    let i = match world.resource::<InputState>() {
+                        Some(i) => i,
+                        None    => return,
+                    };
+                    (i.just_pressed(KeyCode::Enter), i.just_pressed(KeyCode::KeyS))
+                };
                 if enter_pressed {
                     super::death::restart_world(world);
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
@@ -110,6 +115,16 @@ impl System for ModeTransitionSystem {
                         *gs = GameState::Playing;
                     }
                     println!("Game started.");
+                }
+                if shop_pressed {
+                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
+                        *m = SurvivorMode::Shop;
+                    }
+                    // ShopCursor 가 없으면 default 삽입
+                    if world.resource::<ShopCursor>().is_none() {
+                        world.insert_resource(ShopCursor::default());
+                    }
+                    println!("Entered shop");
                 }
             }
             SurvivorMode::InGame => {
