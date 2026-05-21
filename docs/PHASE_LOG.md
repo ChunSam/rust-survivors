@@ -812,3 +812,74 @@ cargo build --release --workspace           # ok
 - `FireWand` 의 *랜덤 타깃* 은 `rand::seq::SliceRandom::choose` 사용. `MagicWand` / `Knife` / `Cross` 의 *가장 가까운 적* 패턴과 의도적 차별화.
 
 다음: **Phase 2-E — Garlic + Holy Water (지속 area damage)**
+
+---
+
+### Phase 2-E — Garlic + Holy Water (2026-05-21)
+
+지속 area-damage 패턴 두 종류 추가.
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/area.rs` | `HolyWaterPool` 컴포넌트, `GarlicSystem`, `HolyWaterSystem`, `HolyWaterPoolSystem`, `spawn_holy_water_pool` |
+
+#### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `crates/game/src/survivor/inventory.rs` | `WeaponKind::Garlic`, `WeaponKind::HolyWater` 추가; `garlic_slot_mut/slot`, `holy_water_slot_mut/slot` 헬퍼; `with_starter_loadout` 에 Garlic + HolyWater 슬롯 추가 (8개 무기) |
+| `crates/game/src/survivor/mod.rs` | `pub mod area;` + 재수출 추가 |
+| `crates/game/src/bin/survivor.rs` | `GarlicSystem`, `HolyWaterSystem`, `HolyWaterPoolSystem` 시스템 등록 |
+| `crates/game/src/lib.rs` | 3개 신규 테스트 + import 갱신 |
+
+#### 시스템 등록 순서
+
+```
+LevelUpSystem
+PlayerMovementSystem
+EnemyAiSystem
+EnemySpawnSystem
+EnemyContactDamageSystem
+DeathSystem
+RestartSystem
+CameraFollowSystem
+WhipSystem
+MagicWandSystem
+KnifeSystem
+AxeSystem
+CrossSystem
+FireWandSystem
+GarlicSystem::default()        ← 신규 (오라)
+HolyWaterSystem                ← 신규 (풀 스폰)
+HolyWaterPoolSystem::default() ← 신규 (풀 tick + lifetime)
+ProjectileSystem
+MagnetSystem
+HitFlashSystem
+HudSystem
+```
+
+#### 테스트
+
+game lib 35 통과 (직전 32 + 신규 3):
+- `garlic_damages_zombies_in_radius`
+- `holy_water_spawns_pool_after_cooldown`
+- `pool_damages_zombie_on_tick`
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 35 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- `GarlicSystem` 은 `SpatialGrid::query_radius` 로 오라 반경 안 모든 적을 한 번에 타격. Whip 의 AABB 쿼리와 달리 완전한 원형 판정.
+- `HolyWaterSystem` 은 풀 *스폰만* 담당. 풀의 lifetime 감소 + tick 데미지는 `HolyWaterPoolSystem` 이 분리 처리 — 역할 분리로 각 시스템이 단일 책임.
+- `HolyWaterPool` 은 ECS 컴포넌트로 저장. grid rebuild 는 `HolyWaterPoolSystem` 이 직접 소유한 `SpatialGrid` 로.
+- HitFlash + 사망 처리 코드가 WhipSystem / ProjectileSystem / GarlicSystem / HolyWaterPoolSystem 4곳에 중복. 향후 `apply_damage_to_zombie(world, entity, damage)` 헬퍼로 추출 권장.
+
+다음: **Phase 2-F — King Bible + Lightning Ring**

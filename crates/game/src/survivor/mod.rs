@@ -1,3 +1,4 @@
+pub mod area;
 pub mod camera_follow;
 pub mod death;
 pub mod enemy;
@@ -12,6 +13,7 @@ pub mod weapon;
 pub mod world_setup;
 pub mod xp;
 
+pub use area::{GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, spawn_holy_water_pool};
 pub use camera_follow::CameraFollowSystem;
 pub use death::{restart_world, DeathSystem, EnemyContactDamageSystem, RestartSystem};
 pub use enemy::{EnemyAi, EnemyAiSystem, Zombie};

@@ -3,7 +3,7 @@
 `crates/game/src/survivor/` — Vampire Survivors 풀 클론 모듈.
 탑다운 자동공격 로그라이트. 상세 로드맵: `CLAUDE.md` "Vampire Survivors 클론 로드맵" 섹션.
 
-**현재 단계**: Phase 2-D 완료 — Cross(부메랑) + FireWand(랜덤 타깃) 추가. `WeaponInventory.slots` 를 `Vec<WeaponSlot>` 으로 변경, 6 무기 모두 보유.
+**현재 단계**: Phase 2-E 완료 — Garlic(오라) + HolyWater(필드 풀) 추가. 스타터 로드아웃 8 무기 보유.
 
 ## 실행
 
@@ -29,7 +29,8 @@ Phase 1-B 이후 자동공격·레벨업 등 추가 예정.
 | 파일 | 내용 |
 |---|---|
 | `mod.rs` | 하위 모듈 선언 + 최상위 재수출 + `LAYER_PLAYER`/`LAYER_ENEMY`/`LAYER_XP` 상수 |
-| `inventory.rs` | `WeaponKind` enum (Whip/MagicWand/Knife/Axe/Cross/FireWand), `WeaponSlot { kind, level, cooldown, elapsed, tick() }`, `WeaponInventory { slots: Vec<WeaponSlot> }` |
+| `area.rs` | `HolyWaterPool { damage, radius, lifetime, tick_cooldown, tick_elapsed }`, `GarlicSystem` (오라 tick 데미지), `HolyWaterSystem` (풀 드롭), `HolyWaterPoolSystem` (풀 lifetime + tick 데미지), `spawn_holy_water_pool` |
+| `inventory.rs` | `WeaponKind` enum (Whip/MagicWand/Knife/Axe/Cross/FireWand/Garlic/HolyWater), `WeaponSlot { kind, level, cooldown, elapsed, tick() }`, `WeaponInventory { slots: Vec<WeaponSlot> }` |
 | `projectile.rs` | `Projectile { velocity, lifetime, pierce, damage, layer_mask, radius, behavior }`, `ProjectileBehavior` (Straight / Arc{gravity} / Boomerang{return_at, elapsed, returned}), `ProjectileSystem`, `spawn_projectile{_ex}` 헬퍼 |
 | `player.rs` | `Player` (태그), `Velocity(Vec2)`, `PlayerStats { move_speed }`, `PlayerMovementSystem` |
 | `camera_follow.rs` | `CameraFollowSystem { lerp, viewport }` — 플레이어 위치로 카메라 lerp 추적 |
@@ -75,9 +76,9 @@ CameraFollowSystem { lerp: 0.15, viewport: Vec2(800, 600) }
 | `PlayerStats` | move_speed=200.0 |
 | `Velocity` | (0, 0) |
 | `Health` | current=max=100.0 |
-| `WeaponInventory` | slots[0..6] = Whip / MagicWand / Knife / Axe / Cross / FireWand (with_starter_loadout) |
+| `WeaponInventory` | slots[0..8] = Whip / MagicWand / Knife / Axe / Cross / FireWand / Garlic / HolyWater (with_starter_loadout) |
 
-## 시스템 등록 순서 (Phase 2-D — 현재)
+## 시스템 등록 순서 (Phase 2-E — 현재)
 
 ```
 app.add_system(LevelUpSystem)                        // 첫 번째 — 상태 전환·키 입력 처리
@@ -94,13 +95,14 @@ app.add_system(KnifeSystem::default())               // 가까운 적 amount개 
 app.add_system(AxeSystem::default())                 // 위로 던지는 포물선
 app.add_system(CrossSystem::default())               // 가까운 적 방향 부메랑
 app.add_system(FireWandSystem::default())            // 랜덤 적 큰 데미지
+app.add_system(GarlicSystem::default())              // 플레이어 오라 tick 데미지 (2-E)
+app.add_system(HolyWaterSystem)                      // 풀 드롭 (2-E)
+app.add_system(HolyWaterPoolSystem::default())       // 풀 lifetime + tick 데미지 (2-E)
 app.add_system(ProjectileSystem::default())          // 모든 투사체 이동·hit·despawn
 app.add_system(MagnetSystem::default())              // XpGem 흡수
 app.add_system(HitFlashSystem)
 app.add_system(HudSystem)                            // 마지막 — TextQueue push
 ```
 
-## 다음 단계: Phase 2-E — Garlic + Holy Water (지속 area damage)
-
-플레이어 주변에 머무르는 *지속 area damage* 패턴 도입. Garlic 은 플레이어 중심 오라, Holy Water 는 떨어뜨려 남는 풀.
+## 다음 단계: Phase 2-F — King Bible + Lightning Ring
 
