@@ -2,7 +2,7 @@ use engine::{CollisionLayer, Entity, Sprite, SpatialGrid, System, Transform, Wor
 use engine::components::GameState;
 use glam::Vec2;
 
-use super::damage::apply_damage_to_zombie;
+use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
@@ -136,7 +136,7 @@ impl System for OrbitingBookSystem {
         for (pos, hit_radius, damage) in tick_hits {
             let zombies = self.grid.query_radius(pos, hit_radius, CollisionLayer(LAYER_ENEMY));
             for z in zombies {
-                if apply_damage_to_zombie(world, z, damage) {
+                if apply_damage_to_enemy(world, z, damage) {
                     killed += 1;
                 }
             }

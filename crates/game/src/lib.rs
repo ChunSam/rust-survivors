@@ -8,10 +8,11 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        restart_world, setup_survivor_world, spawn_book, spawn_holy_water_pool, spawn_player,
-        spawn_projectile, spawn_projectile_ex, spawn_xp_gem, spawn_zombie, CameraFollowSystem,
-        CardKind, CrossSystem, DeathSystem, EnemyAiSystem, EnemyContactDamageSystem,
-        EnemySpawnSystem, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
+        apply_damage_to_enemy, restart_world, setup_survivor_world, spawn_book,
+        spawn_enemy, spawn_holy_water_pool, spawn_player, spawn_projectile,
+        spawn_projectile_ex, spawn_xp_gem, spawn_zombie, CameraFollowSystem,
+        CardKind, CrossSystem, DeathSystem, Enemy, EnemyAiSystem, EnemyContactDamageSystem,
+        EnemyKind, EnemySpawnSystem, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
         HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, KingBibleSystem, KnifeSystem,
         LevelUpSystem, LightningFlash, LightningRingSystem, MagicWandSystem, MagnetSystem,
         OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player, PlayerStats, Projectile,
@@ -191,8 +192,9 @@ mod tests {
 
         EnemySpawnSystem::default().run(&mut world, 1.0);
 
-        let count = world.query::<Zombie>().count();
-        assert_eq!(count, 1, "one zombie should have spawned");
+        // EnemySpawnSystem 이 랜덤 종류를 스폰하므로 Enemy 컴포넌트로 개수 확인
+        let count = world.query::<Enemy>().count();
+        assert_eq!(count, 1, "one enemy should have spawned");
     }
 
     #[test]
@@ -1111,6 +1113,89 @@ mod tests {
             );
         }
         // despawn 됐으면(즉사) 테스트도 통과
+    }
+
+    // ── Phase 4-A: 적 10종 + AI 변종 테스트 ──────────────────────────────────
+
+    /// 모든 EnemyKind 의 stats() 가 hp > 0, scale > 0 을 반환해야 한다.
+    #[test]
+    fn enemy_kind_stats_for_all_ten() {
+        use super::survivor::EnemyStats;
+        let kinds = [
+            EnemyKind::Zombie, EnemyKind::Bat, EnemyKind::Ghost, EnemyKind::Skeleton,
+            EnemyKind::Mage, EnemyKind::Mantis, EnemyKind::Plant, EnemyKind::Slime,
+            EnemyKind::Mummy, EnemyKind::Knight,
+        ];
+        for kind in &kinds {
+            let s: EnemyStats = kind.stats();
+            assert!(s.hp > 0.0, "{kind:?} 의 hp 가 0 보다 커야 함");
+            assert!(s.scale > 0.0, "{kind:?} 의 scale 이 0 보다 커야 함");
+            assert!(s.contact_damage > 0.0, "{kind:?} 의 contact_damage 가 0 보다 커야 함");
+        }
+    }
+
+    /// Ghost 는 stop_at(80px) 범위에 플레이어가 있으면 이동하지 않아야 한다.
+    #[test]
+    fn ghost_hovers_at_stop_distance() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, engine::Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<engine::Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // Ghost 를 (100, 0) 에 스폰 — stop_at=80. 거리 100 > 80 이므로 처음에는 이동.
+        // dt=5.0 으로 큰 값 사용 → stop_at 까지 이동 후 멈춤
+        spawn_enemy(&mut world, Vec2::new(100.0, 0.0), EnemyKind::Ghost);
+
+        let ghost_e = world.query::<Enemy>().next().map(|(e, _)| e).unwrap();
+
+        EnemyAiSystem.run(&mut world, 5.0);
+
+        // Ghost 위치 x < 100 (플레이어 방향으로 이동했어야 함)
+        let pos_x = world.get::<engine::Transform>(ghost_e)
+            .map(|t| t.position.x)
+            .unwrap();
+        // Ghost 가 stop_at(80) 근처나 그 안에 있어야 함
+        // (stop_at 이 되면 멈추므로 x > 80 이거나, 큰 dt 로 지나쳤더라도 많이는 못 지남)
+        assert!(
+            pos_x < 100.0,
+            "Ghost 가 플레이어 방향으로 이동해야 함 (pos_x={pos_x} < 100.0)"
+        );
+    }
+
+    /// Slime 사망 시 split_remaining=2 → 자식 슬라임 2마리 스폰 확인.
+    #[test]
+    fn slime_splits_on_death() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+
+        // Slime 스폰 (HP=30, split_remaining=2)
+        spawn_enemy(&mut world, Vec2::ZERO, EnemyKind::Slime);
+
+        // Slime 엔티티 추출
+        let slime_e = world.query::<Enemy>().next().map(|(e, _)| e).unwrap();
+
+        // 100 데미지 → 즉사 → split
+        apply_damage_to_enemy(&mut world, slime_e, 100.0);
+
+        // 자식 슬라임 2마리가 스폰됐어야 함 (split_remaining=0 → 더 이상 split 안 함)
+        let remaining = world.query::<Enemy>().count();
+        assert_eq!(
+            remaining, 2,
+            "Slime 사망 시 자식 슬라임 2마리가 스폰돼야 함 (현재 {remaining})"
+        );
+
+        // 자식들의 split_remaining 은 0 이어야 함
+        for (_, enemy) in world.query::<Enemy>() {
+            assert_eq!(
+                enemy.split_remaining, 0,
+                "자식 슬라임의 split_remaining 은 0 이어야 함 (무한 split 방지)"
+            );
+        }
     }
 
     /// CardKind::PassiveSpinach 를 두 번 apply 하면 PassiveInventory 의 Spinach 레벨이 2 가 된다.

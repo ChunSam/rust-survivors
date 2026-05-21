@@ -8,7 +8,7 @@ use engine::{CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, Wor
 use engine::components::GameState;
 use glam::Vec2;
 
-use super::damage::apply_damage_to_zombie;
+use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
@@ -79,7 +79,7 @@ impl System for GarlicSystem {
         // 3) 각 hit zombie 에 데미지 + HitFlash + 사망 처리
         let mut killed: u32 = 0;
         for zombie in hits {
-            if apply_damage_to_zombie(world, zombie, damage) {
+            if apply_damage_to_enemy(world, zombie, damage) {
                 killed += 1;
             }
         }
@@ -197,7 +197,7 @@ impl System for HolyWaterPoolSystem {
         // 2) tick_hits 적용
         let mut killed: u32 = 0;
         for (zombie, damage) in tick_hits {
-            if apply_damage_to_zombie(world, zombie, damage) {
+            if apply_damage_to_enemy(world, zombie, damage) {
                 killed += 1;
             }
         }

@@ -2,7 +2,8 @@ use engine::{Camera, Collider, CollisionLayer, Entity, Sprite, System, Transform
 use engine::components::GameState;
 use glam::Vec2;
 use rand::Rng;
-use super::enemy::{EnemyAi, Zombie};
+use rand::seq::IteratorRandom;
+use super::enemy::{Enemy, EnemyAi, EnemyAiKind, EnemyKind, Zombie};
 use super::health::Health;
 use super::LAYER_ENEMY;
 
@@ -18,7 +19,7 @@ impl Default for SpawnTimer {
     }
 }
 
-/// 카메라 외곽 원형 경계에서 좀비를 스폰하고, 너무 멀어진 좀비를 정리하는 시스템.
+/// 카메라 외곽 원형 경계에서 적을 스폰하고, 너무 멀어진 적을 정리하는 시스템.
 ///
 /// `viewport` 는 Camera 리소스에 없으므로 CameraFollowSystem 과 동일하게 필드로 보관한다.
 pub struct EnemySpawnSystem {
@@ -63,14 +64,16 @@ impl System for EnemySpawnSystem {
         };
 
         if should_spawn {
-            let angle = rand::thread_rng().gen_range(0.0..std::f32::consts::TAU);
+            let mut rng   = rand::thread_rng();
+            let angle     = rng.gen_range(0.0..std::f32::consts::TAU);
             let spawn_pos = center + Vec2::new(angle.cos(), angle.sin()) * self.spawn_radius;
-            spawn_zombie(world, spawn_pos);
+            let kind      = pick_random_enemy_kind(&mut rng);
+            spawn_enemy(world, spawn_pos, kind);
         }
 
-        // despawn_radius 밖 좀비 수집 후 정리
+        // despawn_radius 밖 적 수집 후 정리
         let to_despawn: Vec<Entity> = world
-            .query2::<Zombie, Transform>()
+            .query2::<Enemy, Transform>()
             .filter(|(_, _, t)| (t.position - center).length() > self.despawn_radius)
             .map(|(e, _, _)| e)
             .collect();
@@ -80,19 +83,80 @@ impl System for EnemySpawnSystem {
     }
 }
 
-/// 좀비 엔티티를 주어진 위치에 스폰한다.
-pub fn spawn_zombie(world: &mut World, pos: Vec2) {
+/// 10종 EnemyKind 중 균등 랜덤 선택.
+fn pick_random_enemy_kind(rng: &mut impl Rng) -> EnemyKind {
+    *[
+        EnemyKind::Zombie,
+        EnemyKind::Bat,
+        EnemyKind::Ghost,
+        EnemyKind::Skeleton,
+        EnemyKind::Mage,
+        EnemyKind::Mantis,
+        EnemyKind::Plant,
+        EnemyKind::Slime,
+        EnemyKind::Mummy,
+        EnemyKind::Knight,
+    ]
+    .iter()
+    .choose(rng)
+    .unwrap()
+}
+
+/// 지정 위치에 EnemyKind 에 맞는 적 엔티티를 스폰한다.
+///
+/// Slime 은 split_remaining = 2 로 초기화.
+pub fn spawn_enemy(world: &mut World, pos: Vec2, kind: EnemyKind) {
+    // Slime 기본 split 횟수 = 2
+    let splits = if matches!(kind, EnemyKind::Slime) { 2 } else { 0 };
+    spawn_enemy_with_splits(world, pos, kind, splits);
+}
+
+/// split_remaining 을 직접 지정해 스폰 (Slime split child 스폰에 사용).
+pub fn spawn_enemy_with_splits(world: &mut World, pos: Vec2, kind: EnemyKind, split_remaining: u8) {
+    let stats = kind.stats();
+
+    let ai_kind = match kind {
+        EnemyKind::Ghost  => EnemyAiKind::Hover { stop_at: 80.0 },
+        EnemyKind::Mage   => EnemyAiKind::Kite  { min_dist: 200.0 },
+        EnemyKind::Mantis => EnemyAiKind::Dash {
+            cooldown:      2.5,
+            elapsed:       0.0,
+            dash_speed:    350.0,
+            dash_lifetime: 0.4,
+            dashing:       0.0,
+        },
+        EnemyKind::Plant  => EnemyAiKind::Stay,
+        EnemyKind::Slime  => EnemyAiKind::Split,
+        _ => EnemyAiKind::Chase,
+    };
+
     let e = world.spawn();
     world.add_component(e, Transform {
         position: pos,
-        scale:    Vec2::new(40.0, 40.0),
+        scale:    Vec2::new(stats.scale, stats.scale),
         rotation: 0.0,
         z:        0.5,
     });
-    world.add_component(e, Sprite::colored(0.4, 0.7, 0.4));
-    world.add_component(e, Zombie);
-    world.add_component(e, EnemyAi::default());
+    world.add_component(e, Sprite::colored(stats.color[0], stats.color[1], stats.color[2]));
+    world.add_component(e, Enemy {
+        kind,
+        contact_damage: stats.contact_damage,
+        split_remaining,
+    });
+    world.add_component(e, EnemyAi { move_speed: stats.move_speed, ai: ai_kind });
+    world.add_component(e, Health::new(stats.hp));
     world.add_component(e, CollisionLayer(LAYER_ENEMY));
-    world.add_component(e, Collider::Circle { radius: 20.0 });
-    world.add_component(e, Health::new(30.0));
+    world.add_component(e, Collider::Circle { radius: stats.scale / 2.0 });
+
+    // 하위 호환: Zombie 종류에는 Zombie 태그도 부착 (기존 코드 호환)
+    if matches!(kind, EnemyKind::Zombie) {
+        world.add_component(e, Zombie);
+    }
+}
+
+/// 좀비 엔티티를 주어진 위치에 스폰한다 (하위 호환 유지).
+///
+/// 내부적으로 `spawn_enemy(world, pos, EnemyKind::Zombie)` 를 호출한다.
+pub fn spawn_zombie(world: &mut World, pos: Vec2) {
+    spawn_enemy(world, pos, EnemyKind::Zombie);
 }
