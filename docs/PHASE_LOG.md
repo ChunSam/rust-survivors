@@ -1169,3 +1169,143 @@ cargo build --release --workspace           # ok
 ### 다음
 
 **Phase 3-B** — PassiveKind 16개 + PassiveInventory + StatRecalcSystem 합산 로직
+
+---
+
+## Phase 3-B — PassiveInventory + StatRecalcSystem (2026-05-21)
+
+Phase 3-A 에서 stub no-op 이었던 StatRecalcSystem 에 PassiveInventory 합산 로직 구현.
+
+### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/passive.rs` | `PassiveKind` 16 variant, `PassiveSlot { kind, level }`, `PassiveInventory`, `level_of()` |
+
+### 수정 파일
+
+| 파일 | 변경 |
+|---|---|
+| `crates/game/src/survivor/stats.rs` | `StatRecalcSystem::run` — PassiveInventory 로부터 PlayerStats 합산 |
+| `crates/game/src/survivor/levelup.rs` | `CardKind` 에 `Passive*` 16개 variant 추가, `apply_card` 에 passive 분기 추가 |
+| `crates/game/src/survivor/world_setup.rs` | `spawn_player` 에 `PassiveInventory::default()` 컴포넌트 추가 |
+| `crates/game/src/survivor/mod.rs` | `pub mod passive` + 재수출 추가 |
+
+### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 47 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+---
+
+## Phase 4-A — 적 10종 + AI 변종 (2026-05-21)
+
+### 개요
+
+Zombie 단일 종에서 10종 다양화. AI 변종 6개(Chase/Hover/Kite/Dash/Stay/Split) 도입.
+EnemySpawnSystem 이 균등 랜덤으로 10종 중 하나를 선택해 스폰.
+EnemyContactDamageSystem 이 각 적의 contact_damage 를 개별 합산.
+apply_damage_to_zombie → apply_damage_to_enemy rename (호출처 6곳).
+Slime split 무한 방지: split_remaining 필드로 자식 슬라임은 0, 재귀 split 없음.
+
+### 신규 타입
+
+#### EnemyKind (10 variant)
+
+| variant | AI | HP | speed | scale | contact_dmg |
+|---|---|---|---|---|---|
+| Zombie   | Chase  | 30   | 80  | 40 | 10 |
+| Bat      | Chase  | 15   | 140 | 30 | 6  |
+| Ghost    | Hover  | 25   | 100 | 36 | 8  |
+| Skeleton | Chase  | 35   | 110 | 38 | 9  |
+| Mage     | Kite   | 40   | 90  | 38 | 7  |
+| Mantis   | Dash   | 45   | 80  | 42 | 12 |
+| Plant    | Stay   | 60   | 0   | 44 | 8  |
+| Slime    | Split  | 30   | 70  | 36 | 7  |
+| Mummy    | Chase  | 120  | 40  | 48 | 15 |
+| Knight   | Chase  | 80   | 90  | 44 | 14 |
+
+#### EnemyAiKind (6 variant)
+
+| variant | 동작 |
+|---|---|
+| Chase | 단순 player 추격 (Zombie/Bat/Skeleton/Mummy/Knight) |
+| Hover { stop_at } | stop_at 거리에서 멈춤 (Ghost, stop_at=80) |
+| Kite { min_dist } | min_dist 보다 가까우면 달아남, 멀면 추격 (Mage, min_dist=200) |
+| Dash { cooldown, dash_speed, dash_lifetime, ... } | cooldown 마다 dash_lifetime 초 동안 dash_speed 로 burst (Mantis) |
+| Stay | 정지 (Plant) |
+| Split | Chase 이동 + 사망 시 split (Slime) |
+
+#### Enemy 컴포넌트
+
+```rust
+pub struct Enemy {
+    pub kind:            EnemyKind,
+    pub contact_damage:  f32,
+    pub split_remaining: u8,  // Slime: 2(초기) → 자식 0 (무한 split 방지)
+}
+```
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `crates/game/src/survivor/enemy.rs` | EnemyKind 10종, EnemyStats, EnemyAiKind 6종, Enemy 컴포넌트, EnemyAi 확장, EnemyAiSystem 분기 처리. Zombie 태그 유지(호환) |
+| `crates/game/src/survivor/spawn.rs` | `spawn_enemy(world, pos, kind)`, `spawn_enemy_with_splits`, `pick_random_enemy_kind`. EnemySpawnSystem: 균등 random 10종. despawn 로직을 `Enemy` 쿼리로 일반화. `spawn_zombie` 는 `spawn_enemy(Zombie)` 호출로 단순화 (하위 호환 유지) |
+| `crates/game/src/survivor/damage.rs` | `apply_damage_to_zombie` → `apply_damage_to_enemy` rename. Slime 사망 시 split_remaining > 0 이면 자식 2마리 스폰(split_remaining=0) |
+| `crates/game/src/survivor/death.rs` | `EnemyContactDamageSystem`: 각 적의 `Enemy.contact_damage` 합산 (이전 고정 10 → 동적) |
+| `crates/game/src/survivor/projectile.rs` | `Zombie` 이중 확인 → `Enemy` 컴포넌트 확인으로 변경 |
+| `crates/game/src/survivor/weapon.rs` | `apply_damage_to_zombie` → `apply_damage_to_enemy` |
+| `crates/game/src/survivor/area.rs` | `apply_damage_to_zombie` → `apply_damage_to_enemy` |
+| `crates/game/src/survivor/bible.rs` | `apply_damage_to_zombie` → `apply_damage_to_enemy` |
+| `crates/game/src/survivor/lightning.rs` | `apply_damage_to_zombie` → `apply_damage_to_enemy` |
+| `crates/game/src/survivor/mod.rs` | `Enemy`, `EnemyAiKind`, `EnemyKind`, `EnemyStats`, `apply_damage_to_enemy`, `spawn_enemy` 재수출 추가 |
+| `crates/game/src/lib.rs` | 임포트 갱신 + 신규 테스트 3건. `spawn_timer_triggers_after_interval` 를 `Zombie` → `Enemy` 쿼리로 수정 |
+
+### apply_damage_to_zombie → apply_damage_to_enemy rename 영향
+
+호출처 6곳 일괄 rename:
+1. `weapon.rs` — WhipSystem
+2. `projectile.rs` — ProjectileSystem
+3. `area.rs` — GarlicSystem, HolyWaterPoolSystem
+4. `bible.rs` — OrbitingBookSystem
+5. `lightning.rs` — LightningRingSystem
+
+### Slime split 무한 방지
+
+`Enemy.split_remaining` 필드:
+- 최초 spawn_enemy(Slime): `split_remaining = 2`
+- 사망 시 split_remaining > 0 → 자식 2마리 스폰, 각 `split_remaining = 0`
+- 자식이 사망해도 split_remaining == 0 → split 발생 안 함
+
+### 테스트
+
+game lib 50 통과 (직전 47 + 신규 3):
+- `enemy_kind_stats_for_all_ten` — 10종 EnemyKind::stats() 호출, hp/scale/contact_damage > 0 검증
+- `ghost_hovers_at_stop_distance` — Ghost (100, 0) 스폰 + dt=5.0 → pos.x < 100 (플레이어 방향 이동)
+- `slime_splits_on_death` — Slime 즉사 → Enemy count == 2 (자식 2마리), split_remaining == 0 검증
+
+기존 테스트 수정:
+- `spawn_timer_triggers_after_interval`: `Zombie` → `Enemy` 쿼리 (EnemySpawnSystem 이 랜덤 종류 스폰)
+
+### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 50 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+### 핵심 결정
+
+- `EnemyAiKind::Dash` 상태는 variant 필드(elapsed, dashing)에 인라인 저장 → 별도 컴포넌트 없이 EnemyAi.ai 에 함께 보관. EnemyAiSystem 이 collect → 계산 → get_mut 패턴으로 borrow checker 회피.
+- 투사체 hit 체크를 `Zombie` 태그 이중 확인에서 `Enemy` 컴포넌트 확인으로 변경 → 10종 모두 피격 가능.
+- `spawn_zombie` 는 `spawn_enemy(Zombie)` 래퍼로 단순화. 하위 호환 유지.
+- EnemySpawnSystem despawn 로직: `Zombie` → `Enemy` 쿼리로 일반화.
+
+### 다음
+
+**Phase 4-B** — SpawnDirector + waves.ron (시간축 wave 정의)

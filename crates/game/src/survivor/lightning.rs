@@ -3,7 +3,7 @@ use engine::components::GameState;
 use glam::Vec2;
 use rand::seq::SliceRandom;
 
-use super::damage::apply_damage_to_zombie;
+use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
@@ -79,7 +79,7 @@ impl System for LightningRingSystem {
             // area damage at target_pos
             let hits = self.grid.query_radius(target_pos, hit_radius, CollisionLayer(LAYER_ENEMY));
             for z in hits {
-                if apply_damage_to_zombie(world, z, damage) {
+                if apply_damage_to_enemy(world, z, damage) {
                     killed += 1;
                 }
             }

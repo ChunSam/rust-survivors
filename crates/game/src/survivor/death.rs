@@ -2,6 +2,7 @@ use engine::{CollisionLayer, SpatialGrid, System, Transform, World};
 use engine::components::GameState;
 use engine::input::InputState;
 use winit::keyboard::KeyCode;
+use super::enemy::Enemy;
 use super::player::{Player, PlayerStats};
 use super::health::Health;
 use super::hud::GameStats;
@@ -60,7 +61,17 @@ impl System for EnemyContactDamageSystem {
             .next()
             .map(|(_, _, s)| s.armor)
             .unwrap_or(0.0);
-        let effective_damage = (self.damage - armor).max(0.0);
+
+        // 각 적의 contact_damage 합산 (Enemy 컴포넌트가 없으면 self.damage fallback)
+        let mut total_damage = 0.0_f32;
+        for e in &hits {
+            if let Some(en) = world.get::<Enemy>(*e) {
+                total_damage += en.contact_damage;
+            } else {
+                total_damage += self.damage; // legacy fallback
+            }
+        }
+        let effective_damage = (total_damage - armor).max(0.0);
 
         if let Some(h) = world.get_mut::<Health>(player_entity) {
             let died = h.take_damage(effective_damage);

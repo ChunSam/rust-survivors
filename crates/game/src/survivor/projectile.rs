@@ -2,8 +2,8 @@ use engine::{Collider, CollisionLayer, Entity, SpatialGrid, Sprite, System, Tran
 use engine::components::GameState;
 use glam::Vec2;
 
-use super::damage::apply_damage_to_zombie;
-use super::enemy::Zombie;
+use super::damage::apply_damage_to_enemy;
+use super::enemy::Enemy;
 use super::hud::GameStats;
 use super::LAYER_ENEMY;
 
@@ -111,9 +111,9 @@ impl System for ProjectileSystem {
             let mut consumed   = false;
 
             for cand in candidates {
-                // Zombie 컴포넌트를 가진 엔티티인지 이중 확인
-                let is_zombie = world.get::<Zombie>(cand).is_some();
-                if !is_zombie {
+                // Enemy 컴포넌트를 가진 엔티티인지 확인 (모든 적 종류 처리)
+                let is_enemy = world.get::<Enemy>(cand).is_some();
+                if !is_enemy {
                     continue;
                 }
                 hits_buffer.push((cand, damage));
@@ -147,8 +147,8 @@ impl System for ProjectileSystem {
 
         // 3) 데미지 적용 + 사망 처리 + XpGem 드롭 + HitFlash + 처치 카운터
         let mut killed_count: u32 = 0;
-        for (zombie, damage) in hits_buffer {
-            if apply_damage_to_zombie(world, zombie, damage) {
+        for (enemy, damage) in hits_buffer {
+            if apply_damage_to_enemy(world, enemy, damage) {
                 killed_count += 1;
             }
         }
@@ -303,8 +303,8 @@ mod tests {
         ProjectileSystem::default().run(&mut world, 0.1);
 
         // 좀비 HP 가 줄었거나 despawn 됐어야 함
-        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e);
-        if let Some(ze) = zombie_entity {
+        let enemy_entity = world.query::<Enemy>().next().map(|(e, _)| e);
+        if let Some(ze) = enemy_entity {
             let hp = world.get::<Health>(ze).map(|h| h.current).unwrap_or(0.0);
             assert!(hp < 30.0, "투사체 피격 후 좀비 HP 가 줄어야 함 (현재 {hp})");
         }

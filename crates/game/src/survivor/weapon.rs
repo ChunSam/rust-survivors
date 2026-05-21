@@ -3,7 +3,7 @@ use engine::components::GameState;
 use glam::Vec2;
 use rand::seq::SliceRandom;
 
-use super::damage::apply_damage_to_zombie;
+use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
@@ -141,7 +141,7 @@ impl System for WhipSystem {
 
         let mut killed: u32 = 0;
         for entity in hits {
-            if apply_damage_to_zombie(world, entity, damage) {
+            if apply_damage_to_enemy(world, entity, damage) {
                 killed += 1;
             }
         }
