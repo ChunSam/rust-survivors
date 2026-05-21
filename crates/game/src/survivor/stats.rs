@@ -10,6 +10,7 @@
 
 use engine::{System, World};
 
+use super::character::SelectedCharacter;
 use super::meta::MetaSave;
 use super::passive::{PassiveInventory, PassiveKind};
 use super::player::{Player, PlayerStats};
@@ -64,7 +65,11 @@ impl System for StatRecalcSystem {
             super::powerup::apply_powerups(&mut s, &meta);
         }
 
-        // 4) PlayerStats 컴포넌트에 write
+        // 4) 캐릭터 스탯 보정 (Phase 9) — 패시브/파워업 합산 위에 추가 적용.
+        let selected = world.resource::<SelectedCharacter>().copied().unwrap_or_default();
+        selected.0.apply_stats(&mut s);
+
+        // 5) PlayerStats 컴포넌트에 write
         if let Some(stats) = world.get_mut::<PlayerStats>(player_entity) {
             *stats = s;
         }

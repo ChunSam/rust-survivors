@@ -1,10 +1,10 @@
 use engine::{Sprite, Transform, World};
 use glam::Vec2;
 use super::boss::{BossSpawnQueue, CameraShake, StageProgress};
+use super::character::SelectedCharacter;
 use super::director::SpawnDirector;
 use super::health::Health;
 use super::hud::GameStats;
-use super::inventory::WeaponInventory;
 use super::meta::{MetaSave, SurvivorMode};
 use super::powerup::ShopCursor;
 use super::passive::PassiveInventory;
@@ -24,10 +24,19 @@ pub fn spawn_player(world: &mut World) {
     // 임시 노란 사각형 (Phase 1-B 에서 텍스처로 교체)
     world.add_component(e, Sprite::colored(0.95, 0.85, 0.20));
     world.add_component(e, Player);
-    world.add_component(e, PlayerStats::default());
+    // 캐릭터 선택 기반 PlayerStats 보정 (Phase 9)
+    // StatRecalcSystem 이 매 프레임 재계산하지만, 초기값도 캐릭터 보정 반영.
+    let selected = world
+        .resource::<SelectedCharacter>()
+        .copied()
+        .unwrap_or_default();
+    let mut initial_stats = PlayerStats::default();
+    selected.0.apply_stats(&mut initial_stats);
+    world.add_component(e, initial_stats);
     world.add_component(e, Velocity(Vec2::ZERO));
     world.add_component(e, Health::new(100.0));
-    world.add_component(e, WeaponInventory::with_starter_loadout());
+    // 캐릭터별 시작 인벤토리 (Phase 9)
+    world.add_component(e, selected.0.starter_inventory());
     world.add_component(e, PassiveInventory::default());
     world.add_component(e, XpAccumulator::default());
     // SpawnDirector 가 없으면 삽입 (최초 init 용 — restart 시엔 이미 리셋됨)
@@ -72,5 +81,9 @@ pub fn setup_survivor_world(world: &mut World) {
     // Phase 8-B: ShopCursor — 최초 init 시 삽입.
     if world.resource::<ShopCursor>().is_none() {
         world.insert_resource(ShopCursor::default());
+    }
+    // Phase 9: SelectedCharacter — 최초 init 시 Antonio(기본) 으로 삽입.
+    if world.resource::<SelectedCharacter>().is_none() {
+        world.insert_resource(SelectedCharacter::default());
     }
 }
