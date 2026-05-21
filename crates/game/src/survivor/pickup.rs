@@ -9,6 +9,7 @@ use engine::components::GameState;
 use glam::Vec2;
 use rand::Rng;
 
+use super::boss::CameraShake;
 use super::damage::apply_damage_to_enemy;
 use super::enemy::Enemy;
 use super::health::Health;
@@ -126,6 +127,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
             if killed > 0 {
                 if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += killed; }
             }
+            if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.40, 14.0); }
             println!("Bomb picked: {} enemies killed", killed);
         }
         PickupKind::Rosary => {
@@ -138,6 +140,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
             if count > 0 {
                 if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += count; }
             }
+            if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.35, 10.0); }
             println!("Rosary picked: {} enemies cleared", count);
         }
     }

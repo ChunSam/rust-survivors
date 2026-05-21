@@ -81,6 +81,9 @@ impl System for EnemyContactDamageSystem {
                 println!("YOU DIED");
             }
         }
+        if effective_damage > 0.0 {
+            if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.15, 4.0); }
+        }
     }
 }
 
