@@ -11,16 +11,23 @@ use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 use super::projectile::{spawn_projectile, spawn_projectile_ex, ProjectileBehavior};
 
+/// 히트 플래시 총 지속 시간(초). 흰색 → 원래 색으로 페이드하는 구간.
+pub const FLASH_DURATION: f32 = 0.14;
+/// 피격 순간 스케일 배율. 1.0 → SCALE_BUMP 로 순간 확대 후 빠르게 복귀.
+pub const SCALE_BUMP: f32 = 1.18;
+
 /// 히트플래시 컴포넌트. 피격된 엔티티에 일시적으로 부착.
 ///
-/// `remaining > 0`: 아직 빨간 색 유지 중.
-/// `remaining <= 0` (sentinel `f32::NEG_INFINITY`): 이미 원래 색으로 복원 완료 — skip.
+/// `remaining > 0`: 플래시 진행 중.
+/// `remaining <= 0` (sentinel `f32::NEG_INFINITY`): 복원 완료 — skip.
 ///
-/// `World::remove_component` 가 없으므로, 복원 완료 후 `remaining = f32::NEG_INFINITY` 로
-/// sentinel 처리하여 이후 프레임에서 재처리되지 않도록 한다.
+/// Phase 11-B: 흰색 순간 플래시 → 원래 색 페이드 + 스케일 펄스.
+/// `World::remove_component` 미구현이므로 sentinel 패턴으로 재처리 방지.
 pub struct HitFlash {
-    pub remaining: f32,
-    pub original:  [f32; 4],
+    pub remaining:      f32,      // 남은 시간
+    pub duration:       f32,      // 총 지속 시간 (lerp 기준)
+    pub original:       [f32; 4], // 원래 스프라이트 색상
+    pub original_scale: Vec2,     // 원래 Transform 스케일
 }
 
 /// 히트플래시 갱신 시스템. WhipSystem 다음에 등록.
@@ -28,32 +35,40 @@ pub struct HitFlashSystem;
 
 impl System for HitFlashSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
-        // 두 단계 패턴: 먼저 수집 → 그 다음 get_mut (borrow checker 충돌 회피)
-        let flashes: Vec<(Entity, f32, [f32; 4])> = world
+        // 두 단계 패턴: 먼저 수집(불변) → 그 다음 get_mut(가변)
+        let flashes: Vec<(Entity, f32, f32, [f32; 4], Vec2)> = world
             .query::<HitFlash>()
-            .map(|(e, f)| (e, f.remaining, f.original))
+            .map(|(e, f)| (e, f.remaining, f.duration, f.original, f.original_scale))
             .collect();
 
-        for (entity, remaining, original) in flashes {
-            // sentinel: 이미 복원 완료
-            if remaining <= 0.0 {
-                continue;
-            }
+        for (entity, remaining, duration, original, original_scale) in flashes {
+            if remaining <= 0.0 { continue; } // sentinel
 
             let new_remaining = remaining - dt;
-            if new_remaining > 0.0 {
-                // 아직 플래시 유지 — remaining 만 감소
-                if let Some(f) = world.get_mut::<HitFlash>(entity) {
-                    f.remaining = new_remaining;
-                }
+            if new_remaining <= 0.0 {
+                // 만료 — 색·스케일 원복 후 sentinel
+                if let Some(s) = world.get_mut::<Sprite>(entity) { s.color = original; }
+                if let Some(t) = world.get_mut::<Transform>(entity) { t.scale = original_scale; }
+                if let Some(f) = world.get_mut::<HitFlash>(entity) { f.remaining = f32::NEG_INFINITY; }
             } else {
-                // 만료 — 원래 색으로 복원하고 sentinel 설정
+                // t_norm: 1.0(방금 피격) → 0.0(만료 직전)
+                let t_norm = (new_remaining / duration).clamp(0.0, 1.0);
+
+                // 색상: 흰색 → 원래 색 페이드
                 if let Some(s) = world.get_mut::<Sprite>(entity) {
-                    s.color = original;
+                    s.color = [
+                        original[0] + (1.0 - original[0]) * t_norm,
+                        original[1] + (1.0 - original[1]) * t_norm,
+                        original[2] + (1.0 - original[2]) * t_norm,
+                        original[3],
+                    ];
                 }
-                if let Some(f) = world.get_mut::<HitFlash>(entity) {
-                    f.remaining = f32::NEG_INFINITY; // sentinel: 처리 완료
+                // 스케일 펄스: t_norm 0.6~1.0 구간에서만 bump, 이후 즉시 원복
+                let scale_p = ((t_norm - 0.6) / 0.4).clamp(0.0, 1.0);
+                if let Some(t) = world.get_mut::<Transform>(entity) {
+                    t.scale = original_scale.lerp(original_scale * SCALE_BUMP, scale_p);
                 }
+                if let Some(f) = world.get_mut::<HitFlash>(entity) { f.remaining = new_remaining; }
             }
         }
     }

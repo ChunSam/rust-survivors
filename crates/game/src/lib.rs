@@ -302,10 +302,10 @@ mod tests {
             "hit 된 좀비에 HitFlash 컴포넌트가 부착돼야 함"
         );
 
-        // sprite 색이 빨강으로 변경됐는지 확인
+        // sprite 색이 흰색 플래시로 변경됐는지 확인 (Phase 11-B: 빨강→흰색으로 개선)
         use engine::Sprite;
         let color = world.get::<Sprite>(zombie).map(|s| s.color).unwrap();
-        assert_eq!(color, [1.0, 0.3, 0.3, 1.0], "hit 된 좀비의 sprite 색이 빨강이어야 함");
+        assert_eq!(color, [1.0, 1.0, 1.0, 1.0], "hit 된 좀비의 sprite 색이 흰색 플래시여야 함");
     }
 
     // ── Phase 1-D: XpGem 드롭 + 자석 흡수 테스트 ────────────────────────────

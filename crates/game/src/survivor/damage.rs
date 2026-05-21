@@ -4,7 +4,7 @@ use engine::Entity;
 use super::damage_number::spawn_damage_number;
 use super::enemy::{Enemy, EnemyKind};
 use super::health::Health;
-use super::weapon::HitFlash;
+use super::weapon::{HitFlash, FLASH_DURATION, SCALE_BUMP};
 use super::xp::spawn_xp_gem;
 
 /// 적 엔티티에 데미지 적용 + 사망 처리 + XpGem 드롭 + HitFlash 부착.
@@ -12,13 +12,28 @@ use super::xp::spawn_xp_gem;
 /// Slime 사망 시 split_remaining > 0 이면 작은 슬라임 2마리 스폰 (split_remaining = 0 으로 감소).
 /// 반환값은 *사망 여부*. 호출자는 반환값으로 killed 카운트 누적.
 pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> bool {
-    let original = if let Some(s) = world.get_mut::<Sprite>(enemy) {
-        let o = s.color;
-        s.color = [1.0, 0.3, 0.3, 1.0];
-        o
-    } else {
-        return false;
+    // 읽기 패스 — 불변 borrow 를 값으로 복사한 뒤 해제 (가변 borrow 충돌 방지)
+    let maybe_flash  = world.get::<HitFlash>(enemy).map(|f| (f.original, f.original_scale));
+    let sprite_color = world.get::<Sprite>(enemy).map(|s| s.color);
+    let orig_scale   = world.get::<Transform>(enemy).map(|t| t.scale);
+
+    // Sprite 없으면 유효하지 않은 엔티티
+    let current_color = match sprite_color {
+        Some(c) => c,
+        None    => return false,
     };
+
+    // 재피격 시 원본 색·스케일 누적 방지: 이미 플래시 중이면 원본 값 보존
+    let (original, original_scale) = maybe_flash
+        .unwrap_or((current_color, orig_scale.unwrap_or(Vec2::ONE)));
+
+    // 쓰기 패스 — 흰색 순간 플래시 + 스케일 bump
+    if let Some(s) = world.get_mut::<Sprite>(enemy) {
+        s.color = [1.0, 1.0, 1.0, original[3]];
+    }
+    if let Some(t) = world.get_mut::<Transform>(enemy) {
+        t.scale = original_scale * SCALE_BUMP;
+    }
 
     // 데미지 숫자 스폰 — 적 위치를 먼저 캐시한 뒤 spawn 호출
     // (Health borrow 와 World mut 가 겹치지 않도록 순서 분리)
@@ -79,7 +94,12 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
             }
         }
     } else {
-        world.add_component(enemy, HitFlash { remaining: 0.1, original });
+        world.add_component(enemy, HitFlash {
+            remaining:      FLASH_DURATION,
+            duration:       FLASH_DURATION,
+            original,
+            original_scale,
+        });
     }
     died
 }

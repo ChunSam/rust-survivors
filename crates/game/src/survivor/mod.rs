@@ -60,7 +60,7 @@ pub use player::{Player, PlayerMovementSystem, PlayerStats, Velocity};
 pub use projectile::{spawn_projectile, spawn_projectile_ex, Projectile, ProjectileBehavior, ProjectileSystem};
 pub use spawn::{spawn_enemy, spawn_enemy_elite, spawn_enemy_full, spawn_enemy_with_splits, spawn_zombie};
 pub use stats::{read_player_stats, StatRecalcSystem};
-pub use weapon::{AxeSystem, CrossSystem, FireWandSystem, HitFlash, HitFlashSystem, KnifeSystem, MagicWandSystem, WhipSystem};
+pub use weapon::{AxeSystem, CrossSystem, FireWandSystem, HitFlash, HitFlashSystem, KnifeSystem, MagicWandSystem, WhipSystem, FLASH_DURATION, SCALE_BUMP};
 pub use world_setup::{setup_survivor_world, spawn_player};
 pub use xp::{spawn_xp_gem, MagnetSystem, XpAccumulator, XpGem};
 
