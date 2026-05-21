@@ -142,9 +142,9 @@ RedrawRequested    → update(dt) → render()
 ## 진행 상황 (2026-05-21)
 
 - **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4 전체 (적 다양화)** — 4-A(적 10종+AI 6)/4-B(SpawnDirector+waves.ron)/4-C+4-D(패턴 5+엘리트) + **Phase 5 (보스 3종 + 멀티 페이즈 + 화면 흔들기 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)** + **Phase 7 (픽업 5종 — Coin/Chicken/Vacuum/Bomb/Rosary)**
-- **상태**: engine 26 tests · game lib 64 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성 (Phase 7)**: `PickupKind` 5종 + `Pickup` 컴포넌트 + `PickupSystem` (반경 35px 자동 픽업). `GoldWallet` 리소스 (사망 시 유지). `apply_pickup_effect` — Coin(골드+1), Chicken(HP+20), Vacuum(젬 즉시 이동), Bomb(전체 적 100 데미지), Rosary(즉사). 일반 적 사망 시 확률 드롭(Coin 1%/Chicken 0.5%/Rosary 0.1%). 보스 사망 시 Vacuum+Bomb 고정 드롭. HUD Gold 표시.
-- **다음**: Phase 8 (메인 메뉴 + 메타 진행 + 저장)
+- **상태**: engine 26 tests · game lib 68 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성 (Phase 8-A)**: `SurvivorMode` (Title/Shop/InGame/StageClear) + `ModeTransitionSystem` (최상단 등록, GameState 동기화). `MetaSave` (RON 영구 저장: gold_total/kills_total/best_time/powerup_levels/unlocked_stages 등). Title 화면 (ENTER → InGame 전환). StageClear 화면 (메타 누적 저장 → ENTER → Title 복귀).
+- **다음**: Phase 8-B (PowerUp 매장 18종)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

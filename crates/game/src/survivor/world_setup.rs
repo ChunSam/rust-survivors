@@ -5,6 +5,7 @@ use super::director::SpawnDirector;
 use super::health::Health;
 use super::hud::GameStats;
 use super::inventory::WeaponInventory;
+use super::meta::{MetaSave, SurvivorMode};
 use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
 use super::player::{Player, PlayerStats, Velocity};
@@ -58,5 +59,13 @@ pub fn setup_survivor_world(world: &mut World) {
     // Phase 7: GoldWallet — 사망해도 골드 유지 (메타 진행성). 최초 init 시만 삽입.
     if world.resource::<GoldWallet>().is_none() {
         world.insert_resource(GoldWallet::default());
+    }
+    // Phase 8-A: 영구 메타 데이터 — 재시작해도 유지 (if_none 으로 보호).
+    if world.resource::<MetaSave>().is_none() {
+        world.insert_resource(MetaSave::load_or_default());
+    }
+    // Phase 8-A: SurvivorMode — 최초 시작 시 Title.
+    if world.resource::<SurvivorMode>().is_none() {
+        world.insert_resource(SurvivorMode::default());
     }
 }

@@ -2,9 +2,10 @@ use engine::{System, World};
 use engine::components::GameState;
 use engine::renderer::text::{DrawText, TextQueue};
 use glam::Vec2;
-use super::boss::{Boss, StageProgress};
+use super::boss::Boss;
 use super::health::Health;
 use super::levelup::PendingLevelUp;
+use super::meta::{MetaSave, SurvivorMode};
 use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
 use super::player::Player;
@@ -21,6 +22,70 @@ pub struct HudSystem;
 
 impl System for HudSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
+        // Phase 8-A: SurvivorMode 별 화면 분기
+        let mode = world.resource::<SurvivorMode>().copied().unwrap_or(SurvivorMode::InGame);
+
+        match mode {
+            SurvivorMode::Title => {
+                if let Some(q) = world.resource_mut::<TextQueue>() {
+                    q.push(DrawText {
+                        text:     "RUST SURVIVORS".to_string(),
+                        position: Vec2::new(220.0, 180.0),
+                        size:     56.0,
+                        color:    [255, 220, 80, 255],
+                    });
+                    q.push(DrawText {
+                        text:     "Press ENTER to start".to_string(),
+                        position: Vec2::new(280.0, 280.0),
+                        size:     22.0,
+                        color:    [255, 255, 255, 255],
+                    });
+                }
+                // 메타 정보 표시
+                let meta_info = world.resource::<MetaSave>().map(|m| {
+                    (m.gold_total, m.best_time, m.kills_total)
+                });
+                if let Some((gold, best, kills)) = meta_info {
+                    if let Some(q) = world.resource_mut::<TextQueue>() {
+                        q.push(DrawText {
+                            text:     format!(
+                                "Gold {}  Best {:02}:{:02}  Kills {}",
+                                gold, (best as u32) / 60, (best as u32) % 60, kills
+                            ),
+                            position: Vec2::new(260.0, 340.0),
+                            size:     18.0,
+                            color:    [200, 200, 200, 255],
+                        });
+                    }
+                }
+                return; // Title 모드에서는 인게임 HUD 그리지 않음
+            }
+            SurvivorMode::StageClear => {
+                if let Some(q) = world.resource_mut::<TextQueue>() {
+                    q.push(DrawText {
+                        text:     "STAGE CLEAR!".to_string(),
+                        position: Vec2::new(260.0, 200.0),
+                        size:     56.0,
+                        color:    [255, 220, 80, 255],
+                    });
+                    q.push(DrawText {
+                        text:     "Press ENTER to return".to_string(),
+                        position: Vec2::new(280.0, 290.0),
+                        size:     22.0,
+                        color:    [255, 255, 255, 255],
+                    });
+                }
+                return;
+            }
+            SurvivorMode::Shop => {
+                // Phase 8-B
+                return;
+            }
+            SurvivorMode::InGame => {
+                // 아래 기존 HUD 코드 실행
+            }
+        }
+
         // 1) Playing 중에만 timer 누적
         let state = world.resource::<GameState>().cloned().unwrap_or(GameState::Playing);
         if matches!(state, GameState::Playing) {
@@ -135,17 +200,8 @@ impl System for HudSystem {
             }
         }
 
-        // 7) StageClear 오버레이
-        let cleared = world.resource::<StageProgress>().map(|p| p.cleared).unwrap_or(false);
-        if cleared {
-            if let Some(q) = world.resource_mut::<TextQueue>() {
-                q.push(DrawText {
-                    text:     "STAGE CLEAR!".to_string(),
-                    position: Vec2::new(280.0, 220.0),
-                    size:     56.0,
-                    color:    [255, 220, 80, 255],
-                });
-            }
-        }
+        // 7) StageClear 오버레이 — Phase 8-A: SurvivorMode::StageClear 로 전환 후 처리하므로
+        //    InGame 모드에서는 표시하지 않음 (ModeTransitionSystem 이 다음 프레임에 전환).
+        // (기존 cleared 체크 제거 — SurvivorMode 분기에서 처리됨)
     }
 }

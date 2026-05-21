@@ -1524,4 +1524,60 @@ cargo build --release --workspace           # ok
 
 #### 다음
 
-**Phase 8** — 메인 메뉴 + 메타 진행 + 저장
+**Phase 8-A** — SurvivorMode + MetaSave + Title 화면
+
+---
+
+## Phase 8-A — SurvivorMode + MetaSave + Title 화면 (2026-05-21)
+
+### 목표
+
+최상위 게임 모드 시스템(`SurvivorMode`) + 영구 메타 데이터(`MetaSave`) + Title 화면 추가.
+PowerUp 매장 18종은 Phase 8-B 에서 구현.
+
+### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/meta.rs` | `MetaSave`, `SurvivorMode`, `ModeTransitionSystem` |
+
+### 기존 파일 수정
+
+| 파일 | 변경 내용 |
+|---|---|
+| `survivor/mod.rs` | `pub mod meta;` + `MetaSave`, `SurvivorMode`, `ModeTransitionSystem` 재수출 |
+| `survivor/world_setup.rs` | `MetaSave::load_or_default()`, `SurvivorMode::default()` 최초 삽입 (if_none 보호) |
+| `survivor/hud.rs` | `SurvivorMode` 분기: Title / StageClear / Shop 화면 early return, InGame 은 기존 HUD |
+| `bin/survivor.rs` | `ModeTransitionSystem` 최상단 등록 |
+| `lib.rs` | 테스트 import 에 `MetaSave`, `SurvivorMode`, `ModeTransitionSystem` 추가 |
+
+### 핵심 설계
+
+- `SurvivorMode` — Title(시작) / Shop(Phase 8-B) / InGame / StageClear 4종.
+- `ModeTransitionSystem` — 최상단 등록. Title/Shop/StageClear 에서 `GameState::Paused` 강제 → Playing 가드 시스템들 모두 차단.
+- Title + ENTER → `restart_world` + `SurvivorMode::InGame` + `GameState::Playing`.
+- InGame + `StageProgress.cleared` → 메타 누적(gold/kills/best_time) → `save_to_disk` → `SurvivorMode::StageClear`.
+- StageClear + ENTER → `restart_world` → `SurvivorMode::Title`.
+- `MetaSave` / `SurvivorMode` 는 `restart_world` 에서 유지됨 (`if_none` 보호로 재삽입 방지).
+- `StageProgress.cleared` 리셋은 `restart_world` 의 `*p = StageProgress::default()` 로 커버.
+
+### 신규 테스트 (+4 → 68)
+
+| 테스트 | 위치 | 검증 내용 |
+|---|---|---|
+| `meta_save_default_is_zero` | `meta.rs` | `MetaSave::default()` 의 gold/kills/best_time == 0 |
+| `meta_save_serialization_roundtrip` | `meta.rs` | RON 직렬화 → 역직렬화 후 동일성 |
+| `survivor_mode_default_is_title` | `meta.rs` | `SurvivorMode::default() == Title` |
+| `enter_in_game_resets_world_and_sets_mode` | `meta.rs` | `restart_world` 후 `SurvivorMode::InGame` 전환 확인 |
+
+### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 68 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 다음
+
+**Phase 8-B** — PowerUp 매장 18종
