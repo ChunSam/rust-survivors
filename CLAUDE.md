@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4-A (적 10종 + AI 변종 6개)** + **Phase 4-B (SpawnDirector + waves.ron 시간축 wave)**
-- **상태**: engine 26 tests · game lib 52 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성 (4-B)**: `waves.ron` 6 wave (0~30분). `SpawnDirector` ECS 리소스 (wave 정의 + spawn_elapsed cooldown). `SpawnDirectorSystem` (시간축 wave 선택 + weight random 스폰 + despawn 정리). `EnemySpawnSystem`/`SpawnTimer` 제거 (5파일 영향). restart 시 `SpawnDirector.spawn_elapsed` 리셋.
-- **다음**: Phase 4-C (패턴 스폰 — line/circle/surround/swarm)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4 전체 (적 다양화)** — 4-A(적 10종+AI 6)/4-B(SpawnDirector+waves.ron)/4-C+4-D(패턴 5+엘리트)
+- **상태**: engine 26 tests · game lib 55 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성 (4-C+4-D)**: `SpawnPattern` enum 5 variant (Random/Line/Circle/Surround/Swarm). `WaveDef` 에 pattern/count_per_burst/elite_chance 추가. `spawn_pattern` 자유 함수 — 패턴별 위치 계산 + 엘리트 random 토글. `Enemy.is_elite` 필드. `spawn_enemy_elite` (HP×5, scale×1.5, contact_damage×1.5, 노란빛). 엘리트 사망 시 큰 XpGem(10) + 추가 gem 3개 = 보물상자 placeholder. waves.ron 갱신 — 후반 Swarm 12 + 엘리트 12%.
+- **다음**: Phase 5 (보스 — 10분/20분/30분 등장, 멀티 페이즈)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

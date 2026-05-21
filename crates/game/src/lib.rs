@@ -1245,4 +1245,58 @@ mod tests {
         let lv2 = world.get::<PassiveInventory>(pe).map(|i| i.level_of(PassiveKind::Spinach)).unwrap();
         assert_eq!(lv2, 2, "두 번째 PassiveSpinach 카드 적용 후 level 2 이어야 함");
     }
+
+    /// SpawnPattern::Circle 로 count=4 마리 스폰 시 적이 4마리 등간격 원형 배치.
+    #[test]
+    fn spawn_pattern_circle_creates_equal_count_around_center() {
+        use super::survivor::{spawn_pattern, EnemyEntry, SpawnPattern, WaveDef, Enemy};
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+
+        let wave = WaveDef {
+            start_time: 0.0,
+            end_time: 60.0,
+            spawn_interval: 1.0,
+            enemies: vec![EnemyEntry { kind: "Zombie".to_string(), weight: 1 }],
+            pattern: SpawnPattern::Circle,
+            count_per_burst: 4,
+            elite_chance: 0.0,
+        };
+
+        let mut rng = rand::thread_rng();
+        spawn_pattern(&mut world, &wave, Vec2::ZERO, 100.0, &mut rng);
+
+        assert_eq!(world.query::<Enemy>().count(), 4, "Circle 패턴 count=4 → 4마리 스폰");
+    }
+
+    /// 엘리트 사망 시 큰 XpGem + 추가 작은 gem 다수 → 총 2개 이상.
+    #[test]
+    fn elite_drops_extra_xp_gem() {
+        use super::survivor::{apply_damage_to_enemy, spawn_enemy_elite, Enemy};
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(GameStats::default());
+
+        spawn_enemy_elite(&mut world, Vec2::ZERO, EnemyKind::Zombie, true);
+        let enemy = world.query::<Enemy>().next().map(|(e, _)| e).unwrap();
+        apply_damage_to_enemy(&mut world, enemy, 1000.0);
+
+        let gem_count = world.query::<XpGem>().count();
+        assert!(gem_count >= 2, "엘리트 사망 → XpGem 2개 이상 (실제 {gem_count})");
+    }
+
+    /// 비엘리트 사망 시 XpGem 1개.
+    #[test]
+    fn non_elite_drops_single_xp_gem() {
+        use super::survivor::{apply_damage_to_enemy, spawn_enemy_elite, Enemy};
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(GameStats::default());
+
+        spawn_enemy_elite(&mut world, Vec2::ZERO, EnemyKind::Zombie, false);
+        let enemy = world.query::<Enemy>().next().map(|(e, _)| e).unwrap();
+        apply_damage_to_enemy(&mut world, enemy, 1000.0);
+
+        assert_eq!(world.query::<XpGem>().count(), 1, "비엘리트 → XpGem 1개");
+    }
 }
