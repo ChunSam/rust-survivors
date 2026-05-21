@@ -29,3 +29,5 @@ winit    = { workspace = true }
 rapier2d = { workspace = true }
 wgpu     = { workspace = true }
 rand     = { workspace = true }
+serde    = { workspace = true }
+ron      = { workspace = true }

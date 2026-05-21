@@ -1,5 +1,6 @@
 pub mod area;
 pub mod bible;
+pub mod data;
 pub mod camera_follow;
 pub mod damage;
 pub mod death;
@@ -17,6 +18,7 @@ pub mod world_setup;
 pub mod xp;
 
 pub use area::{GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, spawn_holy_water_pool};
+pub use data::load_starter_weapons;
 pub use bible::{KingBibleSystem, OrbitingBook, OrbitingBookSystem, spawn_book};
 pub use camera_follow::CameraFollowSystem;
 pub use damage::apply_damage_to_zombie;

@@ -1009,4 +1009,92 @@ cargo build --release --workspace           # ok
 - `LightningRingSystem` 의 flash 스폰: `spawn_lightning_flash` 가 새 엔티티를 생성하지만 grid 에 등록되지 않음 — 그 프레임의 area damage 계산은 이미 rebuild 된 grid 로 수행하므로 충돌 없음.
 - `OrbitingBook` 의 `tick_hits` 는 회전 *이후* 위치 기반이지만, grid 는 회전 *이전* 위치 기준으로 rebuild — 매우 빠른 회전이 아닌 한 오차 무시 가능.
 
-다음: **Phase 2-G — weapons.ron 외부 데이터 + 카드 풀 9무기 확장**
+다음: **Phase 2-G — weapons.ron 외부 데이터 + 카드 풀 확장 (2026-05-21)**
+
+---
+
+### Phase 2-G — weapons.ron 외부 데이터 + 카드 풀 확장 (2026-05-21) — Phase 2 완료
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/data.rs` | `WeaponDef` (평탄 struct, 모든 무기별 필드 Option), `WeaponsDataFile`, `load_starter_weapons()` |
+| `assets/data/weapons.ron` | 10 무기의 시작 스탯 RON 정의 (`include_str!` 로 컴파일 타임 내장) |
+
+#### 수정 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `crates/game/Cargo.toml` | `serde = { workspace = true }`, `ron = { workspace = true }` 추가 (워크스페이스 이미 등록) |
+| `crates/game/src/survivor/inventory.rs` | `with_starter_loadout`: 10 무기 하드코딩 제거 → `data::load_starter_weapons()` 위임 |
+| `crates/game/src/survivor/levelup.rs` | `CardKind`: 3개 → 29개 (10 무기 × 2~3 카드). `ALL_CARDS` 상수 추가. `LevelUpSystem::run` 카드 선택을 `rand::choose_multiple` 랜덤으로 전환. `apply_card` 29 variant 전체 처리. `label()` 29개 정의 |
+| `crates/game/src/survivor/mod.rs` | `pub mod data;`, `pub use data::load_starter_weapons;` 추가 |
+
+#### WeaponDef 설계 선택
+
+**평탄 struct (flat struct)** 채택. 모든 무기별 필드를 `Option<f32>` / `Option<u8>` 로 단일 구조체에 수평 나열.
+
+- 장점: RON 직렬화 단순 (enum 직렬화 없이 `Deserialize` derive 만으로 파싱), 무기 추가 시 필드만 추가.
+- 단점: 사용하지 않는 필드가 `None` 으로 남음 (RON 파일이 약간 장황). 무기당 21개 필드 중 종류에 따라 4~7개만 `Some`.
+- 대안(enum 직렬화)과 비교: RON 은 `WeaponKind` enum 을 태그로 직렬화 가능하나, 각 variant 의 named field 를 RON 에서 파싱하려면 `#[serde(tag = "...")]` 등 설정이 복잡해짐. 학습 목적에는 평탄 struct 가 더 명확.
+
+#### CardKind variant 총 29개
+
+| 무기 | 카드 (개수) |
+|---|---|
+| Whip | WhipDamage / WhipArea / WhipCooldown (3) |
+| MagicWand | MagicWandDamage / MagicWandSpeed / MagicWandCooldown (3) |
+| Knife | KnifeDamage / KnifeAmount / KnifeCooldown (3) |
+| Axe | AxeDamage / AxePierce / AxeCooldown (3) |
+| Cross | CrossDamage / CrossReturnAt / CrossCooldown (3) |
+| FireWand | FireWandDamage / FireWandCooldown (2) |
+| Garlic | GarlicDamage / GarlicRadius / GarlicCooldown (3) |
+| HolyWater | HolyWaterDamage / HolyWaterDropCount / HolyWaterCooldown (3) |
+| KingBible | KingBibleDamage / KingBibleBookCount / KingBibleCooldown (3) |
+| LightningRing | LightningDamage / LightningStrikeCount / LightningCooldown (3) |
+
+#### apply_card 매치 절
+
+29개 variant 대응. 각 카드 적용 후 `slot.level += 1`. cooldown 카드는 `slot.cooldown *= 0.85`.
+
+강화 효과값:
+- Damage: +4~+8 (무기 기본 데미지에 비례)
+- Cooldown: *0.85
+- Area/Radius: +15~+20 px
+- Amount/Count/Pierce: +1
+- ProjectileSpeed: +60 px/s
+- ReturnAt: +0.1 초
+
+#### 테스트
+
+game lib 41 통과 (직전 38 + 신규 3):
+- `weapons_ron_loads_ten_weapons` (`data.rs` 내) — `load_starter_weapons()` 호출 → 10개 슬롯, Whip/MagicWand/.../LightningRing 순서 확인, 대표 스탯 검증
+- `apply_card_magic_wand_damage_increases` (`levelup.rs` 내) — MagicWandDamage 적용 → damage 8.0 → 12.0, level 1 → 2 확인
+- `apply_card_lightning_strike_count_increases` (`levelup.rs` 내) — LightningStrikeCount 적용 → strike_count 1 → 2, level 1 → 2 확인
+
+기존 38 테스트 모두 유지 (RON 로딩 후 동일 스탯 보장 — `inventory_starts_with_whip_slot_0` 포함).
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 41 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+---
+
+## **Phase 2 무기 풀 확장 완료**
+
+| sub-phase | 내용 |
+|---|---|
+| 2-A | WeaponInventory + Whip 마이그레이션 |
+| 2-B | ProjectileSystem + Magic Wand |
+| 2-C | Knife + Axe + ProjectileBehavior |
+| 2-D | Cross + Fire Wand + Inventory Vec 변경 |
+| 2-E | Garlic + Holy Water |
+| 2-F | King Bible + Lightning Ring + damage 헬퍼 추출 |
+| 2-G | weapons.ron 외부 데이터 + 카드 풀 29개 확장 |
+
+다음: **Phase 3 — PlayerStats + 패시브 16종**
