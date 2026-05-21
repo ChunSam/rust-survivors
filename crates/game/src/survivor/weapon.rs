@@ -7,6 +7,7 @@ use super::damage::apply_damage_to_zombie;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
+use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 use super::projectile::{spawn_projectile, spawn_projectile_ex, ProjectileBehavior};
 
@@ -87,12 +88,15 @@ impl System for WhipSystem {
             .map(|(e, _, t)| (e, t.position));
         let Some((player_entity, player_pos)) = player_e_and_pos else { return };
 
-        // 2) WeaponInventory 의 Whip 슬롯 tick + 파라미터 복사
+        // 2) stats 캐시 (불변 빌림만 → 이후 get_mut 과 충돌 없음)
+        let stats = read_player_stats(world);
+
+        // 3) WeaponInventory 의 Whip 슬롯 tick + 파라미터 복사
         //    (get_mut borrow 를 블록 안에서 끊어야 이후 world 접근 가능)
         let fire_info: Option<(f32, f32, f32)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.whip_slot_mut() else { return };
-            if !slot.tick(dt) {
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
             // 발화. 파라미터를 값으로 복사해 반환 (borrow 해제).
@@ -103,9 +107,14 @@ impl System for WhipSystem {
                 None
             }
         };
-        let Some((damage, area_width, area_height)) = fire_info else { return };
+        let Some((base_damage, area_width, area_height)) = fire_info else { return };
 
-        // 3) 발화 시점에만 grid 갱신 — 매 프레임 rebuild 비용 절감
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let area_width = area_width * stats.area;
+        let area_height = area_height * stats.area;
+
+        // 4) 발화 시점에만 grid 갱신 — 매 프레임 rebuild 비용 절감
         self.grid.rebuild(world);
 
         let half_h = area_height * 0.5;
@@ -176,11 +185,14 @@ impl System for MagicWandSystem {
             return;
         };
 
-        // 2) MagicWand 슬롯 tick — cooldown 미달이면 즉시 반환
+        // 2) stats 캐시
+        let stats = read_player_stats(world);
+
+        // 3) MagicWand 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.magic_wand_slot_mut() else { return };
-            if !slot.tick(dt) {
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
             if let WeaponKind::MagicWand { damage, projectile_speed, lifetime, pierce } = slot.kind {
@@ -189,9 +201,14 @@ impl System for MagicWandSystem {
                 None
             }
         };
-        let Some((damage, projectile_speed, lifetime, pierce)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce)) = fire_info else { return };
 
-        // 3) grid rebuild + 가장 가까운 적 탐색
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let projectile_speed = base_speed * stats.projectile_speed;
+        let lifetime = base_lifetime * stats.duration;
+
+        // 4) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
         let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
         if candidates.is_empty() {
@@ -262,11 +279,14 @@ impl System for KnifeSystem {
             return;
         };
 
-        // 2) Knife 슬롯 tick — cooldown 미달이면 즉시 반환
+        // 2) stats 캐시
+        let stats = read_player_stats(world);
+
+        // 3) Knife 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.knife_slot_mut() else { return };
-            if !slot.tick(dt) {
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
             if let WeaponKind::Knife { damage, projectile_speed, lifetime, pierce, amount, spread_radians } = slot.kind {
@@ -275,7 +295,13 @@ impl System for KnifeSystem {
                 None
             }
         };
-        let Some((damage, projectile_speed, lifetime, pierce, amount, spread_radians)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce, base_amount, spread_radians)) = fire_info else { return };
+
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let projectile_speed = base_speed * stats.projectile_speed;
+        let lifetime = base_lifetime * stats.duration;
+        let amount = ((base_amount as i32) + stats.amount).max(1) as u8;
 
         // 3) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
@@ -358,11 +384,14 @@ impl System for AxeSystem {
             return;
         };
 
-        // 2) Axe 슬롯 tick — cooldown 미달이면 즉시 반환
+        // 2) stats 캐시
+        let stats = read_player_stats(world);
+
+        // 3) Axe 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, f32, u8, u8)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.axe_slot_mut() else { return };
-            if !slot.tick(dt) {
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
             if let WeaponKind::Axe { damage, initial_speed, gravity, lifetime, pierce, amount } = slot.kind {
@@ -371,9 +400,15 @@ impl System for AxeSystem {
                 None
             }
         };
-        let Some((damage, initial_speed, gravity, lifetime, pierce, amount)) = fire_info else { return };
+        let Some((base_damage, base_speed, gravity, base_lifetime, pierce, base_amount)) = fire_info else { return };
 
-        // 3) amount 개 투사체 발사 (갈색)
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let initial_speed = base_speed * stats.projectile_speed;
+        let lifetime = base_lifetime * stats.duration;
+        let amount = ((base_amount as i32) + stats.amount).max(1) as u8;
+
+        // 4) amount 개 투사체 발사 (갈색)
         //    각 투사체마다 약간의 x 오프셋을 부여해 시각적으로 분산
         let x_offsets: &[f32] = &[-8.0, 0.0, 8.0, -16.0, 16.0, -24.0];
         for i in 0..amount {
@@ -427,11 +462,14 @@ impl System for CrossSystem {
             return;
         };
 
-        // 2) Cross 슬롯 tick — cooldown 미달이면 즉시 반환
+        // 2) stats 캐시
+        let stats = read_player_stats(world);
+
+        // 3) Cross 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.cross_slot_mut() else { return };
-            if !slot.tick(dt) {
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
             if let WeaponKind::Cross { damage, projectile_speed, lifetime, pierce, amount, return_at } = slot.kind {
@@ -440,7 +478,13 @@ impl System for CrossSystem {
                 None
             }
         };
-        let Some((damage, projectile_speed, lifetime, pierce, amount, return_at)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce, base_amount, return_at)) = fire_info else { return };
+
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let projectile_speed = base_speed * stats.projectile_speed;
+        let lifetime = base_lifetime * stats.duration;
+        let amount = ((base_amount as i32) + stats.amount).max(1) as u8;
 
         // 3) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
@@ -526,11 +570,14 @@ impl System for FireWandSystem {
             return;
         };
 
-        // 2) FireWand 슬롯 tick — cooldown 미달이면 즉시 반환
+        // 2) stats 캐시
+        let stats = read_player_stats(world);
+
+        // 3) FireWand 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.fire_wand_slot_mut() else { return };
-            if !slot.tick(dt) {
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
             if let WeaponKind::FireWand { damage, projectile_speed, lifetime, pierce } = slot.kind {
@@ -539,7 +586,12 @@ impl System for FireWandSystem {
                 None
             }
         };
-        let Some((damage, projectile_speed, lifetime, pierce)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce)) = fire_info else { return };
+
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let projectile_speed = base_speed * stats.projectile_speed;
+        let lifetime = base_lifetime * stats.duration;
 
         // 3) grid rebuild + 후보 적 수집
         self.grid.rebuild(world);

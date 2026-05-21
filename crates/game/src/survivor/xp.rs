@@ -2,7 +2,7 @@ use engine::{Collider, CollisionLayer, Entity, Sprite, System, Transform, World}
 use engine::components::GameState;
 use glam::Vec2;
 
-use super::player::Player;
+use super::player::{Player, PlayerStats};
 use super::LAYER_XP;
 
 /// 적이 떨어뜨리는 경험치 보석.
@@ -49,15 +49,24 @@ impl System for MagnetSystem {
             return;
         }
 
-        // 1) Player 위치 캐시 (없으면 종료)
-        // borrow checker: query 결과를 즉시 collect/map 해서 드롭 후 get_mut 호출
-        let Some(player_pos) = world
+        // 1) Player 위치 + stats 캐시 (불변 빌림만 → 이후 get_mut 과 충돌 없음)
+        let player_info = world
             .query2::<Player, Transform>()
             .next()
-            .map(|(_, _, t)| t.position)
-        else {
+            .map(|(_, _, t)| t.position);
+        let Some(player_pos) = player_info else {
             return;
         };
+
+        // magnet/growth stat 읽기
+        let (magnet_multiplier, growth_multiplier) = world
+            .query2::<Player, PlayerStats>()
+            .next()
+            .map(|(_, _, s)| (s.magnet, s.growth))
+            .unwrap_or((1.0, 1.0));
+
+        let effective_magnet_radius = self.magnet_radius * magnet_multiplier;
+        let effective_pickup_radius = self.pickup_radius * magnet_multiplier;
 
         // 2) XpGem 들의 (entity, position, value) 수집
         let gems: Vec<(Entity, Vec2, u32)> = world
@@ -72,19 +81,22 @@ impl System for MagnetSystem {
         for (e, pos, value) in gems {
             let to_player = player_pos - pos;
             let dist = to_player.length();
-            if dist <= self.pickup_radius {
+            if dist <= effective_pickup_radius {
                 to_pickup.push((e, value));
-            } else if dist <= self.magnet_radius {
+            } else if dist <= effective_magnet_radius {
                 let dir = if dist > 0.0 { to_player / dist } else { Vec2::ZERO };
                 let new_pos = pos + dir * self.attract_speed * dt;
                 to_attract.push((e, new_pos));
             }
         }
 
-        // 4) Player 의 XpAccumulator 컴포넌트 갱신
+        // 4) Player 의 XpAccumulator 컴포넌트 갱신 (growth 배율 적용)
         // XpAccumulator 는 Player 컴포넌트로만 사용. 리소스로는 insert 하지 않음.
         if !to_pickup.is_empty() {
-            let total: u32 = to_pickup.iter().map(|(_, v)| v).sum();
+            // growth 배율 적용: 각 gem 의 value 에 growth 곱 후 합산
+            let total: u32 = to_pickup.iter()
+                .map(|(_, v)| (*v as f32 * growth_multiplier).round() as u32)
+                .sum();
             let player_entity = world
                 .query2::<Player, XpAccumulator>()
                 .next()
