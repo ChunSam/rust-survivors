@@ -16,10 +16,10 @@ mod tests {
         EnemyKind, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
         HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, KingBibleSystem, KnifeSystem,
         LevelUpSystem, LightningFlash, LightningRingSystem, MagicWandSystem, MagnetSystem,
-        OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player, PlayerStats, Projectile,
-        ProjectileBehavior, ProjectileSystem, SpawnDirector, SpawnDirectorSystem,
-        StageProgress, WeaponInventory, WeaponKind, WhipSystem,
-        XpAccumulator, XpGem, Zombie,
+        MetaSave, ModeTransitionSystem, OrbitingBook, OrbitingBookSystem, PendingLevelUp,
+        Player, PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem,
+        SpawnDirector, SpawnDirectorSystem, StageProgress, SurvivorMode,
+        WeaponInventory, WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;

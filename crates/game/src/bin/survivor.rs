@@ -54,6 +54,7 @@ use game::survivor::{
     LightningRingSystem,
     MagicWandSystem,
     MagnetSystem,
+    ModeTransitionSystem,
     OrbitingBookSystem,
     PickupSystem,
     PlayerMovementSystem,
@@ -78,7 +79,8 @@ fn main() {
     //       → KingBible(책 스폰) → OrbitingBook(책 회전+tick) → LightningRing(번개) → LightningFlash(flash lifetime)
     // → ProjectileSystem(이동·충돌·데미지)
     // → 자석(픽업/끌어당김) → 히트플래시 → HUD (TextQueue push — 마지막)
-    app.add_system(StatRecalcSystem);      // Phase 3-A: 첫 — 패시브 합산해 PlayerStats 갱신 (현재 no-op)
+    app.add_system(ModeTransitionSystem);   // Phase 8-A: 최상단 — SurvivorMode 전환 + GameState 동기화
+    app.add_system(StatRecalcSystem);      // Phase 3-A: 패시브 합산해 PlayerStats 갱신 (현재 no-op)
     app.add_system(LevelUpSystem);
     app.add_system(PlayerMovementSystem);
     app.add_system(EnemyAiSystem);
