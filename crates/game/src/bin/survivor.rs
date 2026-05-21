@@ -31,6 +31,9 @@ use engine::App;
 use game::survivor::{
     setup_survivor_world,
     AxeSystem,
+    BossDeathSystem,
+    BossPhaseSystem,
+    BossSpawnSystem,
     CameraFollowSystem,
     CrossSystem,
     DeathSystem,
@@ -78,6 +81,9 @@ fn main() {
     app.add_system(PlayerMovementSystem);
     app.add_system(EnemyAiSystem);
     app.add_system(SpawnDirectorSystem::default());
+    app.add_system(BossSpawnSystem);       // Phase 5: 시간축 보스 등장 트리거
+    app.add_system(BossPhaseSystem);       // Phase 5: HP 비율 → phase 전환
+    app.add_system(BossDeathSystem);       // Phase 5: 보스 사망 + StageClear
     app.add_system(EnemyContactDamageSystem::default());
     app.add_system(HealthRegenSystem);             // Phase 3-A: recovery stat 적용 (0.0 default → no-op)
     app.add_system(DeathSystem);

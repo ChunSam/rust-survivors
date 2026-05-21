@@ -2,11 +2,12 @@ use engine::{System, World};
 use engine::components::GameState;
 use engine::renderer::text::{DrawText, TextQueue};
 use glam::Vec2;
-use super::player::Player;
+use super::boss::{Boss, StageProgress};
 use super::health::Health;
-use super::xp::XpAccumulator;
 use super::levelup::PendingLevelUp;
 use super::passive::PassiveInventory;
+use super::player::Player;
+use super::xp::XpAccumulator;
 
 /// 게임 진행 통계. 매 프레임 누적/조회.
 #[derive(Debug, Default)]
@@ -112,6 +113,35 @@ impl System for HudSystem {
                     position: Vec2::new(310.0, 325.0),
                     size:     22.0,
                     color:    [255, 255, 255, 255],
+                });
+            }
+        }
+
+        // 6) 보스 HP 바 — 보스가 존재하면 화면 상단 중앙에 표시
+        let boss_info: Option<(super::boss::BossKind, f32, f32)> = world
+            .query2::<Boss, Health>()
+            .next()
+            .map(|(_, b, h)| (b.kind, h.current, h.max));
+        if let Some((kind, hp, max)) = boss_info {
+            if let Some(q) = world.resource_mut::<TextQueue>() {
+                q.push(DrawText {
+                    text:     format!("{}  {:.0}/{:.0}", kind.label(), hp.max(0.0), max),
+                    position: Vec2::new(220.0, 50.0),
+                    size:     22.0,
+                    color:    [255, 100, 100, 255],
+                });
+            }
+        }
+
+        // 7) StageClear 오버레이
+        let cleared = world.resource::<StageProgress>().map(|p| p.cleared).unwrap_or(false);
+        if cleared {
+            if let Some(q) = world.resource_mut::<TextQueue>() {
+                q.push(DrawText {
+                    text:     "STAGE CLEAR!".to_string(),
+                    position: Vec2::new(280.0, 220.0),
+                    size:     56.0,
+                    color:    [255, 220, 80, 255],
                 });
             }
         }

@@ -2,6 +2,7 @@ use engine::{CollisionLayer, SpatialGrid, System, Transform, World};
 use engine::components::GameState;
 use engine::input::InputState;
 use winit::keyboard::KeyCode;
+use super::boss::{BossSpawnQueue, CameraShake, StageProgress};
 use super::enemy::Enemy;
 use super::player::{Player, PlayerStats};
 use super::health::Health;
@@ -131,6 +132,17 @@ pub fn restart_world(world: &mut World) {
     // SpawnDirector cooldown 리셋 (waves 정의는 유지, 내부 카운터만 초기화)
     if let Some(d) = world.resource_mut::<super::director::SpawnDirector>() {
         d.spawn_elapsed = 0.0;
+    }
+
+    // Phase 5: 보스 리소스 리셋
+    if let Some(q) = world.resource_mut::<BossSpawnQueue>() {
+        *q = BossSpawnQueue::default();
+    }
+    if let Some(s) = world.resource_mut::<CameraShake>() {
+        *s = CameraShake::default();
+    }
+    if let Some(p) = world.resource_mut::<StageProgress>() {
+        *p = StageProgress::default();
     }
 
     // Player + 관련 리소스 재설정
