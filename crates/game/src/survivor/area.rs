@@ -3,19 +3,15 @@
 //! - [`GarlicSystem`]   — 플레이어 중심 오라. cooldown 마다 반경 안 모든 적에게 tick 데미지.
 //! - [`HolyWaterSystem`] — cooldown 마다 플레이어 주변 랜덤 위치에 [`HolyWaterPool`] 드롭.
 //! - [`HolyWaterPoolSystem`] — Pool 의 lifetime 감소 + tick 마다 area-damage.
-//!
-//! HitFlash + 사망 처리 흐름은 WhipSystem / ProjectileSystem 과 동일한 패턴.
 
 use engine::{CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
 use engine::components::GameState;
 use glam::Vec2;
 
-use super::health::Health;
+use super::damage::apply_damage_to_zombie;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
-use super::weapon::HitFlash;
-use super::xp::spawn_xp_gem;
 use super::LAYER_ENEMY;
 
 // ─── HolyWaterPool 컴포넌트 ──────────────────────────────────────────────────
@@ -72,32 +68,11 @@ impl System for GarlicSystem {
         let hits = self.grid.query_radius(player_pos, radius, CollisionLayer(LAYER_ENEMY));
         if hits.is_empty() { return; }
 
-        // 3) 각 hit zombie 에 데미지 + HitFlash + 사망 처리 (WhipSystem 패턴 그대로)
+        // 3) 각 hit zombie 에 데미지 + HitFlash + 사망 처리
         let mut killed: u32 = 0;
         for zombie in hits {
-            let original = if let Some(s) = world.get_mut::<Sprite>(zombie) {
-                let o = s.color;
-                s.color = [1.0, 0.3, 0.3, 1.0];
-                o
-            } else {
-                continue;
-            };
-
-            let died = if let Some(h) = world.get_mut::<Health>(zombie) {
-                h.take_damage(damage)
-            } else {
-                false
-            };
-
-            if died {
+            if apply_damage_to_zombie(world, zombie, damage) {
                 killed += 1;
-                let drop_pos = world.get::<Transform>(zombie).map(|t| t.position);
-                world.despawn(zombie);
-                if let Some(p) = drop_pos {
-                    spawn_xp_gem(world, p, 1);
-                }
-            } else {
-                world.add_component(zombie, HitFlash { remaining: 0.1, original });
             }
         }
 
@@ -202,32 +177,11 @@ impl System for HolyWaterPoolSystem {
             }
         }
 
-        // 2) tick_hits 적용 (WhipSystem 패턴)
+        // 2) tick_hits 적용
         let mut killed: u32 = 0;
         for (zombie, damage) in tick_hits {
-            let original = if let Some(s) = world.get_mut::<Sprite>(zombie) {
-                let o = s.color;
-                s.color = [1.0, 0.3, 0.3, 1.0];
-                o
-            } else {
-                continue;
-            };
-
-            let died = if let Some(h) = world.get_mut::<Health>(zombie) {
-                h.take_damage(damage)
-            } else {
-                false
-            };
-
-            if died {
+            if apply_damage_to_zombie(world, zombie, damage) {
                 killed += 1;
-                let drop_pos = world.get::<Transform>(zombie).map(|t| t.position);
-                world.despawn(zombie);
-                if let Some(p) = drop_pos {
-                    spawn_xp_gem(world, p, 1);
-                }
-            } else {
-                world.add_component(zombie, HitFlash { remaining: 0.1, original });
             }
         }
 

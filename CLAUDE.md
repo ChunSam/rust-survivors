@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F 완료 + **Phase 2-A(WeaponInventory + Whip 마이그레이션)** + **Phase 2-B(ProjectileSystem + Magic Wand)** + **Phase 2-C(ProjectileBehavior + Knife + Axe)** + **Phase 2-D(Cross + Fire Wand + Inventory Vec)** + **Phase 2-E(Garlic + Holy Water — 지속 area damage)**
-- **상태**: engine 26 tests · game lib 35 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성**: `GarlicSystem`(오라 반경 원형 tick 데미지) + `HolyWaterSystem`(랜덤 위치 풀 드롭) + `HolyWaterPoolSystem`(풀 lifetime + tick 데미지). 스타터 로드아웃 8무기 보유.
-- **다음**: Phase 2-F (King Bible + Lightning Ring)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F 완료 + **Phase 2-A~2-F** (WeaponInventory + 10무기 + damage 헬퍼 추출)
+- **상태**: engine 26 tests · game lib 38 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성**: `KingBibleSystem`(플레이어 주위 회전 책, 2권, 반경 60px, lifetime 5s) + `OrbitingBookSystem`(tick 0.3s area damage) + `LightningRingSystem`(4초마다 랜덤 zombie에 즉시 30데미지) + `LightningFlashSystem`(0.15s 시각 flash). 스타터 로드아웃 10무기 보유. `apply_damage_to_zombie` 헬퍼로 4시스템 리팩터링.
+- **다음**: Phase 2-G (weapons.ron 외부 데이터 + 카드 풀 9무기 확장)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 
