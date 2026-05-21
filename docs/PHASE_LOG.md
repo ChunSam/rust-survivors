@@ -4,6 +4,56 @@ Vampire Survivors 클론 개발 진행 상황. 각 sub-phase 완료 시 항목 �
 
 ---
 
+## Phase 10 — 다중 스테이지 3종 + StageSelect (2026-05-21) — **Phase 10 완료 / 풀 클론 핵심 시스템 완성**
+
+> **Phase 10 완료 = Vampire Survivors 풀 클론 핵심 시스템 100% 구현**
+> 향후: Phase 11 폴리쉬 (데미지 숫자, 히트 플래시 개선, SFX, BGM, 업적, 로컬라이제이션, macOS .app / Windows .exe)
+
+### 신규 파일
+
+| 파일 | 핵심 타입·함수 |
+|---|---|
+| `crates/game/src/survivor/stage.rs` | `StageKind` (3종 enum), `SelectedStage` (리소스), `StageCursor` (리소스), `StageSelectSystem` |
+| `assets/data/waves_mad_forest.ron` | MadForest 6 wave (zombie/bat/skeleton/ghost/mage/mantis/slime/plant/mummy/knight) |
+| `assets/data/waves_inlaid_library.ron` | InlaidLibrary 6 wave (skeleton/ghost/mage/mantis/plant/slime/mummy/knight 우세) |
+| `assets/data/waves_dairy_plant.ron` | DairyPlant 6 wave (slime/mummy/knight/mantis 우세, 최고 난이도) |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `survivor/meta.rs` | `SurvivorMode::StageSelect` variant 추가. `ModeTransitionSystem` — Title `KeyT` → StageSelect 진입, `StageSelect` match arm. InGame StageClear 전환 시 `unlocked_stages` 에 다음 스테이지 해금 + 저장. |
+| `survivor/hud.rs` | `SurvivorMode::StageSelect` HUD (커서·해금 상태 표시). Title HUD 힌트 "C = CHAR  T = STAGE  S = SHOP" 로 갱신. |
+| `survivor/world_setup.rs` | `SelectedStage::default()` + `StageCursor::default()` 최초 삽입. MetaSave.unlocked_stages 초기화. SpawnDirector waves 를 SelectedStage 기반으로 교체. |
+| `survivor/mod.rs` | `pub mod stage` + `SelectedStage`, `StageCursor`, `StageKind`, `StageSelectSystem` 재수출. |
+| `bin/survivor.rs` | `StageSelectSystem` 시스템 등록 (CharacterSelectSystem 다음). |
+
+### 스테이지별 적 풀 차별화
+
+| 스테이지 | 테마 | 특징 적 | 난이도 |
+|---|---|---|---|
+| Mad Forest | 숲 — 기본 | Zombie/Bat 시작, 점진적 확장 | 표준 (spawn 1.2s) |
+| Inlaid Library | 도서관 언데드 | Skeleton/Ghost/Mage 우세, 빠른 시작 | 중간 (spawn 1.0s) |
+| Dairy Plant | 공장 슬라임 | Slime/Mummy/Knight 조기 등장, 2마리 버스트 시작 | 최고 (spawn 0.9s, burst×2~14) |
+
+### 해금 체인
+
+`MadForest` (기본 해금) → 클리어 → `InlaidLibrary` 해금 → 클리어 → `DairyPlant` 해금
+
+### 테스트 (+3 → 77)
+
+| 테스트 | 내용 |
+|---|---|
+| `stage_count_is_three` | `StageKind::ALL.len() == 3` |
+| `mad_forest_waves_load` | `MadForest.load_waves()` RON 파싱 성공 (len > 0) |
+| `stage_prerequisite_chain` | `MadForest→None`, `Library→MadForest`, `Dairy→Library` |
+
+### Phase 1~10 누적 시스템
+
+10 무기 + 16 패시브 + 10종 적 + 보스 3 + 진화 8 + 픽업 5 + Title/Shop/CharacterSelect/StageSelect + 6 캐릭터 해금 + 3 스테이지 해금 + 메타 진행(영구 저장) — Vertical Slice → 풀 클론 핵심 루프 완성.
+
+---
+
 ## Phase 9 — 캐릭터 6종 + CharacterSelect + 해금 (2026-05-21)
 
 ### 신규 파일

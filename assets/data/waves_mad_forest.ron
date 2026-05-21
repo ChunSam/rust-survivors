@@ -1,0 +1,97 @@
+(
+    waves: [
+        // 0:00 ~ 1:00 — 초보 zombie + 가끔 bat. Random 1마리. 엘리트 없음.
+        (
+            start_time: 0.0,
+            end_time:   60.0,
+            spawn_interval: 1.2,
+            enemies: [
+                (kind: "Zombie", weight: 6),
+                (kind: "Bat",    weight: 2),
+            ],
+            pattern: Random,
+            count_per_burst: 1,
+            elite_chance: 0.0,
+        ),
+        // 1:00 ~ 3:00 — skeleton + ghost 추가. Random 1마리. 엘리트 2%.
+        (
+            start_time: 60.0,
+            end_time:   180.0,
+            spawn_interval: 1.0,
+            enemies: [
+                (kind: "Zombie",   weight: 4),
+                (kind: "Bat",      weight: 3),
+                (kind: "Skeleton", weight: 2),
+                (kind: "Ghost",    weight: 2),
+            ],
+            pattern: Random,
+            count_per_burst: 1,
+            elite_chance: 0.02,
+        ),
+        // 3:00 ~ 6:00 — mage / mantis 추가. Line 3마리 (perp 60px). 엘리트 3%.
+        (
+            start_time: 180.0,
+            end_time:   360.0,
+            spawn_interval: 1.5,
+            enemies: [
+                (kind: "Zombie",   weight: 3),
+                (kind: "Bat",      weight: 3),
+                (kind: "Skeleton", weight: 3),
+                (kind: "Ghost",    weight: 2),
+                (kind: "Mage",     weight: 2),
+                (kind: "Mantis",   weight: 1),
+            ],
+            pattern: Line,
+            count_per_burst: 3,
+            elite_chance: 0.03,
+        ),
+        // 6:00 ~ 12:00 — slime / plant 추가. Circle 6마리 (등간격 포위). 엘리트 5%.
+        (
+            start_time: 360.0,
+            end_time:   720.0,
+            spawn_interval: 2.0,
+            enemies: [
+                (kind: "Skeleton", weight: 2),
+                (kind: "Ghost",    weight: 2),
+                (kind: "Mage",     weight: 2),
+                (kind: "Mantis",   weight: 2),
+                (kind: "Slime",    weight: 2),
+                (kind: "Plant",    weight: 1),
+            ],
+            pattern: Circle,
+            count_per_burst: 6,
+            elite_chance: 0.05,
+        ),
+        // 12:00 ~ 20:00 — mummy 등장. Surround 8마리. 엘리트 8%.
+        (
+            start_time: 720.0,
+            end_time:   1200.0,
+            spawn_interval: 2.5,
+            enemies: [
+                (kind: "Mage",   weight: 2),
+                (kind: "Mantis", weight: 2),
+                (kind: "Slime",  weight: 3),
+                (kind: "Plant",  weight: 2),
+                (kind: "Mummy",  weight: 2),
+            ],
+            pattern: Surround,
+            count_per_burst: 8,
+            elite_chance: 0.08,
+        ),
+        // 20:00 ~ 30:00 — knight + Swarm. 12마리 떼. 엘리트 12%.
+        (
+            start_time: 1200.0,
+            end_time:   1800.0,
+            spawn_interval: 3.0,
+            enemies: [
+                (kind: "Mantis", weight: 2),
+                (kind: "Slime",  weight: 2),
+                (kind: "Mummy",  weight: 3),
+                (kind: "Knight", weight: 3),
+            ],
+            pattern: Swarm,
+            count_per_burst: 12,
+            elite_chance: 0.12,
+        ),
+    ],
+)

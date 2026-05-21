@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4 전체 (적 다양화)** — 4-A(적 10종+AI 6)/4-B(SpawnDirector+waves.ron)/4-C+4-D(패턴 5+엘리트) + **Phase 5 (보스 3종 + 멀티 페이즈 + 화면 흔들기 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)** + **Phase 7 (픽업 5종 — Coin/Chicken/Vacuum/Bomb/Rosary)** + **Phase 8 완료 (메인 메뉴 + 메타 진행 + 저장)** — 8-A(SurvivorMode+MetaSave+Title) + 8-B(PowerUp 매장 19종) + **Phase 9 완료 (캐릭터 6종 + CharacterSelect + 해금)**
-- **상태**: engine 26 tests · game lib 74 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성 (Phase 9)**: `CharacterKind` 6종 (Antonio/Imelda/Pasqualina/Gennaro/Arca/Porta). `CharacterSelectSystem` (W/S 커서, Enter 해금 검증+선택, Esc 복귀). `SelectedCharacter`·`CharacterCursor` 리소스. Title 화면 "C = CHAR" 힌트. `StatRecalcSystem` 에 캐릭터 스탯 보정 통합. 해금 조건: gold_total 누적 (100/300/600/1000/2000). 신규 테스트 3종 (총 74). **다음**: Phase 10 (다중 스테이지)
-- **다음**: Phase 9 (캐릭터 6+ + 해금 시스템)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** + **Phase 2 전체 (무기 풀 확장)** + **Phase 3 전체 (PlayerStats + 패시브 16종)** + **Phase 4 전체 (적 다양화)** + **Phase 5 (보스 3종 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)** + **Phase 7 (픽업 5종)** + **Phase 8 완료 (메인 메뉴 + 메타 진행 + 저장)** + **Phase 9 완료 (캐릭터 6종 + CharacterSelect + 해금)** + **Phase 10 완료 (다중 스테이지 3종 + StageSelect + 클리어 해금)**
+- **상태**: engine 26 tests · game lib 77 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성 (Phase 10)**: `StageKind` 3종 (MadForest/InlaidLibrary/DairyPlant). `StageSelectSystem` (T키 진입, W/S 커서, Enter 해금 검증+선택, Esc 복귀). 스테이지별 waves RON (3개 파일). 클리어 시 다음 스테이지 해금 + MetaSave 저장. 신규 테스트 3종 (총 77). **Phase 1~10 = Vampire Survivors 풀 클론 핵심 시스템 완성.**
+- **다음**: Phase 11 폴리쉬 (데미지 숫자, 히트 플래시 개선, SFX/BGM, 업적, 로컬라이제이션, macOS .app / Windows .exe)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 
