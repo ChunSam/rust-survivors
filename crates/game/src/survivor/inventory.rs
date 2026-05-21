@@ -107,6 +107,21 @@ impl WeaponSlot {
             false
         }
     }
+
+    /// stats.cooldown 곱을 적용한 effective cooldown 으로 tick.
+    ///
+    /// `cd_multiplier < 1.0` 이면 발화 간격이 짧아짐 (빨라짐).
+    /// slot 의 `cooldown` 필드는 변경하지 않고, *비교 시점에만* 곱한다.
+    pub fn tick_with_cooldown_multiplier(&mut self, dt: f32, cd_multiplier: f32) -> bool {
+        self.elapsed += dt;
+        let effective_cd = (self.cooldown * cd_multiplier).max(0.1); // 0 방지
+        if self.elapsed >= effective_cd {
+            self.elapsed -= effective_cd;
+            true
+        } else {
+            false
+        }
+    }
 }
 
 /// Player 컴포넌트. 슬롯은 동적 Vec (Vampire Survivors 원작 최대 6개).

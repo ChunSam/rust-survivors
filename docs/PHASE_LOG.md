@@ -1098,3 +1098,74 @@ cargo build --release --workspace           # ok
 | 2-G | weapons.ron 외부 데이터 + 카드 풀 29개 확장 |
 
 다음: **Phase 3 — PlayerStats + 패시브 16종**
+
+---
+
+## Phase 3-A — PlayerStats 16 필드 확장 + 시스템 통합 (2026-05-21)
+
+### 개요
+
+PlayerStats 를 1 필드(move_speed) → 16 필드로 확장하고, 모든 무기·시스템에 stats 를 반영.
+Phase 3-A 의 기본값(항등원)이면 게임플레이 변화 0. Phase 3-B 패시브 도입 시 즉시 반영.
+
+### PlayerStats 16 필드
+
+| 필드 | 기본값 | 의미 |
+|---|---|---|
+| `might` | 0.0 | 데미지 가산 (damage += might) |
+| `area` | 1.0 | hitbox/오라 반경 곱 |
+| `projectile_speed` | 1.0 | 투사체 속도 곱 |
+| `duration` | 1.0 | 투사체/필드 lifetime 곱 |
+| `amount` | 0 | 발사 수 가산 (Knife/HolyWater/KingBible/Lightning) |
+| `cooldown` | 1.0 | cooldown 곱 (< 1 이면 빨라짐) |
+| `max_health` | 100.0 | 최대 체력 |
+| `recovery` | 0.0 | 초당 자연 회복 |
+| `armor` | 0.0 | 받는 데미지 감쇄 |
+| `move_speed` | 200.0 | 이동 속도 px/s |
+| `magnet` | 1.0 | 자석/픽업 반경 곱 |
+| `luck` | 1.0 | 드롭률 placeholder |
+| `growth` | 1.0 | XP 획득 배율 |
+| `greed` | 1.0 | 골드 배율 placeholder |
+| `curse` | 1.0 | 적 강화 placeholder |
+| `revival` | 0 | 부활 횟수 placeholder |
+
+### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/stats.rs` | `StatRecalcSystem` (stub no-op) + `read_player_stats` 헬퍼 |
+
+### 기존 파일 변경
+
+| 파일 | 변경 내용 |
+|---|---|
+| `player.rs` | `PlayerStats` 1 → 16 필드, `#[derive(Clone, PartialEq)]` 추가 |
+| `inventory.rs` | `WeaponSlot::tick_with_cooldown_multiplier(dt, cd_multiplier)` 추가 |
+| `health.rs` | `HealthRegenSystem` 신규 추가 (recovery stat 처리) |
+| `mod.rs` | `stats` 모듈 + `HealthRegenSystem`, `StatRecalcSystem`, `read_player_stats` export |
+| `weapon.rs` | WhipSystem/MagicWand/Knife/Axe/Cross/FireWand — 6종 stats 적용 |
+| `area.rs` | GarlicSystem/HolyWaterSystem — 2종 stats 적용 |
+| `bible.rs` | KingBibleSystem — 1종 stats 적용 |
+| `lightning.rs` | LightningRingSystem — 1종 stats 적용 |
+| `death.rs` | EnemyContactDamageSystem — armor 감쇄 적용 |
+| `xp.rs` | MagnetSystem — magnet 반경 곱, growth XP 배율 적용 |
+| `bin/survivor.rs` | StatRecalcSystem(첫) + HealthRegenSystem 등록 |
+
+### 설계 결정
+
+- **WeaponSlot::tick_with_cooldown_multiplier** 채택: `slot.cooldown` 필드는 원본 유지, 비교 시점에만 stats.cooldown 곱 → slot 자체를 변경하지 않아 레벨업 카드 강화와 독립적으로 동작
+- **read_player_stats 헬퍼**: `&World` 불변 빌림 → 이후 `get_mut` 호출과 borrow 충돌 없음. 각 시스템이 매 프레임 시작에 stats 스냅샷 확보
+- **HolyWaterPool, OrbitingBook**: 생성 시점의 stats 반영 → 이후 stats 변경에 영향 안 받음 (의도적)
+- **StatRecalcSystem**: 첫 시스템으로 등록. Phase 3-B 패시브 합산 로직 추가 예정
+
+### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 44 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+### 다음
+
+**Phase 3-B** — PassiveKind 16개 + PassiveInventory + StatRecalcSystem 합산 로직

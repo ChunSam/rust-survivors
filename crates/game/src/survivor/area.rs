@@ -12,6 +12,7 @@ use super::damage::apply_damage_to_zombie;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
+use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
 // ─── HolyWaterPool 컴포넌트 ──────────────────────────────────────────────────
@@ -51,17 +52,24 @@ impl System for GarlicSystem {
             .map(|(e, _, t)| (e, t.position))
         else { return };
 
+        // stats 캐시
+        let stats = read_player_stats(world);
+
         let fire_info: Option<(f32, f32)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.garlic_slot_mut() else { return };
-            if !slot.tick(dt) { return; }
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) { return; }
             if let WeaponKind::Garlic { damage, radius } = slot.kind {
                 Some((damage, radius))
             } else {
                 None
             }
         };
-        let Some((damage, radius)) = fire_info else { return };
+        let Some((base_damage, base_radius)) = fire_info else { return };
+
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let radius = base_radius * stats.area;
 
         // 2) grid rebuild + 원형 query
         self.grid.rebuild(world);
@@ -97,17 +105,26 @@ impl System for HolyWaterSystem {
             .map(|(e, _, t)| (e, t.position))
         else { return };
 
+        // stats 캐시
+        let stats = read_player_stats(world);
+
         let fire_info: Option<(f32, f32, f32, f32, u8)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.holy_water_slot_mut() else { return };
-            if !slot.tick(dt) { return; }
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) { return; }
             if let WeaponKind::HolyWater { damage, radius, pool_lifetime, tick_cooldown, drop_count } = slot.kind {
                 Some((damage, radius, pool_lifetime, tick_cooldown, drop_count))
             } else {
                 None
             }
         };
-        let Some((damage, radius, pool_lifetime, tick_cooldown, drop_count)) = fire_info else { return };
+        let Some((base_damage, base_radius, base_lifetime, tick_cooldown, base_drop_count)) = fire_info else { return };
+
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let radius = base_radius * stats.area;
+        let pool_lifetime = base_lifetime * stats.duration;
+        let drop_count = ((base_drop_count as i32) + stats.amount).max(1) as u8;
 
         // drop_count 개의 풀을 플레이어 주변 랜덤 위치에 스폰
         use rand::Rng;

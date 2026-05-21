@@ -2,7 +2,7 @@ use engine::{CollisionLayer, SpatialGrid, System, Transform, World};
 use engine::components::GameState;
 use engine::input::InputState;
 use winit::keyboard::KeyCode;
-use super::player::Player;
+use super::player::{Player, PlayerStats};
 use super::health::Health;
 use super::hud::GameStats;
 use super::{LAYER_ENEMY, world_setup};
@@ -54,8 +54,16 @@ impl System for EnemyContactDamageSystem {
             return;
         }
 
+        // armor stat: 받는 데미지 감쇄 (0.0 기본 → 변화 없음)
+        let armor = world
+            .query2::<Player, PlayerStats>()
+            .next()
+            .map(|(_, _, s)| s.armor)
+            .unwrap_or(0.0);
+        let effective_damage = (self.damage - armor).max(0.0);
+
         if let Some(h) = world.get_mut::<Health>(player_entity) {
-            let died = h.take_damage(self.damage);
+            let died = h.take_damage(effective_damage);
             println!("Player hit by {} enemies (HP={:.0})", hits.len(), h.current);
             if died {
                 println!("YOU DIED");

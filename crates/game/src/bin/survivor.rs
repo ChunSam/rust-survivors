@@ -1,4 +1,4 @@
-//! Vampire Survivors 클론 — Phase 2-F 진입점.
+//! Vampire Survivors 클론 — Phase 3-A 진입점.
 //!
 //! 현재 상태: 노란 플레이어가 WASD/방향키로 이동하고, 카메라가 따라감.
 //!            초록 좀비가 카메라 외곽에서 스폰되어 플레이어를 추격함.
@@ -20,9 +20,12 @@
 //!            픽업 반경(20px) 내 젬 수집 → XpAccumulator 누적.
 //!            XP 임계치(5+5×level) 도달 시 Paused → HUD 에 카드 3장 출력.
 //!            1/2/3 키로 Whip 강화 카드 선택 → 효과 적용 → Playing 복귀.
-//!            좌상단 HUD: 시간/Lv/XP/HP/Kills. 적 접촉 시 -10HP/초.
+//!            좌상단 HUD: 시간/Lv/XP/HP/Kills. 적 접촉 시 -10HP/초. armor 로 데미지 감쇄.
 //!            HP <= 0 → GameOver. R 키 → 재시작.
-//! **Phase 2-F 완료** — KingBible(회전 책) + LightningRing(랜덤 번개) + apply_damage 헬퍼 추출.
+//!            PlayerStats 16 필드 (might, area, projectile_speed, duration, amount, cooldown,
+//!            max_health, recovery, armor, move_speed, magnet, luck, growth, greed, curse, revival).
+//! **Phase 3-A 완료** — PlayerStats 16 필드 + StatRecalcSystem(stub) + HealthRegenSystem
+//!                     + 모든 무기/시스템(10종)에 stats 적용.
 
 use engine::App;
 use game::survivor::{
@@ -36,6 +39,7 @@ use game::survivor::{
     EnemySpawnSystem,
     FireWandSystem,
     GarlicSystem,
+    HealthRegenSystem,
     HitFlashSystem,
     HolyWaterPoolSystem,
     HolyWaterSystem,
@@ -51,6 +55,7 @@ use game::survivor::{
     PlayerMovementSystem,
     ProjectileSystem,
     RestartSystem,
+    StatRecalcSystem,
     WhipSystem,
 };
 
@@ -60,18 +65,21 @@ fn main() {
     let mut app = App::new();
 
     // 시스템 등록 순서:
-    // LevelUp (상태 전환·키 입력) → 플레이어 이동 → 적 추격 → 스폰/정리
-    // → 접촉 데미지 → 사망 → 재시작 → 카메라 follow
+    // StatRecalc (패시브 합산 → PlayerStats 갱신) — 첫 시스템
+    // → LevelUp (상태 전환·키 입력) → 플레이어 이동 → 적 추격 → 스폰/정리
+    // → 접촉 데미지 → HP 회복(HealthRegen) → 사망 → 재시작 → 카메라 follow
     // → 무기: Whip → MagicWand → Knife → Axe → Cross → FireWand
     //       → Garlic(오라) → HolyWater(풀 스폰) → HolyWaterPool(풀 tick)
     //       → KingBible(책 스폰) → OrbitingBook(책 회전+tick) → LightningRing(번개) → LightningFlash(flash lifetime)
     // → ProjectileSystem(이동·충돌·데미지)
     // → 자석(픽업/끌어당김) → 히트플래시 → HUD (TextQueue push — 마지막)
+    app.add_system(StatRecalcSystem);      // Phase 3-A: 첫 — 패시브 합산해 PlayerStats 갱신 (현재 no-op)
     app.add_system(LevelUpSystem);
     app.add_system(PlayerMovementSystem);
     app.add_system(EnemyAiSystem);
     app.add_system(EnemySpawnSystem::default());
     app.add_system(EnemyContactDamageSystem::default());
+    app.add_system(HealthRegenSystem);             // Phase 3-A: recovery stat 적용 (0.0 default → no-op)
     app.add_system(DeathSystem);
     app.add_system(RestartSystem);
     app.add_system(CameraFollowSystem::default());

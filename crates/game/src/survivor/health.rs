@@ -15,3 +15,41 @@ impl Health {
         self.current <= 0.0
     }
 }
+
+// ─── HealthRegenSystem ────────────────────────────────────────────────────────
+
+use engine::{Entity, System, World};
+use engine::components::GameState;
+use super::player::{Player, PlayerStats};
+
+/// 매 프레임 PlayerStats.recovery 만큼 Player HP 를 자연 회복.
+///
+/// recovery = 0.0 (default) 이면 변화 없음.
+/// Playing 상태에서만 동작. HP 는 max 를 초과하지 않음.
+pub struct HealthRegenSystem;
+
+impl System for HealthRegenSystem {
+    fn run(&mut self, world: &mut World, dt: f32) {
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
+
+        // Player + PlayerStats + Health 를 가진 엔티티 수집 (borrow 즉시 종료)
+        let targets: Vec<(Entity, f32, f32)> = world
+            .query2::<Player, PlayerStats>()
+            .filter_map(|(e, _, stats)| {
+                if stats.recovery > 0.0 {
+                    Some((e, stats.recovery, stats.max_health))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for (entity, recovery, max_health) in targets {
+            if let Some(h) = world.get_mut::<Health>(entity) {
+                h.current = (h.current + recovery * dt).min(max_health);
+            }
+        }
+    }
+}

@@ -7,6 +7,7 @@ use super::damage::apply_damage_to_zombie;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
+use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
 /// 짧게 보이는 번개 시각 효과. lifetime 감소 → despawn.
@@ -37,15 +38,23 @@ impl System for LightningRingSystem {
             .map(|(e, _, t)| (e, t.position))
         else { return };
 
+        // stats 캐시
+        let stats = read_player_stats(world);
+
         let fire_info = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
             let Some(slot) = inv.lightning_ring_slot_mut() else { return };
-            if !slot.tick(dt) { return; }
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) { return; }
             if let WeaponKind::LightningRing { damage, strike_count, hit_radius } = slot.kind {
                 Some((damage, strike_count, hit_radius))
             } else { None }
         };
-        let Some((damage, strike_count, hit_radius)) = fire_info else { return };
+        let Some((base_damage, base_strike_count, base_hit_radius)) = fire_info else { return };
+
+        // stats 적용
+        let damage = base_damage + stats.might;
+        let strike_count = ((base_strike_count as i32) + stats.amount).max(1) as u8;
+        let hit_radius = base_hit_radius * stats.area;
 
         // 후보 zombie 들
         self.grid.rebuild(world);

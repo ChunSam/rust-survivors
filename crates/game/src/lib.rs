@@ -27,6 +27,97 @@ mod tests {
         assert_eq!(PlayerStats::default().move_speed, 200.0);
     }
 
+    // ── Phase 3-A: PlayerStats 16 필드 + stats 적용 테스트 ──────────────────
+
+    /// PlayerStats::default() 의 모든 필드가 올바른 기본값인지 검증
+    #[test]
+    fn player_stats_default_values() {
+        let s = PlayerStats::default();
+        assert_eq!(s.might, 0.0,           "might 기본값은 0.0");
+        assert_eq!(s.area, 1.0,            "area 기본값은 1.0");
+        assert_eq!(s.projectile_speed, 1.0, "projectile_speed 기본값은 1.0");
+        assert_eq!(s.duration, 1.0,        "duration 기본값은 1.0");
+        assert_eq!(s.amount, 0,            "amount 기본값은 0");
+        assert_eq!(s.cooldown, 1.0,        "cooldown 기본값은 1.0");
+        assert_eq!(s.max_health, 100.0,    "max_health 기본값은 100.0");
+        assert_eq!(s.recovery, 0.0,        "recovery 기본값은 0.0");
+        assert_eq!(s.armor, 0.0,           "armor 기본값은 0.0");
+        assert_eq!(s.move_speed, 200.0,    "move_speed 기본값은 200.0");
+        assert_eq!(s.magnet, 1.0,          "magnet 기본값은 1.0");
+        assert_eq!(s.luck, 1.0,            "luck 기본값은 1.0");
+        assert_eq!(s.growth, 1.0,          "growth 기본값은 1.0");
+        assert_eq!(s.greed, 1.0,           "greed 기본값은 1.0");
+        assert_eq!(s.curse, 1.0,           "curse 기본값은 1.0");
+        assert_eq!(s.revival, 0,           "revival 기본값은 0");
+    }
+
+    /// armor stat 이 적 접촉 데미지를 감쇄하는지 검증
+    #[test]
+    fn armor_reduces_contact_damage() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, PlayerStats>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // armor = 5.0 강제 설정 (EnemyContactDamageSystem.damage=10 → effective=5)
+        if let Some(s) = world.get_mut::<PlayerStats>(pe) {
+            s.armor = 5.0;
+        }
+
+        // 초기 HP = 100 (default)
+        let before_hp = world.get::<Health>(pe).map(|h| h.current).unwrap();
+        assert_eq!(before_hp, 100.0);
+
+        // contact_radius(25) 안에 좀비 배치
+        spawn_zombie(&mut world, Vec2::new(15.0, 0.0));
+
+        // dt = cooldown(1.0) → 발화. damage(10) - armor(5) = 5 차감
+        EnemyContactDamageSystem::default().run(&mut world, 1.0);
+
+        let after_hp = world.get::<Health>(pe).map(|h| h.current).unwrap();
+        assert_eq!(
+            after_hp, 95.0,
+            "armor=5 일 때 HP 는 100 - (10-5) = 95 여야 함 (현재 {after_hp})"
+        );
+    }
+
+    /// magnet stat 이 자석 반경을 확장하는지 검증
+    #[test]
+    fn magnet_stat_extends_radius() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, PlayerStats>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // magnet = 2.0 → effective_magnet_radius = 80 * 2 = 160
+        if let Some(s) = world.get_mut::<PlayerStats>(pe) {
+            s.magnet = 2.0;
+        }
+
+        // 기본 magnet_radius(80px) 밖이지만 확장 반경(160px) 안인 (150, 0) 에 gem 스폰
+        spawn_xp_gem(&mut world, Vec2::new(150.0, 0.0), 1);
+
+        MagnetSystem::default().run(&mut world, 0.1);
+
+        // gem 이 플레이어 방향(x 감소)으로 이동했어야 함
+        let gem_entity = world.query2::<XpGem, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let gem_x = world.get::<Transform>(gem_entity).map(|t| t.position.x).unwrap();
+        assert!(
+            gem_x < 150.0,
+            "magnet=2.0 으로 확장된 반경 안의 gem 이 플레이어 방향으로 이동해야 함 (x={gem_x} < 150.0)"
+        );
+    }
+
     #[test]
     fn spawn_player_inserts_components() {
         let mut world = World::new();
