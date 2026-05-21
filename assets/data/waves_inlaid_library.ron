@@ -1,0 +1,92 @@
+(
+    waves: [
+        // 0:00 ~ 1:00 — Skeleton + Ghost 우세. 도서관 언데드 주제. Random 1마리.
+        (
+            start_time: 0.0,
+            end_time:   60.0,
+            spawn_interval: 1.0,
+            enemies: [
+                (kind: "Skeleton", weight: 4),
+                (kind: "Ghost",    weight: 4),
+            ],
+            pattern: Random,
+            count_per_burst: 1,
+            elite_chance: 0.0,
+        ),
+        // 1:00 ~ 3:00 — Mage 등장 (도서관 학자 마법사). Line 2마리. 엘리트 3%.
+        (
+            start_time: 60.0,
+            end_time:   180.0,
+            spawn_interval: 1.0,
+            enemies: [
+                (kind: "Skeleton", weight: 3),
+                (kind: "Ghost",    weight: 4),
+                (kind: "Mage",     weight: 5),
+            ],
+            pattern: Line,
+            count_per_burst: 2,
+            elite_chance: 0.03,
+        ),
+        // 3:00 ~ 6:00 — Mantis 추가. Circle 4마리. 엘리트 4%.
+        (
+            start_time: 180.0,
+            end_time:   360.0,
+            spawn_interval: 1.2,
+            enemies: [
+                (kind: "Ghost",   weight: 3),
+                (kind: "Mage",    weight: 4),
+                (kind: "Mantis",  weight: 4),
+                (kind: "Zombie",  weight: 1),
+            ],
+            pattern: Circle,
+            count_per_burst: 4,
+            elite_chance: 0.04,
+        ),
+        // 6:00 ~ 12:00 — Plant 추가 (책장 사이 덩굴). Surround 6마리. 엘리트 6%.
+        (
+            start_time: 360.0,
+            end_time:   720.0,
+            spawn_interval: 1.8,
+            enemies: [
+                (kind: "Mage",    weight: 3),
+                (kind: "Mantis",  weight: 3),
+                (kind: "Ghost",   weight: 3),
+                (kind: "Plant",   weight: 3),
+            ],
+            pattern: Surround,
+            count_per_burst: 6,
+            elite_chance: 0.06,
+        ),
+        // 12:00 ~ 20:00 — Slime + Mummy 등장. Swarm 8마리. 엘리트 10%.
+        (
+            start_time: 720.0,
+            end_time:   1200.0,
+            spawn_interval: 2.2,
+            enemies: [
+                (kind: "Mage",    weight: 3),
+                (kind: "Mantis",  weight: 3),
+                (kind: "Plant",   weight: 2),
+                (kind: "Slime",   weight: 3),
+                (kind: "Mummy",   weight: 3),
+            ],
+            pattern: Swarm,
+            count_per_burst: 8,
+            elite_chance: 0.10,
+        ),
+        // 20:00 ~ 30:00 — Knight 등장. 최고 난이도 물결. 10마리 Swarm. 엘리트 14%.
+        (
+            start_time: 1200.0,
+            end_time:   1800.0,
+            spawn_interval: 2.5,
+            enemies: [
+                (kind: "Mage",   weight: 3),
+                (kind: "Mantis", weight: 3),
+                (kind: "Mummy",  weight: 3),
+                (kind: "Knight", weight: 3),
+            ],
+            pattern: Swarm,
+            count_per_burst: 10,
+            elite_chance: 0.14,
+        ),
+    ],
+)

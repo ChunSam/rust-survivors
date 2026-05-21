@@ -63,6 +63,7 @@ use game::survivor::{
     RestartSystem,
     ShopInputSystem,
     SpawnDirectorSystem,
+    StageSelectSystem,
     StatRecalcSystem,
     WhipSystem,
 };
@@ -84,6 +85,7 @@ fn main() {
     app.add_system(ModeTransitionSystem);   // Phase 8-A: 최상단 — SurvivorMode 전환 + GameState 동기화
     app.add_system(ShopInputSystem);        // Phase 8-B: Shop 입력 처리
     app.add_system(CharacterSelectSystem);  // Phase 9: 캐릭터 선택 입력 처리
+    app.add_system(StageSelectSystem);      // Phase 10: 스테이지 선택 입력 처리
     app.add_system(StatRecalcSystem);      // Phase 3-A: 패시브 합산해 PlayerStats 갱신 (현재 no-op)
     app.add_system(LevelUpSystem);
     app.add_system(PlayerMovementSystem);

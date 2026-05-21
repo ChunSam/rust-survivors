@@ -10,6 +10,7 @@ use super::powerup::ShopCursor;
 use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
 use super::player::{Player, PlayerStats, Velocity};
+use super::stage::{SelectedStage, StageCursor};
 use super::xp::XpAccumulator;
 
 /// 플레이어 엔티티를 World 에 스폰. 좌표는 월드 (0,0) — 카메라 follow 가 화면 중앙에 둠.
@@ -85,5 +86,29 @@ pub fn setup_survivor_world(world: &mut World) {
     // Phase 9: SelectedCharacter — 최초 init 시 Antonio(기본) 으로 삽입.
     if world.resource::<SelectedCharacter>().is_none() {
         world.insert_resource(SelectedCharacter::default());
+    }
+    // Phase 10: SelectedStage + StageCursor — 최초 init 시 MadForest(기본) 으로 삽입.
+    if world.resource::<SelectedStage>().is_none() {
+        world.insert_resource(SelectedStage::default());
+    }
+    if world.resource::<StageCursor>().is_none() {
+        world.insert_resource(StageCursor::default());
+    }
+    // Phase 10: MetaSave.unlocked_stages 가 비어있으면 MadForest 로 초기화.
+    if let Some(meta) = world.resource_mut::<MetaSave>() {
+        if meta.unlocked_stages.is_empty() {
+            meta.unlocked_stages.push("MadForest".to_string());
+        }
+    }
+    // Phase 10: SpawnDirector waves 를 SelectedStage 기반으로 교체 (borrow 분리 패턴).
+    let stage = world
+        .resource::<SelectedStage>()
+        .copied()
+        .unwrap_or_default()
+        .0;
+    let waves = stage.load_waves();
+    if let Some(d) = world.resource_mut::<SpawnDirector>() {
+        d.waves = waves;
+        d.spawn_elapsed = 0.0;
     }
 }

@@ -21,6 +21,7 @@ pub mod powerup;
 pub mod player;
 pub mod projectile;
 pub mod spawn;
+pub mod stage;
 pub mod stats;
 pub mod weapon;
 pub mod world_setup;
@@ -28,6 +29,7 @@ pub mod xp;
 
 pub use area::{GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, spawn_holy_water_pool};
 pub use character::{CharacterCursor, CharacterKind, CharacterSelectSystem, SelectedCharacter};
+pub use stage::{SelectedStage, StageCursor, StageKind, StageSelectSystem};
 pub use meta::{MetaSave, ModeTransitionSystem, SurvivorMode};
 pub use powerup::{apply_powerups, try_purchase, PowerUpKind, ShopCursor, ShopInputSystem};
 pub use chest::{Chest, ChestPickupSystem, EvolutionRule, EVOLUTION_RULES, try_evolve, spawn_chest};

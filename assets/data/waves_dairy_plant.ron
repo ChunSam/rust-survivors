@@ -1,0 +1,94 @@
+(
+    waves: [
+        // 0:00 ~ 1:00 — Slime + Mummy 우세. 공장 슬라임 테마. Random 2마리. 엘리트 5%.
+        (
+            start_time: 0.0,
+            end_time:   60.0,
+            spawn_interval: 0.9,
+            enemies: [
+                (kind: "Slime", weight: 3),
+                (kind: "Mummy", weight: 3),
+            ],
+            pattern: Random,
+            count_per_burst: 2,
+            elite_chance: 0.05,
+        ),
+        // 1:00 ~ 3:00 — Zombie + Bat 추가 (공장 방역 실패). Line 3마리. 엘리트 6%.
+        (
+            start_time: 60.0,
+            end_time:   180.0,
+            spawn_interval: 0.9,
+            enemies: [
+                (kind: "Slime",  weight: 4),
+                (kind: "Mummy",  weight: 4),
+                (kind: "Zombie", weight: 2),
+                (kind: "Bat",    weight: 2),
+            ],
+            pattern: Line,
+            count_per_burst: 3,
+            elite_chance: 0.06,
+        ),
+        // 3:00 ~ 6:00 — Knight 조기 등장. Circle 4마리. 엘리트 7%.
+        (
+            start_time: 180.0,
+            end_time:   360.0,
+            spawn_interval: 1.0,
+            enemies: [
+                (kind: "Slime",  weight: 4),
+                (kind: "Mummy",  weight: 3),
+                (kind: "Knight", weight: 3),
+                (kind: "Bat",    weight: 2),
+            ],
+            pattern: Circle,
+            count_per_burst: 4,
+            elite_chance: 0.07,
+        ),
+        // 6:00 ~ 12:00 — Plant + Ghost 추가. Surround 6마리. 엘리트 10%.
+        (
+            start_time: 360.0,
+            end_time:   720.0,
+            spawn_interval: 1.5,
+            enemies: [
+                (kind: "Slime",  weight: 3),
+                (kind: "Mummy",  weight: 3),
+                (kind: "Knight", weight: 4),
+                (kind: "Plant",  weight: 2),
+                (kind: "Ghost",  weight: 2),
+            ],
+            pattern: Surround,
+            count_per_burst: 6,
+            elite_chance: 0.10,
+        ),
+        // 12:00 ~ 20:00 — Mantis + Skeleton 추가. Swarm 10마리. 엘리트 14%.
+        (
+            start_time: 720.0,
+            end_time:   1200.0,
+            spawn_interval: 2.0,
+            enemies: [
+                (kind: "Slime",    weight: 3),
+                (kind: "Mummy",    weight: 3),
+                (kind: "Knight",   weight: 4),
+                (kind: "Mantis",   weight: 3),
+                (kind: "Skeleton", weight: 2),
+            ],
+            pattern: Swarm,
+            count_per_burst: 10,
+            elite_chance: 0.14,
+        ),
+        // 20:00 ~ 30:00 — 최고 난이도. Swarm 14마리 폭풍. 엘리트 18%.
+        (
+            start_time: 1200.0,
+            end_time:   1800.0,
+            spawn_interval: 2.5,
+            enemies: [
+                (kind: "Mummy",  weight: 4),
+                (kind: "Knight", weight: 5),
+                (kind: "Mantis", weight: 4),
+                (kind: "Slime",  weight: 3),
+            ],
+            pattern: Swarm,
+            count_per_burst: 14,
+            elite_chance: 0.18,
+        ),
+    ],
+)

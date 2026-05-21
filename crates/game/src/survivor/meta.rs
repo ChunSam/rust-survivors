@@ -15,6 +15,7 @@ use super::character::CharacterCursor;
 use super::hud::GameStats;
 use super::pickup::GoldWallet;
 use super::powerup::ShopCursor;
+use super::stage::{SelectedStage, StageCursor, StageKind};
 
 const APP_NAME: &str = "rust-vampire-survivors";
 const SAVE_FILE: &str = "save.ron";
@@ -59,6 +60,7 @@ impl MetaSave {
 pub enum SurvivorMode {
     Title,           // 시작 화면 — ENTER 로 InGame 진입
     CharacterSelect, // 캐릭터 선택 화면 (Phase 9)
+    StageSelect,     // 스테이지 선택 화면 (Phase 10)
     Shop,            // PowerUp 매장 (Phase 8-B)
     InGame,          // 실제 게임 진행
     StageClear,      // 스테이지 클리어
@@ -87,6 +89,7 @@ impl System for ModeTransitionSystem {
         match mode {
             SurvivorMode::Title
             | SurvivorMode::CharacterSelect
+            | SurvivorMode::StageSelect
             | SurvivorMode::Shop
             | SurvivorMode::StageClear => {
                 if let Some(gs) = world.resource_mut::<GameState>() {
@@ -104,7 +107,7 @@ impl System for ModeTransitionSystem {
         match mode {
             SurvivorMode::Title => {
                 // 입력 캐시 (borrow 분리)
-                let (enter_pressed, shop_pressed, char_sel_pressed) = {
+                let (enter_pressed, shop_pressed, char_sel_pressed, stage_sel_pressed) = {
                     let i = match world.resource::<InputState>() {
                         Some(i) => i,
                         None    => return,
@@ -113,9 +116,21 @@ impl System for ModeTransitionSystem {
                         i.just_pressed(KeyCode::Enter),
                         i.just_pressed(KeyCode::KeyS),
                         i.just_pressed(KeyCode::KeyC),
+                        i.just_pressed(KeyCode::KeyT),
                     )
                 };
                 if enter_pressed {
+                    // SpawnDirector waves 를 SelectedStage 기반으로 갱신 (게임 시작 직전)
+                    let stage = world
+                        .resource::<SelectedStage>()
+                        .copied()
+                        .unwrap_or_default()
+                        .0;
+                    let waves = stage.load_waves();
+                    if let Some(d) = world.resource_mut::<super::director::SpawnDirector>() {
+                        d.waves = waves;
+                        d.spawn_elapsed = 0.0;
+                    }
                     super::death::restart_world(world);
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
                         *m = SurvivorMode::InGame;
@@ -123,7 +138,7 @@ impl System for ModeTransitionSystem {
                     if let Some(gs) = world.resource_mut::<GameState>() {
                         *gs = GameState::Playing;
                     }
-                    println!("Game started.");
+                    println!("Game started (stage: {}).", stage.label());
                 }
                 if shop_pressed {
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
@@ -145,9 +160,22 @@ impl System for ModeTransitionSystem {
                     }
                     println!("Entered character select");
                 }
+                if stage_sel_pressed {
+                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
+                        *m = SurvivorMode::StageSelect;
+                    }
+                    // StageCursor 가 없으면 default 삽입
+                    if world.resource::<StageCursor>().is_none() {
+                        world.insert_resource(StageCursor::default());
+                    }
+                    println!("Entered stage select");
+                }
             }
             SurvivorMode::CharacterSelect => {
                 // CharacterSelectSystem 이 처리 — 여기서는 no-op
+            }
+            SurvivorMode::StageSelect => {
+                // StageSelectSystem 이 처리 — 여기서는 no-op
             }
             SurvivorMode::InGame => {
                 // StageProgress.cleared 면 StageClear 로 전환
@@ -161,11 +189,31 @@ impl System for ModeTransitionSystem {
                     let kills   = world.resource::<GameStats>().map(|s| s.kills).unwrap_or(0);
                     let coins   = world.resource::<GoldWallet>().map(|w| w.current).unwrap_or(0);
 
+                    // 현재 선택 스테이지 캐시 (borrow 분리)
+                    let selected_stage = world
+                        .resource::<SelectedStage>()
+                        .copied()
+                        .unwrap_or_default()
+                        .0;
+                    let next_stage = match selected_stage {
+                        StageKind::MadForest     => Some(StageKind::InlaidLibrary),
+                        StageKind::InlaidLibrary => Some(StageKind::DairyPlant),
+                        StageKind::DairyPlant    => None,
+                    };
+
                     if let Some(meta) = world.resource_mut::<MetaSave>() {
                         meta.gold_total  = meta.gold_total.saturating_add(coins);
                         meta.kills_total = meta.kills_total.saturating_add(kills);
                         if elapsed > meta.best_time {
                             meta.best_time = elapsed;
+                        }
+                        // 다음 스테이지 해금
+                        if let Some(next) = next_stage {
+                            let key = next.key().to_string();
+                            if !meta.unlocked_stages.iter().any(|s| s == &key) {
+                                meta.unlocked_stages.push(key.clone());
+                                println!("Unlocked stage: {}", key);
+                            }
                         }
                         meta.save_to_disk();
                     }

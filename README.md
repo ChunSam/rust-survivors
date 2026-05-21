@@ -166,6 +166,36 @@ fn main() {
 
 ---
 
+## Vampire Survivors 클론 (Phase 1~10 완료)
+
+이 엔진 위에 풀 클론을 구현 중.
+
+```bash
+cargo run --bin survivor          # 서바이버 실행 (debug)
+cargo run --bin survivor --release  # 최적화 빌드
+```
+
+**조작법** — WASD 이동 · ENTER 게임 시작 · R 재시작 · ESC 종료  
+**Title 메뉴** — `C` 캐릭터 선택 · `T` 스테이지 선택 · `S` 파워업 상점
+
+### 구현 현황 (2026-05-21)
+
+| Phase | 내용 | 상태 |
+|---|---|---|
+| 1 | Vertical Slice MVP (이동/적/Whip/XP/LevelUp/HUD/GameOver) | 완료 |
+| 2 | 무기 10종 (Whip/Wand/Knife/Axe/Cross/Garlic/HolyWater/Bible/FireWand/Lightning) | 완료 |
+| 3 | PlayerStats 16 필드 + 패시브 16종 + StatRecalcSystem | 완료 |
+| 4 | 적 10종 + AI 6변종 + SpawnDirector (wave/패턴/엘리트) | 완료 |
+| 5 | 보스 3종 (GiantSlime/GhostKing/Death) + 멀티 페이즈 + StageClear | 완료 |
+| 6 | 보물상자 + 8 무기 진화 레시피 | 완료 |
+| 7 | 픽업 5종 (Coin/Chicken/Vacuum/Bomb/Rosary) | 완료 |
+| 8 | 메인 메뉴 + PowerUp 매장 19종 + 메타 진행 + RON 영구 저장 | 완료 |
+| 9 | 캐릭터 6종 (Antonio/Imelda/Pasqualina/Gennaro/Arca/Porta) + 해금 | 완료 |
+| 10 | 스테이지 3종 (MadForest/InlaidLibrary/DairyPlant) + StageSelect + 클리어 해금 | **완료** |
+| 11 | 폴리쉬 (파티클, SFX/BGM, 업적, 로컬라이제이션, 빌드 패키징) | 예정 |
+
+---
+
 ## 라이선스
 
 MIT

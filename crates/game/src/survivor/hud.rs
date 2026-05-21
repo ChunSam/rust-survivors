@@ -11,6 +11,7 @@ use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
 use super::player::Player;
 use super::powerup::{PowerUpKind, ShopCursor};
+use super::stage::{StageCursor, StageKind};
 use super::xp::XpAccumulator;
 
 /// 게임 진행 통계. 매 프레임 누적/조회.
@@ -43,8 +44,8 @@ impl System for HudSystem {
                         color:    [255, 255, 255, 255],
                     });
                     q.push(DrawText {
-                        text:     "C = CHAR  S = SHOP".to_string(),
-                        position: Vec2::new(310.0, 380.0),
+                        text:     "C = CHAR  T = STAGE  S = SHOP".to_string(),
+                        position: Vec2::new(220.0, 380.0),
                         size:     18.0,
                         color:    [200, 200, 255, 255],
                     });
@@ -116,6 +117,57 @@ impl System for HudSystem {
                     q.push(DrawText {
                         text:     "W/S = navigate  ENTER = select  ESC = back".to_string(),
                         position: Vec2::new(150.0, 320.0),
+                        size:     14.0,
+                        color:    [180, 180, 180, 255],
+                    });
+                }
+                return;
+            }
+            SurvivorMode::StageSelect => {
+                let cursor_idx = world
+                    .resource::<StageCursor>()
+                    .map(|c| c.index)
+                    .unwrap_or(0);
+                let unlocked: Vec<String> = world
+                    .resource::<MetaSave>()
+                    .map(|m| m.unlocked_stages.clone())
+                    .unwrap_or_else(|| vec!["MadForest".to_string()]);
+                if let Some(q) = world.resource_mut::<TextQueue>() {
+                    q.push(DrawText {
+                        text:     "STAGE SELECT".to_string(),
+                        position: Vec2::new(280.0, 30.0),
+                        size:     32.0,
+                        color:    [255, 220, 80, 255],
+                    });
+                    for (i, stage) in StageKind::ALL.iter().enumerate() {
+                        let is_unlocked = stage.prerequisite().is_none()
+                            || stage
+                                .prerequisite()
+                                .map(|p| unlocked.iter().any(|s| s == p.key()))
+                                .unwrap_or(false);
+                        let prefix   = if i == cursor_idx { ">" } else { " " };
+                        let lock_str = if is_unlocked {
+                            String::new()
+                        } else {
+                            "[LOCKED]".to_string()
+                        };
+                        let color = if i == cursor_idx {
+                            [255, 255, 80, 255]
+                        } else if is_unlocked {
+                            [200, 200, 200, 255]
+                        } else {
+                            [120, 120, 120, 255]
+                        };
+                        q.push(DrawText {
+                            text:     format!("{} {} {}", prefix, stage.label(), lock_str),
+                            position: Vec2::new(120.0, 100.0 + i as f32 * 40.0),
+                            size:     22.0,
+                            color,
+                        });
+                    }
+                    q.push(DrawText {
+                        text:     "W/S = navigate  ENTER = select  ESC = back".to_string(),
+                        position: Vec2::new(150.0, 280.0),
                         size:     14.0,
                         color:    [180, 180, 180, 255],
                     });
