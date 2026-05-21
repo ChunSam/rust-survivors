@@ -35,6 +35,7 @@ use game::survivor::{
     BossPhaseSystem,
     BossSpawnSystem,
     CameraFollowSystem,
+    CharacterSelectSystem,
     ChestPickupSystem,
     CrossSystem,
     DeathSystem,
@@ -82,6 +83,7 @@ fn main() {
     // → 자석(픽업/끌어당김) → 히트플래시 → HUD (TextQueue push — 마지막)
     app.add_system(ModeTransitionSystem);   // Phase 8-A: 최상단 — SurvivorMode 전환 + GameState 동기화
     app.add_system(ShopInputSystem);        // Phase 8-B: Shop 입력 처리
+    app.add_system(CharacterSelectSystem);  // Phase 9: 캐릭터 선택 입력 처리
     app.add_system(StatRecalcSystem);      // Phase 3-A: 패시브 합산해 PlayerStats 갱신 (현재 no-op)
     app.add_system(LevelUpSystem);
     app.add_system(PlayerMovementSystem);

@@ -11,6 +11,7 @@ use engine::input::InputState;
 use serde::{Deserialize, Serialize};
 use winit::keyboard::KeyCode;
 
+use super::character::CharacterCursor;
 use super::hud::GameStats;
 use super::pickup::GoldWallet;
 use super::powerup::ShopCursor;
@@ -56,10 +57,11 @@ impl MetaSave {
 /// 메뉴/상점/스테이지 선택 등은 `SurvivorMode` 로 표현.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SurvivorMode {
-    Title,      // 시작 화면 — ENTER 로 InGame 진입
-    Shop,       // PowerUp 매장 (Phase 8-B)
-    InGame,     // 실제 게임 진행
-    StageClear, // 스테이지 클리어
+    Title,           // 시작 화면 — ENTER 로 InGame 진입
+    CharacterSelect, // 캐릭터 선택 화면 (Phase 9)
+    Shop,            // PowerUp 매장 (Phase 8-B)
+    InGame,          // 실제 게임 진행
+    StageClear,      // 스테이지 클리어
 }
 
 impl Default for SurvivorMode {
@@ -83,7 +85,10 @@ impl System for ModeTransitionSystem {
         // Title / Shop / StageClear 에서는 GameState 를 Paused 로 강제.
         // 이로써 Playing 가드를 사용하는 게임 시스템들이 조기 반환.
         match mode {
-            SurvivorMode::Title | SurvivorMode::Shop | SurvivorMode::StageClear => {
+            SurvivorMode::Title
+            | SurvivorMode::CharacterSelect
+            | SurvivorMode::Shop
+            | SurvivorMode::StageClear => {
                 if let Some(gs) = world.resource_mut::<GameState>() {
                     if !matches!(*gs, GameState::Paused) {
                         *gs = GameState::Paused;
@@ -99,12 +104,16 @@ impl System for ModeTransitionSystem {
         match mode {
             SurvivorMode::Title => {
                 // 입력 캐시 (borrow 분리)
-                let (enter_pressed, shop_pressed) = {
+                let (enter_pressed, shop_pressed, char_sel_pressed) = {
                     let i = match world.resource::<InputState>() {
                         Some(i) => i,
                         None    => return,
                     };
-                    (i.just_pressed(KeyCode::Enter), i.just_pressed(KeyCode::KeyS))
+                    (
+                        i.just_pressed(KeyCode::Enter),
+                        i.just_pressed(KeyCode::KeyS),
+                        i.just_pressed(KeyCode::KeyC),
+                    )
                 };
                 if enter_pressed {
                     super::death::restart_world(world);
@@ -126,6 +135,19 @@ impl System for ModeTransitionSystem {
                     }
                     println!("Entered shop");
                 }
+                if char_sel_pressed {
+                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
+                        *m = SurvivorMode::CharacterSelect;
+                    }
+                    // CharacterCursor 가 없으면 default 삽입
+                    if world.resource::<CharacterCursor>().is_none() {
+                        world.insert_resource(CharacterCursor::default());
+                    }
+                    println!("Entered character select");
+                }
+            }
+            SurvivorMode::CharacterSelect => {
+                // CharacterSelectSystem 이 처리 — 여기서는 no-op
             }
             SurvivorMode::InGame => {
                 // StageProgress.cleared 면 StageClear 로 전환

@@ -4,6 +4,43 @@ Vampire Survivors 클론 개발 진행 상황. 각 sub-phase 완료 시 항목 �
 
 ---
 
+## Phase 9 — 캐릭터 6종 + CharacterSelect + 해금 (2026-05-21)
+
+### 신규 파일
+
+| 파일 | 핵심 타입·함수 |
+|---|---|
+| `crates/game/src/survivor/character.rs` | `CharacterKind` (6종 enum), `SelectedCharacter` (리소스), `CharacterCursor` (리소스), `CharacterSelectSystem` |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `survivor/meta.rs` | `SurvivorMode::CharacterSelect` variant 추가. `ModeTransitionSystem` Title 분기에서 `KeyC` → CharacterSelect 진입. CharacterSelect match arm 추가. |
+| `survivor/hud.rs` | `SurvivorMode::CharacterSelect` HUD (커서·해금 상태·골드 표시). Title HUD에 "C = CHAR  S = SHOP" 힌트. |
+| `survivor/world_setup.rs` | `spawn_player`: `SelectedCharacter` 리소스 기반 시작 인벤토리 + 스탯 보정. `setup_survivor_world`: `SelectedCharacter::default()` 최초 삽입. |
+| `survivor/stats.rs` | `StatRecalcSystem`: 패시브·파워업 합산 후 `selected.0.apply_stats(&mut s)` 추가 (매 프레임 캐릭터 보정 반영). |
+| `survivor/mod.rs` | `pub mod character` + `CharacterKind`, `SelectedCharacter`, `CharacterCursor`, `CharacterSelectSystem` 재수출. |
+| `bin/survivor.rs` | `CharacterSelectSystem` 시스템 등록 (`ShopInputSystem` 다음). |
+
+### 캐릭터 스펙
+
+| 캐릭터 | 시작 무기 | 스탯 보정 | 해금 골드 |
+|---|---|---|---|
+| Antonio | Whip (전체 10종 로드아웃) | 없음 | 0 (기본) |
+| Imelda | MagicWand | growth ×1.10 | 100 |
+| Pasqualina | Knife | amount +1 | 300 |
+| Gennaro | Axe | might +1.0 | 600 |
+| Arca | FireWand | might +2.0 | 1000 |
+| Porta | LightningRing | luck ×1.20 | 2000 |
+
+### 테스트
+
+- engine 26 / game lib 74 / doc 2 — 전체 통과
+- 신규 3종: `character_kind_count_is_six`, `antonio_starter_inventory_has_whip`, `apply_stats_arca_increases_might`
+
+---
+
 ## Phase 0 — 엔진 보강 (2026-05-20 완료)
 
 서바이버 작업 시작 전 채워야 했던 엔진 공백을 채움.

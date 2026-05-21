@@ -3,6 +3,7 @@ use engine::components::GameState;
 use engine::renderer::text::{DrawText, TextQueue};
 use glam::Vec2;
 use super::boss::Boss;
+use super::character::{CharacterCursor, CharacterKind};
 use super::health::Health;
 use super::levelup::PendingLevelUp;
 use super::meta::{MetaSave, SurvivorMode};
@@ -42,8 +43,8 @@ impl System for HudSystem {
                         color:    [255, 255, 255, 255],
                     });
                     q.push(DrawText {
-                        text:     "S = SHOP".to_string(),
-                        position: Vec2::new(330.0, 380.0),
+                        text:     "C = CHAR  S = SHOP".to_string(),
+                        position: Vec2::new(310.0, 380.0),
                         size:     18.0,
                         color:    [200, 200, 255, 255],
                     });
@@ -66,6 +67,60 @@ impl System for HudSystem {
                     }
                 }
                 return; // Title 모드에서는 인게임 HUD 그리지 않음
+            }
+            SurvivorMode::CharacterSelect => {
+                let cursor_idx = world
+                    .resource::<CharacterCursor>()
+                    .map(|c| c.index)
+                    .unwrap_or(0);
+                let gold = world
+                    .resource::<MetaSave>()
+                    .map(|m| m.gold_total)
+                    .unwrap_or(0);
+                if let Some(q) = world.resource_mut::<TextQueue>() {
+                    q.push(DrawText {
+                        text:     "CHARACTER SELECT".to_string(),
+                        position: Vec2::new(250.0, 30.0),
+                        size:     32.0,
+                        color:    [255, 220, 80, 255],
+                    });
+                    q.push(DrawText {
+                        text:     format!("Gold: {}", gold),
+                        position: Vec2::new(550.0, 30.0),
+                        size:     20.0,
+                        color:    [255, 255, 100, 255],
+                    });
+                    for (i, kind) in CharacterKind::ALL.iter().enumerate() {
+                        let need     = kind.unlock_gold();
+                        let unlocked = gold >= need;
+                        let prefix   = if i == cursor_idx { ">" } else { " " };
+                        let lock_str = if unlocked {
+                            String::new()
+                        } else {
+                            format!("[LOCKED need {}]", need)
+                        };
+                        let color = if i == cursor_idx {
+                            [255, 255, 80, 255]
+                        } else if unlocked {
+                            [200, 200, 200, 255]
+                        } else {
+                            [120, 120, 120, 255]
+                        };
+                        q.push(DrawText {
+                            text:     format!("{} {} {}", prefix, kind.label(), lock_str),
+                            position: Vec2::new(120.0, 100.0 + i as f32 * 32.0),
+                            size:     18.0,
+                            color,
+                        });
+                    }
+                    q.push(DrawText {
+                        text:     "W/S = navigate  ENTER = select  ESC = back".to_string(),
+                        position: Vec2::new(150.0, 320.0),
+                        size:     14.0,
+                        color:    [180, 180, 180, 255],
+                    });
+                }
+                return;
             }
             SurvivorMode::StageClear => {
                 if let Some(q) = world.resource_mut::<TextQueue>() {
