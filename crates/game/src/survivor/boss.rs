@@ -274,8 +274,16 @@ impl System for BossDeathSystem {
             .collect();
 
         for (e, kind) in dead_bosses {
+            // 사망 직전 위치 캐치 (despawn 전에 읽어야 함)
+            let pos = world.get::<Transform>(e).map(|t| t.position);
+
             println!("BOSS DEFEATED: {}", kind.label());
             world.despawn(e);
+
+            // Phase 7: Vacuum + Bomb 드롭
+            if let Some(p) = pos {
+                crate::survivor::pickup::drop_boss_pickups(world, p);
+            }
 
             // 카메라 강하게 흔들기
             if let Some(shake) = world.resource_mut::<CameraShake>() {

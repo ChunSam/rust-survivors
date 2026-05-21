@@ -48,6 +48,8 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
                 crate::survivor::chest::spawn_chest(world, p + Vec2::new(0.0, 30.0));
             } else {
                 spawn_xp_gem(world, p, 1);
+                // Phase 7: 낮은 확률 픽업 드롭 (Coin/Chicken/Rosary)
+                crate::survivor::pickup::try_drop_normal_pickup(world, p);
             }
 
             // Slime split — split_remaining > 0 이면 자식 2마리 스폰

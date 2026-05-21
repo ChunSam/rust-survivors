@@ -55,6 +55,7 @@ use game::survivor::{
     MagicWandSystem,
     MagnetSystem,
     OrbitingBookSystem,
+    PickupSystem,
     PlayerMovementSystem,
     ProjectileSystem,
     RestartSystem,
@@ -106,6 +107,7 @@ fn main() {
     app.add_system(ProjectileSystem::default());
     app.add_system(MagnetSystem::default());
     app.add_system(ChestPickupSystem::default());     // Phase 6: Chest 픽업 + 진화 시도
+    app.add_system(PickupSystem::default());          // Phase 7: 픽업 5종 자동 픽업
     app.add_system(HitFlashSystem);
     app.add_system(HudSystem);                        // 마지막 — TextQueue push
 
