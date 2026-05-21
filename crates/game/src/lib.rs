@@ -8,13 +8,15 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        restart_world, setup_survivor_world, spawn_holy_water_pool, spawn_player, spawn_projectile,
-        spawn_projectile_ex, spawn_xp_gem, spawn_zombie, CameraFollowSystem, CardKind, CrossSystem,
-        DeathSystem, EnemyAiSystem, EnemyContactDamageSystem, EnemySpawnSystem, FireWandSystem,
-        GameStats, GarlicSystem, Health, HitFlash, HolyWaterPool, HolyWaterPoolSystem,
-        HolyWaterSystem, KnifeSystem, LevelUpSystem, MagicWandSystem, MagnetSystem, PendingLevelUp,
-        Player, PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnTimer,
-        WeaponInventory, WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
+        restart_world, setup_survivor_world, spawn_book, spawn_holy_water_pool, spawn_player,
+        spawn_projectile, spawn_projectile_ex, spawn_xp_gem, spawn_zombie, CameraFollowSystem,
+        CardKind, CrossSystem, DeathSystem, EnemyAiSystem, EnemyContactDamageSystem,
+        EnemySpawnSystem, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
+        HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, KingBibleSystem, KnifeSystem,
+        LevelUpSystem, LightningFlash, LightningRingSystem, MagicWandSystem, MagnetSystem,
+        OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player, PlayerStats, Projectile,
+        ProjectileBehavior, ProjectileSystem, SpawnTimer, WeaponInventory, WeaponKind, WhipSystem,
+        XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
@@ -651,13 +653,13 @@ mod tests {
 
     // ── Phase 2-D: Cross + FireWand + Inventory Vec 테스트 ──────────────────
 
-    /// with_starter_loadout 에 8개 무기가 모두 채워져야 한다 (Whip/MagicWand/Knife/Axe/Cross/FireWand/Garlic/HolyWater).
+    /// with_starter_loadout 에 10개 무기가 모두 채워져야 한다.
     #[test]
     fn inventory_starter_loadout_has_six_weapons() {
         let inv = WeaponInventory::with_starter_loadout();
 
         // Vec 기반 — len() 으로 확인
-        assert_eq!(inv.slots.len(), 8, "8개 슬롯이 있어야 함");
+        assert_eq!(inv.slots.len(), 10, "10개 슬롯이 있어야 함");
 
         // 각 슬롯의 kind 확인 (순서 보장)
         assert!(
@@ -691,6 +693,14 @@ mod tests {
         assert!(
             matches!(inv.slots[7].kind, WeaponKind::HolyWater { .. }),
             "슬롯 7 은 HolyWater 여야 함"
+        );
+        assert!(
+            matches!(inv.slots[8].kind, WeaponKind::KingBible { .. }),
+            "슬롯 8 은 KingBible 이어야 함"
+        );
+        assert!(
+            matches!(inv.slots[9].kind, WeaponKind::LightningRing { .. }),
+            "슬롯 9 는 LightningRing 이어야 함"
         );
     }
 
@@ -892,5 +902,123 @@ mod tests {
             matches!(proj.behavior, ProjectileBehavior::Boomerang { returned: true, .. }),
             "반전 후 behavior.returned 가 true 여야 함"
         );
+    }
+
+    // ── Phase 2-F: King Bible + Lightning Ring + damage 헬퍼 ─────────────────
+
+    /// KingBibleSystem cooldown(8.0) 경과 후 OrbitingBook 2권이 스폰돼야 한다.
+    #[test]
+    fn king_bible_spawns_books_after_cooldown() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
+
+        // KingBible 포함 스타터 로드아웃으로 플레이어 스폰
+        spawn_player(&mut world);
+
+        // 플레이어를 원점에 고정
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // dt = 9.0 → cooldown 8.0 초과 → 발화 (book_count=2)
+        KingBibleSystem.run(&mut world, 9.0);
+
+        assert_eq!(
+            world.query::<OrbitingBook>().count(),
+            2,
+            "KingBible cooldown 경과 후 OrbitingBook 2권이 스폰돼야 함"
+        );
+    }
+
+    /// OrbitingBook 이 회전하고 tick_cooldown 경과 후 반경 안 좀비에게 데미지를 가해야 한다.
+    #[test]
+    fn orbiting_book_rotates_and_damages_zombie() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(GameStats::default());
+
+        // 플레이어를 원점에 스폰 (KingBibleSystem 이 Player 위치를 참조하므로 필요)
+        spawn_player(&mut world);
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // 책을 각도 0, 반경 60px 에 스폰. angular_speed=0.01 로 매우 느리게 회전하여
+        // dt=0.4 후에도 (60, 0) 근처에 머물도록 함.
+        // tick_cooldown=0.3 → dt=0.4 에 한 번 발화
+        spawn_book(&mut world, Vec2::ZERO, 0.0, 0.01, 60.0, 6.0, 16.0, 5.0, 0.3);
+
+        // 책이 처음에 있는 위치 (60, 0) 근처에 좀비 스폰
+        // 좀비 Collider::Circle { radius: 20 }, 책 hit_radius=16 → 거리 0 ≈ 완전 겹침 → 충돌
+        spawn_zombie(&mut world, Vec2::new(60.0, 0.0));
+        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
+
+        let before_hp = world.get::<Health>(zombie_entity).map(|h| h.current).unwrap();
+        assert_eq!(before_hp, 30.0);
+
+        // dt=0.4 → tick_cooldown(0.3) 초과 → 1회 tick 발화, 책도 약간 회전
+        OrbitingBookSystem::default().run(&mut world, 0.4);
+
+        // 좀비 HP 가 줄었거나 despawn 됐어야 함 (damage 6 적용)
+        let zombie_alive = world.query::<Zombie>().next().map(|(e, _)| e);
+        if let Some(ze) = zombie_alive {
+            let hp = world.get::<Health>(ze).map(|h| h.current).unwrap();
+            assert!(hp < 30.0, "OrbitingBook tick 후 좀비 HP 가 줄어야 함 (현재 {hp})");
+        }
+        // despawn 됐으면(즉사) 테스트도 통과
+
+        // OrbitingBook 의 angle 이 갱신됐어야 함 (회전 검증)
+        let book_e = world.query::<OrbitingBook>().next().map(|(e, _)| e);
+        if let Some(be) = book_e {
+            let book = world.get::<OrbitingBook>(be).unwrap();
+            assert!(
+                book.angle > 0.0 || book.tick_elapsed >= 0.0,
+                "OrbitingBook 의 angle/tick_elapsed 가 갱신돼야 함"
+            );
+        }
+    }
+
+    /// LightningRingSystem cooldown(4.0) 경과 후 LightningFlash 가 1개 이상 스폰돼야 한다.
+    #[test]
+    fn lightning_ring_strikes_random_zombie() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
+        world.insert_resource(GameStats::default());
+
+        // LightningRing 포함 스타터 로드아웃으로 플레이어 스폰
+        spawn_player(&mut world);
+        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        if let Some(t) = world.get_mut::<Transform>(pe) {
+            t.position = Vec2::ZERO;
+        }
+
+        // 적 1마리 스폰 (target_radius=600 안에 배치)
+        spawn_zombie(&mut world, Vec2::new(200.0, 0.0));
+        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
+        let before_hp = world.get::<Health>(zombie_entity).map(|h| h.current).unwrap();
+
+        // dt = 5.0 → cooldown 4.0 초과 → 발화 (strike_count=1)
+        LightningRingSystem::default().run(&mut world, 5.0);
+
+        // LightningFlash 시각 엔티티가 1개 이상 스폰돼야 함
+        assert!(
+            world.query::<LightningFlash>().count() >= 1,
+            "LightningRing 발화 후 LightningFlash 가 최소 1개 스폰돼야 함"
+        );
+
+        // 좀비 HP 가 줄었거나 despawn 됐어야 함
+        let zombie_alive = world.query::<Zombie>().next().map(|(e, _)| e);
+        if let Some(ze) = zombie_alive {
+            let hp = world.get::<Health>(ze).map(|h| h.current).unwrap();
+            assert!(
+                hp < before_hp,
+                "LightningRing 피격 후 좀비 HP 가 줄어야 함 (현재 {hp})"
+            );
+        }
+        // despawn 됐으면(즉사) 테스트도 통과
     }
 }

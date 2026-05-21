@@ -883,3 +883,130 @@ cargo build --release --workspace           # ok
 - HitFlash + 사망 처리 코드가 WhipSystem / ProjectileSystem / GarlicSystem / HolyWaterPoolSystem 4곳에 중복. 향후 `apply_damage_to_zombie(world, entity, damage)` 헬퍼로 추출 권장.
 
 다음: **Phase 2-F — King Bible + Lightning Ring**
+
+---
+
+### Phase 2-F — King Bible + Lightning Ring + damage 헬퍼 추출 (2026-05-21)
+
+#### 신규 파일
+
+| 파일 | 내용 |
+|---|---|
+| `crates/game/src/survivor/damage.rs` | `apply_damage_to_zombie(world, zombie, damage) -> bool` 헬퍼 — HitFlash + XpGem 드롭 + despawn 통합 |
+| `crates/game/src/survivor/bible.rs` | `OrbitingBook` 컴포넌트, `KingBibleSystem`(책 스폰), `OrbitingBookSystem`(회전+tick damage), `spawn_book` 헬퍼 |
+| `crates/game/src/survivor/lightning.rs` | `LightningFlash` 컴포넌트, `LightningRingSystem`(랜덤 zombie area damage), `LightningFlashSystem`(flash lifetime), `spawn_lightning_flash` 헬퍼 |
+
+#### damage 헬퍼 추출
+
+WhipSystem / ProjectileSystem / GarlicSystem / HolyWaterPoolSystem 4곳에 동일하게 복사되어 있던 ~15줄의 hit 처리 블록을 `apply_damage_to_zombie` 단일 함수로 추출.
+
+```rust
+// 변경 전 (4곳 반복)
+let original = ...sprite 빨강...;
+let died = ...Health::take_damage...;
+if died { despawn + spawn_xp_gem } else { HitFlash 부착 }
+
+// 변경 후 (4곳 모두)
+if apply_damage_to_zombie(world, zombie, damage) { killed += 1; }
+```
+
+감소 줄 수: 약 60줄 (4 시스템 × ~15줄) → 4줄 (헬퍼 호출 1줄 × 4)
+
+#### King Bible 동작
+
+| 파라미터 | 기본값 | 설명 |
+|---|---|---|
+| damage | 6.0 | tick 당 데미지 |
+| book_count | 2 | 스폰 권 수 |
+| radius | 60.0 px | 플레이어 중심 회전 반경 |
+| angular_speed | 3.0 rad/s | 회전 속도 |
+| lifetime | 5.0 s | 책 활성 시간 |
+| tick_cooldown | 0.3 s | 데미지 tick 간격 |
+| hit_radius | 16.0 px | 충돌 판정 반경 |
+| cooldown | 8.0 s | 새 책 세트 스폰 주기 |
+
+- `KingBibleSystem`: cooldown 마다 `book_count` 권 각도 균등 분산하여 `OrbitingBook` 엔티티 스폰
+- `OrbitingBookSystem`: 매 프레임 Player 위치 기준 회전 이동 + lifetime 감소. tick_cooldown 마다 SpatialGrid 로 hit_radius 안 zombie에게 area damage
+
+#### Lightning Ring 동작
+
+| 파라미터 | 기본값 | 설명 |
+|---|---|---|
+| damage | 30.0 | area 데미지 |
+| strike_count | 1 | 타격 zombie 수 |
+| hit_radius | 40.0 px | 각 strike 의 area 반경 |
+| cooldown | 4.0 s | 발화 주기 |
+| target_radius | 600.0 px | 후보 탐색 반경 |
+
+- cooldown 마다 `target_radius` 안 zombie 중 `strike_count` 마리 랜덤 선택
+- 각 타깃 위치에 `spawn_lightning_flash` (노란 40×40, 0.15초 lifetime) 스폰
+- 같은 위치에서 `query_radius(hit_radius)` 로 추가 area damage
+
+#### 시작 로드아웃 (10 무기)
+
+| 슬롯 | 무기 | cooldown |
+|---|---|---|
+| 0 | Whip | 1.0s |
+| 1 | MagicWand | 1.2s |
+| 2 | Knife | 0.8s |
+| 3 | Axe | 1.5s |
+| 4 | Cross | 1.8s |
+| 5 | FireWand | 2.5s |
+| 6 | Garlic | 0.5s |
+| 7 | HolyWater | 3.0s |
+| 8 | KingBible | 8.0s |
+| 9 | LightningRing | 4.0s |
+
+#### 시스템 등록 순서 (Phase 2-F)
+
+```
+... (기존 동일)
+GarlicSystem
+HolyWaterSystem
+HolyWaterPoolSystem
+KingBibleSystem              ← 신규 (책 스폰)
+OrbitingBookSystem::default()← 신규 (책 회전 + tick)
+LightningRingSystem::default()← 신규 (랜덤 적 즉시 area damage)
+LightningFlashSystem         ← 신규 (flash lifetime)
+ProjectileSystem
+...
+```
+
+#### 변경 파일
+
+| 파일 | 변경 |
+|---|---|
+| `crates/game/src/survivor/damage.rs` | **신규** — `apply_damage_to_zombie` 헬퍼 |
+| `crates/game/src/survivor/bible.rs` | **신규** — `OrbitingBook`, `KingBibleSystem`, `OrbitingBookSystem`, `spawn_book` |
+| `crates/game/src/survivor/lightning.rs` | **신규** — `LightningFlash`, `LightningRingSystem`, `LightningFlashSystem`, `spawn_lightning_flash` |
+| `crates/game/src/survivor/inventory.rs` | `WeaponKind::KingBible`, `WeaponKind::LightningRing` 추가; 헬퍼 4개; `with_starter_loadout` 에 슬롯 2개 추가 (10무기); 내부 테스트 갱신 |
+| `crates/game/src/survivor/weapon.rs` | `WhipSystem` hit 루프 → `apply_damage_to_zombie` 1줄로 축소 |
+| `crates/game/src/survivor/projectile.rs` | `ProjectileSystem` hit 루프 → `apply_damage_to_zombie` 1줄로 축소 |
+| `crates/game/src/survivor/area.rs` | `GarlicSystem` + `HolyWaterPoolSystem` hit 루프 → `apply_damage_to_zombie` 1줄로 축소 |
+| `crates/game/src/survivor/mod.rs` | `pub mod bible/damage/lightning` + 재수출 추가 |
+| `crates/game/src/bin/survivor.rs` | 시스템 4개 등록. docstring 갱신 |
+| `crates/game/src/lib.rs` | import 갱신 + 신규 테스트 3건 + `inventory_starter_loadout_has_six_weapons` 10 슬롯으로 갱신 |
+
+#### 테스트
+
+game lib 38 통과 (직전 35 + 신규 3):
+- `king_bible_spawns_books_after_cooldown` — dt=9.0 → cooldown(8.0) 초과 → OrbitingBook 2권 스폰 확인
+- `orbiting_book_rotates_and_damages_zombie` — tick_cooldown 초과 → zombie HP 감소 확인; book.angle 갱신 확인
+- `lightning_ring_strikes_random_zombie` — dt=5.0 → cooldown(4.0) 초과 → LightningFlash 1개 이상 스폰 + zombie HP 감소 확인
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 38 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 핵심 결정
+
+- `apply_damage_to_zombie` 는 `damage.rs` 별도 파일로 분리 — 순환 의존 회피. `weapon.rs` 의 `HitFlash` 를 참조하므로 `super::weapon::HitFlash` 로 접근.
+- `OrbitingBookSystem` 의 borrow checker 처리: books 상태를 먼저 Vec 으로 collect → lifetime 갱신(get_mut) → book_updates 적용 → tick_hits 적용 순서로 borrow 를 단계적으로 분리.
+- `LightningRingSystem` 의 flash 스폰: `spawn_lightning_flash` 가 새 엔티티를 생성하지만 grid 에 등록되지 않음 — 그 프레임의 area damage 계산은 이미 rebuild 된 grid 로 수행하므로 충돌 없음.
+- `OrbitingBook` 의 `tick_hits` 는 회전 *이후* 위치 기반이지만, grid 는 회전 *이전* 위치 기준으로 rebuild — 매우 빠른 회전이 아닌 한 오차 무시 가능.
+
+다음: **Phase 2-G — weapons.ron 외부 데이터 + 카드 풀 9무기 확장**

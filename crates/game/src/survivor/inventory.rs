@@ -5,6 +5,7 @@
 /// Phase 2-C 에서 Knife, Axe 추가.
 /// Phase 2-D 에서 Cross, FireWand 추가.
 /// Phase 2-E 에서 Garlic, HolyWater 추가.
+/// Phase 2-F 에서 KingBible, LightningRing 추가.
 #[derive(Debug, Clone, PartialEq)]
 pub enum WeaponKind {
     Whip {
@@ -67,6 +68,22 @@ pub enum WeaponKind {
         tick_cooldown: f32,  // 풀이 데미지 가하는 간격
         drop_count:    u8,   // 한 번 발화 시 풀 N 개 드롭 (시작 1)
     },
+    /// 플레이어 주위를 회전하는 책. cooldown 마다 book_count 권 스폰, lifetime 만료 시 despawn.
+    KingBible {
+        damage:        f32,
+        book_count:    u8,
+        radius:        f32,   // 회전 반경 (px)
+        angular_speed: f32,   // 라디안/초
+        lifetime:      f32,   // 책 활성 시간 (초)
+        tick_cooldown: f32,   // 책이 데미지 가하는 간격
+        hit_radius:    f32,   // 충돌 판정 반경
+    },
+    /// cooldown 마다 strike_count 마리의 랜덤 zombie 위치에 즉시 area damage.
+    LightningRing {
+        damage:        f32,
+        strike_count:  u8,
+        hit_radius:    f32,  // 각 번개 타격 area 반경
+    },
 }
 
 /// 무기 인벤토리의 한 슬롯. cooldown 기반 발화 트래킹은 슬롯이 소유한다.
@@ -102,7 +119,7 @@ pub struct WeaponInventory {
 }
 
 impl WeaponInventory {
-    /// Phase 2-D 스타터 로드아웃: Whip + MagicWand + Knife + Axe + Cross + FireWand (6무기).
+    /// Phase 2-F 스타터 로드아웃: Whip + MagicWand + Knife + Axe + Cross + FireWand + Garlic + HolyWater + KingBible + LightningRing (10무기).
     pub fn with_starter_loadout() -> Self {
         let mut inv = Self::default();
         inv.slots.push(WeaponSlot {
@@ -194,6 +211,30 @@ impl WeaponInventory {
             cooldown: 3.0,
             elapsed:  0.0,
         });
+        inv.slots.push(WeaponSlot {
+            kind: WeaponKind::KingBible {
+                damage:        6.0,
+                book_count:    2,
+                radius:        60.0,
+                angular_speed: 3.0,
+                lifetime:      5.0,
+                tick_cooldown: 0.3,
+                hit_radius:    16.0,
+            },
+            level:    1,
+            cooldown: 8.0,
+            elapsed:  0.0,
+        });
+        inv.slots.push(WeaponSlot {
+            kind: WeaponKind::LightningRing {
+                damage:       30.0,
+                strike_count: 1,
+                hit_radius:   40.0,
+            },
+            level:    1,
+            cooldown: 4.0,
+            elapsed:  0.0,
+        });
         inv
     }
 
@@ -274,6 +315,24 @@ impl WeaponInventory {
     pub fn holy_water_slot(&self) -> Option<&WeaponSlot> {
         self.slots.iter().find(|s| matches!(s.kind, WeaponKind::HolyWater { .. }))
     }
+
+    /// 첫 매칭되는 KingBible 슬롯의 mutable 참조.
+    pub fn king_bible_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::KingBible { .. }))
+    }
+
+    pub fn king_bible_slot(&self) -> Option<&WeaponSlot> {
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::KingBible { .. }))
+    }
+
+    /// 첫 매칭되는 LightningRing 슬롯의 mutable 참조.
+    pub fn lightning_ring_slot_mut(&mut self) -> Option<&mut WeaponSlot> {
+        self.slots.iter_mut().find(|s| matches!(s.kind, WeaponKind::LightningRing { .. }))
+    }
+
+    pub fn lightning_ring_slot(&self) -> Option<&WeaponSlot> {
+        self.slots.iter().find(|s| matches!(s.kind, WeaponKind::LightningRing { .. }))
+    }
 }
 
 #[cfg(test)]
@@ -284,7 +343,7 @@ mod tests {
     fn inventory_starts_with_whip_slot_0() {
         let inv = WeaponInventory::with_starter_loadout();
         // Vec 기반 — 인덱스로 직접 접근
-        assert_eq!(inv.slots.len(), 8, "8개 슬롯이 있어야 함");
+        assert_eq!(inv.slots.len(), 10, "10개 슬롯이 있어야 함");
         assert!(matches!(inv.slots[0].kind, WeaponKind::Whip { .. }), "슬롯 0 은 Whip 이어야 함");
         assert!(matches!(inv.slots[1].kind, WeaponKind::MagicWand { .. }), "슬롯 1 은 MagicWand 여야 함");
         assert!(matches!(inv.slots[2].kind, WeaponKind::Knife { .. }), "슬롯 2 는 Knife 여야 함");
@@ -293,6 +352,8 @@ mod tests {
         assert!(matches!(inv.slots[5].kind, WeaponKind::FireWand { .. }), "슬롯 5 는 FireWand 여야 함");
         assert!(matches!(inv.slots[6].kind, WeaponKind::Garlic { .. }), "슬롯 6 은 Garlic 이어야 함");
         assert!(matches!(inv.slots[7].kind, WeaponKind::HolyWater { .. }), "슬롯 7 은 HolyWater 여야 함");
+        assert!(matches!(inv.slots[8].kind, WeaponKind::KingBible { .. }), "슬롯 8 은 KingBible 이어야 함");
+        assert!(matches!(inv.slots[9].kind, WeaponKind::LightningRing { .. }), "슬롯 9 는 LightningRing 이어야 함");
 
         let slot = &inv.slots[0];
         assert_eq!(slot.level, 1);

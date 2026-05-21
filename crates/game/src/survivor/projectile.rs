@@ -1,12 +1,10 @@
-use engine::{Collider, CollisionLayer, Entity, Sprite, SpatialGrid, System, Transform, World};
+use engine::{Collider, CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
 use engine::components::GameState;
 use glam::Vec2;
 
+use super::damage::apply_damage_to_zombie;
 use super::enemy::Zombie;
-use super::health::Health;
 use super::hud::GameStats;
-use super::xp::spawn_xp_gem;
-use super::weapon::HitFlash;
 use super::LAYER_ENEMY;
 
 /// 투사체 이동 방식.
@@ -150,32 +148,8 @@ impl System for ProjectileSystem {
         // 3) 데미지 적용 + 사망 처리 + XpGem 드롭 + HitFlash + 처치 카운터
         let mut killed_count: u32 = 0;
         for (zombie, damage) in hits_buffer {
-            // Sprite 색을 빨강으로 — 원래 색 보존
-            let original = if let Some(s) = world.get_mut::<Sprite>(zombie) {
-                let orig = s.color;
-                s.color = [1.0, 0.3, 0.3, 1.0];
-                orig
-            } else {
-                continue; // Sprite 없으면 건너뜀
-            };
-
-            let died = if let Some(h) = world.get_mut::<Health>(zombie) {
-                h.take_damage(damage)
-            } else {
-                false
-            };
-
-            if died {
+            if apply_damage_to_zombie(world, zombie, damage) {
                 killed_count += 1;
-                // despawn 전에 위치를 꺼내 XpGem 드롭
-                let drop_pos = world.get::<Transform>(zombie).map(|t| t.position);
-                world.despawn(zombie);
-                if let Some(p) = drop_pos {
-                    spawn_xp_gem(world, p, 1);
-                }
-            } else {
-                // 살아있으면 HitFlash 부착 (1-C 패턴)
-                world.add_component(zombie, HitFlash { remaining: 0.1, original });
             }
         }
 
@@ -269,6 +243,7 @@ mod tests {
     use engine::World;
     use engine::components::GameState;
     use glam::Vec2;
+    use super::super::health::Health;
     use super::super::spawn::spawn_zombie;
 
     fn playing_world() -> World {
