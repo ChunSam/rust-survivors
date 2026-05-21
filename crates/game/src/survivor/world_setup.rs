@@ -1,5 +1,6 @@
 use engine::{Sprite, Transform, World};
 use glam::Vec2;
+use super::boss::{BossSpawnQueue, CameraShake, StageProgress};
 use super::director::SpawnDirector;
 use super::health::Health;
 use super::hud::GameStats;
@@ -36,11 +37,21 @@ pub fn spawn_player(world: &mut World) {
 ///
 /// - `spawn_player` 로 플레이어 엔티티 스폰 + SpawnDirector 리소스 삽입.
 /// - `GameStats` 리소스가 없으면 default 로 삽입 (재시작 시에는 이미 reset 됐으므로 덮어쓰지 않음).
+/// - Phase 5: BossSpawnQueue / CameraShake / StageProgress 리소스도 최초 init 시 삽입.
 pub fn setup_survivor_world(world: &mut World) {
     spawn_player(world);
     // GameStats 가 없을 때만 삽입 (최초 init 용)
     // 재시작(restart_world) 에서는 먼저 리셋 후 spawn_player 를 호출하므로 중복 없음.
     if world.resource::<GameStats>().is_none() {
         world.insert_resource(GameStats::default());
+    }
+    if world.resource::<BossSpawnQueue>().is_none() {
+        world.insert_resource(BossSpawnQueue::default());
+    }
+    if world.resource::<CameraShake>().is_none() {
+        world.insert_resource(CameraShake::default());
+    }
+    if world.resource::<StageProgress>().is_none() {
+        world.insert_resource(StageProgress::default());
     }
 }

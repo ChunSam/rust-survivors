@@ -9,15 +9,16 @@ pub mod survivor;
 mod tests {
     use super::survivor::{
         apply_damage_to_enemy, restart_world, setup_survivor_world, spawn_book,
-        spawn_enemy, spawn_holy_water_pool, spawn_player, spawn_projectile,
-        spawn_projectile_ex, spawn_xp_gem, spawn_zombie, CameraFollowSystem,
+        spawn_boss, spawn_enemy, spawn_holy_water_pool, spawn_player, spawn_projectile,
+        spawn_projectile_ex, spawn_xp_gem, spawn_zombie, Boss, BossDeathSystem,
+        BossKind, BossPhaseSystem, BossSpawnQueue, BossSpawnSystem, CameraFollowSystem,
         CardKind, CrossSystem, DeathSystem, Enemy, EnemyAiSystem, EnemyContactDamageSystem,
         EnemyKind, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
         HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, KingBibleSystem, KnifeSystem,
         LevelUpSystem, LightningFlash, LightningRingSystem, MagicWandSystem, MagnetSystem,
         OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player, PlayerStats, Projectile,
         ProjectileBehavior, ProjectileSystem, SpawnDirector, SpawnDirectorSystem,
-        WeaponInventory, WeaponKind, WhipSystem,
+        StageProgress, WeaponInventory, WeaponKind, WhipSystem,
         XpAccumulator, XpGem, Zombie,
     };
     use engine::{Camera, System, Transform, World};
@@ -1298,5 +1299,100 @@ mod tests {
         apply_damage_to_enemy(&mut world, enemy, 1000.0);
 
         assert_eq!(world.query::<XpGem>().count(), 1, "비엘리트 → XpGem 1개");
+    }
+
+    // ── Phase 5: 보스 + StageClear 테스트 ────────────────────────────────────
+
+    /// GameStats.elapsed >= 600.0(10분) 이면 BossSpawnSystem 이 GiantSlime 을 스폰해야 한다.
+    #[test]
+    fn boss_spawn_queue_triggers_at_10min() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+
+        // setup_survivor_world 는 BossSpawnQueue / CameraShake / StageProgress 도 삽입
+        setup_survivor_world(&mut world);
+
+        // GameStats.elapsed 를 10분 1초로 강제 설정
+        if let Some(stats) = world.resource_mut::<GameStats>() {
+            stats.elapsed = 600.1;
+        }
+
+        BossSpawnSystem.run(&mut world, 0.0);
+
+        // Boss 엔티티가 1개 스폰됐어야 함
+        let boss_count = world.query::<Boss>().count();
+        assert_eq!(boss_count, 1, "10분 경과 후 GiantSlime 보스 1마리가 스폰돼야 함 (현재 {boss_count})");
+
+        // BossSpawnQueue 에서 GiantSlime 이 제거됐어야 함
+        let queue = world.resource::<BossSpawnQueue>().unwrap();
+        assert!(
+            !queue.pending.contains(&BossKind::GiantSlime),
+            "GiantSlime 이 pending 에서 제거돼야 함"
+        );
+        assert!(
+            queue.pending.contains(&BossKind::GhostKing),
+            "GhostKing 은 아직 pending 에 있어야 함"
+        );
+        assert!(
+            queue.pending.contains(&BossKind::Death),
+            "Death 는 아직 pending 에 있어야 함"
+        );
+    }
+
+    /// HP 가 max 의 40%(50% 미만)이면 BossPhaseSystem 이 phase 를 1 로 올려야 한다.
+    #[test]
+    fn boss_phase_advances_on_low_hp() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+        world.insert_resource(super::survivor::CameraShake::default());
+
+        // GiantSlime 보스 스폰
+        spawn_boss(&mut world, Vec2::ZERO, BossKind::GiantSlime);
+
+        // boss 엔티티 추출
+        let boss_e = world.query::<Boss>().next().map(|(e, _)| e).unwrap();
+
+        // HP 를 max * 0.4 (= 400) 로 강제 설정
+        let max_hp = BossKind::GiantSlime.max_hp(); // 1000.0
+        if let Some(h) = world.get_mut::<Health>(boss_e) {
+            h.current = max_hp * 0.4;
+        }
+
+        BossPhaseSystem.run(&mut world, 0.0);
+
+        let phase = world.get::<Boss>(boss_e).map(|b| b.phase).unwrap();
+        assert_eq!(phase, 1, "HP 40% → phase 가 1 이어야 함 (현재 {phase})");
+    }
+
+    /// Death 보스 HP <= 0 → BossDeathSystem 이 despawn + StageProgress.cleared = true.
+    #[test]
+    fn death_boss_defeat_triggers_stage_clear() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
+        world.insert_resource(StageProgress::default());
+        world.insert_resource(GameStats::default());
+        world.insert_resource(super::survivor::CameraShake::default());
+
+        // Death 보스 스폰
+        spawn_boss(&mut world, Vec2::ZERO, BossKind::Death);
+
+        // HP 를 0 으로 강제 설정
+        let boss_e = world.query::<Boss>().next().map(|(e, _)| e).unwrap();
+        if let Some(h) = world.get_mut::<Health>(boss_e) {
+            h.current = 0.0;
+        }
+
+        BossDeathSystem.run(&mut world, 0.0);
+
+        // 보스 엔티티가 사라져야 함
+        let remaining = world.query::<Boss>().count();
+        assert_eq!(remaining, 0, "Death 보스가 despawn 돼야 함 (현재 {remaining})");
+
+        // StageProgress.cleared 가 true 여야 함
+        let cleared = world.resource::<StageProgress>().map(|p| p.cleared).unwrap_or(false);
+        assert!(cleared, "Death 보스 처치 후 StageProgress.cleared 가 true 여야 함");
     }
 }

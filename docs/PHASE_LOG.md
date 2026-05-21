@@ -1376,3 +1376,56 @@ cargo build --release --workspace           # ok
 #### 다음
 
 **Phase 4-C** — 패턴 스폰 (line / circle / surround / swarm)
+
+---
+
+### Phase 5 — 보스 3종 + 멀티 페이즈 + 화면 흔들기 + StageClear (2026-05-21)
+
+#### 신규 파일
+
+| 파일 | 핵심 타입·함수 |
+|---|---|
+| `crates/game/src/survivor/boss.rs` | `BossKind`, `Boss`, `BossSpawnQueue`, `CameraShake`, `StageProgress`, `spawn_boss`, `BossSpawnSystem`, `BossPhaseSystem`, `BossDeathSystem` |
+
+#### 보스 3종 스펙
+
+| 보스 | 등장 시간 | HP | 색상 | 스폰 후 단계 |
+|---|---|---|---|---|
+| GiantSlime | 10:00 (600s) | 1,000 | 청색(0.2,0.6,0.8) | HP<50%→phase1, HP<20%→phase2 |
+| GhostKing  | 20:00 (1200s) | 2,500 | 연보라(0.7,0.7,1.0) | 동일 |
+| Death      | 30:00 (1800s) | 6,000 | 암적(0.5,0.0,0.0) | 처치 시 StageClear |
+
+#### 기존 파일 수정
+
+| 파일 | 변경 내용 |
+|---|---|
+| `camera_follow.rs` | `CameraShake` 리소스 읽어 shake offset 을 카메라에 적용. borrow 분리 패턴 |
+| `hud.rs` | 보스 HP 상단 표시, StageClear 오버레이 추가 |
+| `world_setup.rs` | `BossSpawnQueue / CameraShake / StageProgress` 최초 init 시 삽입 |
+| `death.rs` | `restart_world` 에서 보스 3 리소스 모두 default 로 리셋 |
+| `mod.rs` | `pub mod boss` + 8종 재수출 |
+| `bin/survivor.rs` | `BossSpawnSystem / BossPhaseSystem / BossDeathSystem` 등록 |
+
+#### Borrow Checker 핵심 패턴 (CameraShake)
+
+`CameraShake`(shake.elapsed 갱신 + offset 계산) 와 `Camera`(position 갱신) 를 같은 프레임에 mut 빌릴 수 없으므로:
+1. `resource_mut::<CameraShake>()` 블록에서 offset 값을 `Option<Vec2>` 로 추출 후 borrow 종료.
+2. 이후 `resource_mut::<Camera>()` 를 따로 빌려 position 에 offset 가산.
+
+#### 신규 테스트 (+3 → 58)
+
+- `boss_spawn_queue_triggers_at_10min` — elapsed=600.1 → GiantSlime 스폰, queue 에서 제거 확인
+- `boss_phase_advances_on_low_hp` — HP 40% → phase 1 전환 확인
+- `death_boss_defeat_triggers_stage_clear` — Death 보스 HP=0 → despawn + cleared=true
+
+#### 검증
+
+```bash
+cargo build --workspace                     # ok
+cargo test --workspace                      # engine 26 / game lib 58 / doc 2 통과
+cargo build --release --workspace           # ok
+```
+
+#### 다음
+
+**Phase 6** — 무기 진화 + 보물상자 (Evolution 레시피 8종)
