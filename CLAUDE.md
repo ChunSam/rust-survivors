@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F 완료 + **Phase 2-A~2-F** (WeaponInventory + 10무기 + damage 헬퍼 추출)
-- **상태**: engine 26 tests · game lib 38 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성**: `KingBibleSystem`(플레이어 주위 회전 책, 2권, 반경 60px, lifetime 5s) + `OrbitingBookSystem`(tick 0.3s area damage) + `LightningRingSystem`(4초마다 랜덤 zombie에 즉시 30데미지) + `LightningFlashSystem`(0.15s 시각 flash). 스타터 로드아웃 10무기 보유. `apply_damage_to_zombie` 헬퍼로 4시스템 리팩터링.
-- **다음**: Phase 2-G (weapons.ron 외부 데이터 + 카드 풀 9무기 확장)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F 완료 + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G 완료
+- **상태**: engine 26 tests · game lib 41 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성**: `weapons.ron` 외부 데이터 로딩 (`include_str!` 컴파일 타임 내장, serde+ron), `with_starter_loadout` 단순화 (하드코딩 제거), `CardKind` 29개 (10무기 × 2~3 카드), `LevelUpSystem` 랜덤 카드 선택 (`rand::choose_multiple`), `apply_card` 29 variant 전체 처리.
+- **다음**: Phase 3 — PlayerStats + 패시브 16종
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 

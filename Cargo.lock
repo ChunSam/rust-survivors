@@ -935,6 +935,8 @@ dependencies = [
  "log",
  "rand",
  "rapier2d",
+ "ron",
+ "serde",
  "wgpu",
  "winit",
 ]
