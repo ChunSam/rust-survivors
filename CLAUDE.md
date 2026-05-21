@@ -141,10 +141,10 @@ RedrawRequested    → update(dt) → render()
 
 ## 진행 상황 (2026-05-21)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4 전체 (적 다양화)** — 4-A(적 10종+AI 6)/4-B(SpawnDirector+waves.ron)/4-C+4-D(패턴 5+엘리트) + **Phase 5 (보스 3종 + 멀티 페이즈 + 화면 흔들기 + StageClear)**
-- **상태**: engine 26 tests · game lib 58 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
-- **달성 (Phase 5)**: `BossKind` (GiantSlime/GhostKing/Death). `Boss` 컴포넌트 (phase u8). `BossSpawnQueue` 리소스 (pending Vec). `CameraShake` 리소스 (elapsed/duration/intensity). `StageProgress` 리소스 (cleared). `BossSpawnSystem` — elapsed >= spawn_time 시 플레이어 위 200px 스폰. `BossPhaseSystem` — HP 50%/20% 미만 시 phase 전환 + move_speed×1.4. `BossDeathSystem` — HP<=0 despawn + Death 처치 시 StageClear. `CameraFollowSystem` 에 shake offset 추가 (borrow 분리 패턴). HUD 보스 HP 상단 표시 + StageClear 오버레이.
-- **다음**: Phase 6 (무기 진화 + 보물상자)
+- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** — 1-A~1-F + **Phase 2 전체 (무기 풀 확장)** — 2-A~2-G + **Phase 3 전체 (PlayerStats + 패시브 16종)** — 3-A~3-B + **Phase 4 전체 (적 다양화)** — 4-A(적 10종+AI 6)/4-B(SpawnDirector+waves.ron)/4-C+4-D(패턴 5+엘리트) + **Phase 5 (보스 3종 + 멀티 페이즈 + 화면 흔들기 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)**
+- **상태**: engine 26 tests · game lib 61 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **달성 (Phase 6)**: `Chest` 컴포넌트 + `ChestPickupSystem` (자동 픽업 + 진화 시도). `EVOLUTION_RULES` 8 레시피 const. `try_evolve` 헬퍼 — 무기 Lv8 + 페어 패시브 Lv5 매칭 시 `evolved=true` + damage×2 / cooldown×0.7 + 무기별 고유 강화. `WeaponSlot.evolved` 필드. 엘리트 사망 시 Chest 1개 추가 드롭.
+- **다음**: Phase 7 (픽업 — Coin / Chicken / Vacuum / Bomb / Rosary)
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 
