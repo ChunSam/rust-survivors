@@ -1,6 +1,7 @@
 pub mod area;
 pub mod bible;
 pub mod boss;
+pub mod chest;
 pub mod data;
 pub mod camera_follow;
 pub mod damage;
@@ -22,6 +23,7 @@ pub mod world_setup;
 pub mod xp;
 
 pub use area::{GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, spawn_holy_water_pool};
+pub use chest::{Chest, ChestPickupSystem, EvolutionRule, EVOLUTION_RULES, try_evolve, spawn_chest};
 pub use boss::{
     spawn_boss, Boss, BossDeathSystem, BossKind, BossPhaseSystem, BossSpawnQueue,
     BossSpawnSystem, CameraShake, StageProgress,

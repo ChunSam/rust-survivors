@@ -94,6 +94,7 @@ pub struct WeaponSlot {
     pub level:    u8,
     pub cooldown: f32,   // 발화 간격 (초)
     pub elapsed:  f32,   // 누적 시간 — cooldown 도달 시 발화 + elapsed -= cooldown
+    pub evolved:  bool,  // Phase 6: 진화 완료 여부 (기본 false)
 }
 
 impl WeaponSlot {
@@ -292,6 +293,7 @@ mod tests {
             level:    1,
             cooldown: 1.0,
             elapsed:  0.0,
+            evolved:  false,
         };
         // cooldown 미달 — false
         assert!(!slot.tick(0.5), "0.5초 누적은 발화하면 안 됨");

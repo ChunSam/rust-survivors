@@ -35,7 +35,7 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
 
         if let Some(p) = drop_pos {
             if is_elite {
-                // 엘리트 드롭: 큰 XpGem(value 10) + 작은 XpGem 3개 흩어짐 (보물상자 placeholder)
+                // 엘리트 드롭: 큰 XpGem(value 10) + 작은 XpGem 3개 + 보물상자 1개
                 spawn_xp_gem(world, p, 10);
                 for _ in 0..3 {
                     let offset = Vec2::new(
@@ -44,6 +44,8 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
                     );
                     spawn_xp_gem(world, p + offset, 1);
                 }
+                // Phase 6: 보물상자 드롭 (플레이어가 밟으면 자동 픽업 → 진화 시도)
+                crate::survivor::chest::spawn_chest(world, p + Vec2::new(0.0, 30.0));
             } else {
                 spawn_xp_gem(world, p, 1);
             }

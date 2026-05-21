@@ -132,6 +132,7 @@ fn weapon_def_to_slot(def: &WeaponDef) -> WeaponSlot {
         level:    1,
         cooldown: def.cooldown,
         elapsed:  0.0,
+        evolved:  false,
     }
 }
 
