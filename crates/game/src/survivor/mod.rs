@@ -1,4 +1,5 @@
 pub mod area;
+pub mod bgm;
 pub mod bible;
 pub mod debug_input;
 pub mod boss;
@@ -35,6 +36,7 @@ pub mod xp;
 pub use area::{GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, spawn_holy_water_pool};
 pub use character::{CharacterCursor, CharacterKind, CharacterSelectSystem, SelectedCharacter};
 pub use stage::{SelectedStage, StageCursor, StageKind, StageSelectSystem};
+pub use bgm::BgmSystem;
 pub use locale::{loc, Lang};
 pub use meta::{MetaSave, ModeTransitionSystem, SurvivorMode};
 pub use powerup::{apply_powerups, try_purchase, PowerUpKind, ShopCursor, ShopInputSystem};

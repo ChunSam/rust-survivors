@@ -31,6 +31,8 @@ use engine::App;
 use game::survivor::{
     setup_survivor_world,
     AxeSystem,
+    BgmSystem,
+    DebugInputSystem,
     BossDeathSystem,
     BossPhaseSystem,
     BossSpawnSystem,
@@ -85,7 +87,9 @@ fn main() {
     //       → KingBible(책 스폰) → OrbitingBook(책 회전+tick) → LightningRing(번개) → LightningFlash(flash lifetime)
     // → ProjectileSystem(이동·충돌·데미지)
     // → 자석(픽업/끌어당김) → 히트플래시 → HUD (TextQueue push — 마지막)
+    app.add_system(DebugInputSystem);        // 시각검증: F5=Bomb F6=Rosary F7=보스 소환
     app.add_system(ModeTransitionSystem);   // Phase 8-A: 최상단 — SurvivorMode 전환 + GameState 동기화
+    app.add_system(BgmSystem::default());   // Phase 11-H: BGM 자동 전환
     app.add_system(ShopInputSystem);        // Phase 8-B: Shop 입력 처리
     app.add_system(CharacterSelectSystem);  // Phase 9: 캐릭터 선택 입력 처리
     app.add_system(StageSelectSystem);      // Phase 10: 스테이지 선택 입력 처리
