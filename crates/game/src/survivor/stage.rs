@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use winit::keyboard::KeyCode;
 
 use super::director::{SpawnDirector, WaveDef, WavesFile};
+use super::locale::{loc, Lang};
 use super::meta::{MetaSave, SurvivorMode};
 
 // ─── StageKind ───────────────────────────────────────────────────────────────
@@ -34,11 +35,11 @@ impl StageKind {
         StageKind::DairyPlant,
     ];
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            StageKind::MadForest     => "Mad Forest (1)",
-            StageKind::InlaidLibrary => "Inlaid Library (2)",
-            StageKind::DairyPlant    => "Dairy Plant (3)",
+            StageKind::MadForest     => loc(lang, "광란의 숲 (1)",    "Mad Forest (1)"),
+            StageKind::InlaidLibrary => loc(lang, "상감 도서관 (2)",   "Inlaid Library (2)"),
+            StageKind::DairyPlant    => loc(lang, "유제품 공장 (3)",   "Dairy Plant (3)"),
         }
     }
 
@@ -173,9 +174,9 @@ impl System for StageSelectSystem {
                 if let Some(m) = world.resource_mut::<SurvivorMode>() {
                     *m = SurvivorMode::Title;
                 }
-                println!("Selected stage: {}", stage.label());
+                println!("Selected stage: {}", stage.label(Lang::En));
             } else {
-                println!("{} locked — clear previous stage first", stage.label());
+                println!("{} locked — clear previous stage first", stage.label(Lang::En));
             }
         }
 

@@ -13,6 +13,7 @@ use glam::Vec2;
 use super::enemy::{Enemy, EnemyAi, EnemyAiKind, EnemyKind};
 use super::health::Health;
 use super::hud::GameStats;
+use super::locale::{loc, Lang};
 use super::player::Player;
 use super::LAYER_ENEMY;
 
@@ -56,11 +57,11 @@ impl BossKind {
         80.0 + (self.max_hp() / 100.0).min(40.0)
     }
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            BossKind::GiantSlime => "GIANT SLIME",
-            BossKind::GhostKing  => "GHOST KING",
-            BossKind::Death      => "DEATH",
+            BossKind::GiantSlime => loc(lang, "자이언트 슬라임", "GIANT SLIME"),
+            BossKind::GhostKing  => loc(lang, "고스트 킹",       "GHOST KING"),
+            BossKind::Death      => loc(lang, "죽음",            "DEATH"),
         }
     }
 }
@@ -197,7 +198,7 @@ impl System for BossSpawnSystem {
         for kind in to_spawn {
             // 플레이어 위쪽 200px 에서 등장
             spawn_boss(world, player_pos + Vec2::new(0.0, -200.0), kind);
-            println!("BOSS APPROACHES: {}", kind.label());
+            println!("BOSS APPROACHES: {}", kind.label(Lang::En));
         }
     }
 }
@@ -244,7 +245,7 @@ impl System for BossPhaseSystem {
             if let Some(ai) = world.get_mut::<EnemyAi>(entity) {
                 ai.move_speed *= 1.4;
             }
-            println!("{} entered phase {}", kind.label(), new_phase);
+            println!("{} entered phase {}", kind.label(Lang::En), new_phase);
 
             // 페이즈 전환 시 카메라 흔들기
             if let Some(shake) = world.resource_mut::<CameraShake>() {
@@ -277,7 +278,7 @@ impl System for BossDeathSystem {
             // 사망 직전 위치 캐치 (despawn 전에 읽어야 함)
             let pos = world.get::<Transform>(e).map(|t| t.position);
 
-            println!("BOSS DEFEATED: {}", kind.label());
+            println!("BOSS DEFEATED: {}", kind.label(Lang::En));
             world.despawn(e);
 
             // Phase 7: Vacuum + Bomb 드롭

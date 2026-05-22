@@ -9,6 +9,7 @@
 use engine::{System, World};
 use engine::input::InputState;
 use winit::keyboard::KeyCode;
+use super::locale::{loc, Lang};
 use super::meta::{MetaSave, SurvivorMode};
 use super::player::PlayerStats;
 
@@ -91,6 +92,31 @@ impl PowerUpKind {
         match self {
             PowerUpKind::Reroll | PowerUpKind::Skip | PowerUpKind::Banish => 3,
             _ => 5,
+        }
+    }
+
+    /// 표시 이름 (한/영).
+    pub fn label(self, lang: Lang) -> &'static str {
+        match self {
+            PowerUpKind::Might     => loc(lang, "공격력",         "Might"),
+            PowerUpKind::Armor     => loc(lang, "방어력",         "Armor"),
+            PowerUpKind::MaxHealth => loc(lang, "최대 HP",        "Max Health"),
+            PowerUpKind::Recovery  => loc(lang, "회복",           "Recovery"),
+            PowerUpKind::Cooldown  => loc(lang, "쿨다운",         "Cooldown"),
+            PowerUpKind::Area      => loc(lang, "범위",           "Area"),
+            PowerUpKind::Speed     => loc(lang, "투사체 속도",     "Proj Speed"),
+            PowerUpKind::Duration  => loc(lang, "지속 시간",       "Duration"),
+            PowerUpKind::Amount    => loc(lang, "수량",           "Amount"),
+            PowerUpKind::MoveSpeed => loc(lang, "이동 속도",       "Move Speed"),
+            PowerUpKind::Magnet    => loc(lang, "자력",           "Magnet"),
+            PowerUpKind::Growth    => loc(lang, "성장",           "Growth"),
+            PowerUpKind::Greed     => loc(lang, "탐욕",           "Greed"),
+            PowerUpKind::Luck      => loc(lang, "운",             "Luck"),
+            PowerUpKind::Curse     => loc(lang, "저주",           "Curse"),
+            PowerUpKind::Revival   => loc(lang, "부활",           "Revival"),
+            PowerUpKind::Reroll    => loc(lang, "재추첨",         "Reroll"),
+            PowerUpKind::Skip      => loc(lang, "건너뛰기",        "Skip"),
+            PowerUpKind::Banish    => loc(lang, "추방",           "Banish"),
         }
     }
 

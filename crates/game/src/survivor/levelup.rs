@@ -3,6 +3,7 @@ use engine::components::GameState;
 use engine::input::InputState;
 use rand::seq::SliceRandom;
 use winit::keyboard::KeyCode;
+use super::locale::{loc, Lang};
 use super::sfx::{SfxEvent, SfxQueue};
 use super::xp::XpAccumulator;
 use super::inventory::{WeaponInventory, WeaponKind};
@@ -131,64 +132,64 @@ const ALL_CARDS: &[CardKind] = &[
 ];
 
 impl CardKind {
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
         match self {
             // Whip
-            CardKind::WhipDamage      => "Whip: DMG +5",
-            CardKind::WhipArea        => "Whip: AREA UP",
-            CardKind::WhipCooldown    => "Whip: CD -15%",
+            CardKind::WhipDamage      => loc(lang, "채찍: 공격력 +5",   "Whip: DMG +5"),
+            CardKind::WhipArea        => loc(lang, "채찍: 범위 UP",      "Whip: AREA UP"),
+            CardKind::WhipCooldown    => loc(lang, "채찍: 쿨다운 -15%",  "Whip: CD -15%"),
             // MagicWand
-            CardKind::MagicWandDamage   => "Magic Wand: DMG +4",
-            CardKind::MagicWandSpeed    => "Magic Wand: SPD +60",
-            CardKind::MagicWandCooldown => "Magic Wand: CD -15%",
+            CardKind::MagicWandDamage   => loc(lang, "마법 지팡이: 공격력 +4",   "Magic Wand: DMG +4"),
+            CardKind::MagicWandSpeed    => loc(lang, "마법 지팡이: 속도 +60",    "Magic Wand: SPD +60"),
+            CardKind::MagicWandCooldown => loc(lang, "마법 지팡이: 쿨다운 -15%", "Magic Wand: CD -15%"),
             // Knife
-            CardKind::KnifeDamage   => "Knife: DMG +4",
-            CardKind::KnifeAmount   => "Knife: +1 Knife",
-            CardKind::KnifeCooldown => "Knife: CD -15%",
+            CardKind::KnifeDamage   => loc(lang, "나이프: 공격력 +4",    "Knife: DMG +4"),
+            CardKind::KnifeAmount   => loc(lang, "나이프: +1개",          "Knife: +1 Knife"),
+            CardKind::KnifeCooldown => loc(lang, "나이프: 쿨다운 -15%",   "Knife: CD -15%"),
             // Axe
-            CardKind::AxeDamage   => "Axe: DMG +5",
-            CardKind::AxePierce   => "Axe: PIERCE +1",
-            CardKind::AxeCooldown => "Axe: CD -15%",
+            CardKind::AxeDamage   => loc(lang, "도끼: 공격력 +5",    "Axe: DMG +5"),
+            CardKind::AxePierce   => loc(lang, "도끼: 관통 +1",      "Axe: PIERCE +1"),
+            CardKind::AxeCooldown => loc(lang, "도끼: 쿨다운 -15%",  "Axe: CD -15%"),
             // Cross
-            CardKind::CrossDamage   => "Cross: DMG +6",
-            CardKind::CrossReturnAt => "Cross: RANGE UP",
-            CardKind::CrossCooldown => "Cross: CD -15%",
+            CardKind::CrossDamage   => loc(lang, "크로스: 공격력 +6",   "Cross: DMG +6"),
+            CardKind::CrossReturnAt => loc(lang, "크로스: 범위 UP",     "Cross: RANGE UP"),
+            CardKind::CrossCooldown => loc(lang, "크로스: 쿨다운 -15%", "Cross: CD -15%"),
             // FireWand
-            CardKind::FireWandDamage   => "Fire Wand: DMG +8",
-            CardKind::FireWandCooldown => "Fire Wand: CD -15%",
+            CardKind::FireWandDamage   => loc(lang, "불 지팡이: 공격력 +8",   "Fire Wand: DMG +8"),
+            CardKind::FireWandCooldown => loc(lang, "불 지팡이: 쿨다운 -15%", "Fire Wand: CD -15%"),
             // Garlic
-            CardKind::GarlicDamage   => "Garlic: DMG +2",
-            CardKind::GarlicRadius   => "Garlic: AREA +15",
-            CardKind::GarlicCooldown => "Garlic: CD -15%",
+            CardKind::GarlicDamage   => loc(lang, "마늘: 공격력 +2",    "Garlic: DMG +2"),
+            CardKind::GarlicRadius   => loc(lang, "마늘: 범위 +15",     "Garlic: AREA +15"),
+            CardKind::GarlicCooldown => loc(lang, "마늘: 쿨다운 -15%",  "Garlic: CD -15%"),
             // HolyWater
-            CardKind::HolyWaterDamage    => "Holy Water: DMG +3",
-            CardKind::HolyWaterDropCount => "Holy Water: +1 Pool",
-            CardKind::HolyWaterCooldown  => "Holy Water: CD -15%",
+            CardKind::HolyWaterDamage    => loc(lang, "성수: 공격력 +3",      "Holy Water: DMG +3"),
+            CardKind::HolyWaterDropCount => loc(lang, "성수: 웅덩이 +1",      "Holy Water: +1 Pool"),
+            CardKind::HolyWaterCooldown  => loc(lang, "성수: 쿨다운 -15%",    "Holy Water: CD -15%"),
             // KingBible
-            CardKind::KingBibleDamage    => "King Bible: DMG +3",
-            CardKind::KingBibleBookCount => "King Bible: +1 Book",
-            CardKind::KingBibleCooldown  => "King Bible: CD -15%",
+            CardKind::KingBibleDamage    => loc(lang, "킹 바이블: 공격력 +3",   "King Bible: DMG +3"),
+            CardKind::KingBibleBookCount => loc(lang, "킹 바이블: 책 +1",       "King Bible: +1 Book"),
+            CardKind::KingBibleCooldown  => loc(lang, "킹 바이블: 쿨다운 -15%", "King Bible: CD -15%"),
             // LightningRing
-            CardKind::LightningDamage      => "Lightning: DMG +8",
-            CardKind::LightningStrikeCount => "Lightning: +1 Strike",
-            CardKind::LightningCooldown    => "Lightning: CD -15%",
+            CardKind::LightningDamage      => loc(lang, "번개: 공격력 +8",    "Lightning: DMG +8"),
+            CardKind::LightningStrikeCount => loc(lang, "번개: 타격 +1",      "Lightning: +1 Strike"),
+            CardKind::LightningCooldown    => loc(lang, "번개: 쿨다운 -15%",  "Lightning: CD -15%"),
             // Passives — PassiveKind::label 로 위임
-            CardKind::PassiveSpinach       => PassiveKind::Spinach.label(),
-            CardKind::PassiveArmor         => PassiveKind::Armor.label(),
-            CardKind::PassiveHollowHeart   => PassiveKind::HollowHeart.label(),
-            CardKind::PassivePummarola     => PassiveKind::Pummarola.label(),
-            CardKind::PassiveEmptyTome     => PassiveKind::EmptyTome.label(),
-            CardKind::PassiveCandelabrador => PassiveKind::Candelabrador.label(),
-            CardKind::PassiveBracer        => PassiveKind::Bracer.label(),
-            CardKind::PassiveSpellbinder   => PassiveKind::Spellbinder.label(),
-            CardKind::PassiveDuplicator    => PassiveKind::Duplicator.label(),
-            CardKind::PassiveWings         => PassiveKind::Wings.label(),
-            CardKind::PassiveAttractorb    => PassiveKind::Attractorb.label(),
-            CardKind::PassiveClover        => PassiveKind::Clover.label(),
-            CardKind::PassiveCrown         => PassiveKind::Crown.label(),
-            CardKind::PassiveStoneMask     => PassiveKind::StoneMask.label(),
-            CardKind::PassiveSkullOManiac  => PassiveKind::SkullOManiac.label(),
-            CardKind::PassiveTiragisu      => PassiveKind::Tiragisu.label(),
+            CardKind::PassiveSpinach       => PassiveKind::Spinach.label(lang),
+            CardKind::PassiveArmor         => PassiveKind::Armor.label(lang),
+            CardKind::PassiveHollowHeart   => PassiveKind::HollowHeart.label(lang),
+            CardKind::PassivePummarola     => PassiveKind::Pummarola.label(lang),
+            CardKind::PassiveEmptyTome     => PassiveKind::EmptyTome.label(lang),
+            CardKind::PassiveCandelabrador => PassiveKind::Candelabrador.label(lang),
+            CardKind::PassiveBracer        => PassiveKind::Bracer.label(lang),
+            CardKind::PassiveSpellbinder   => PassiveKind::Spellbinder.label(lang),
+            CardKind::PassiveDuplicator    => PassiveKind::Duplicator.label(lang),
+            CardKind::PassiveWings         => PassiveKind::Wings.label(lang),
+            CardKind::PassiveAttractorb    => PassiveKind::Attractorb.label(lang),
+            CardKind::PassiveClover        => PassiveKind::Clover.label(lang),
+            CardKind::PassiveCrown         => PassiveKind::Crown.label(lang),
+            CardKind::PassiveStoneMask     => PassiveKind::StoneMask.label(lang),
+            CardKind::PassiveSkullOManiac  => PassiveKind::SkullOManiac.label(lang),
+            CardKind::PassiveTiragisu      => PassiveKind::Tiragisu.label(lang),
         }
     }
 }
@@ -553,9 +554,9 @@ impl System for LevelUpSystem {
                     println!(
                         "LEVEL UP! (Level {}) — Press: 1={} 2={} 3={}",
                         level + 1,
-                        offered[0].label(),
-                        offered[1].label(),
-                        offered[2].label()
+                        offered[0].label(Lang::En),
+                        offered[1].label(Lang::En),
+                        offered[2].label(Lang::En)
                     );
                 }
             }

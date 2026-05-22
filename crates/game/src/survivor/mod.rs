@@ -1,6 +1,8 @@
 pub mod area;
 pub mod bible;
+pub mod debug_input;
 pub mod boss;
+pub mod locale;
 pub mod character;
 pub mod chest;
 pub mod data;
@@ -33,6 +35,7 @@ pub mod xp;
 pub use area::{GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, spawn_holy_water_pool};
 pub use character::{CharacterCursor, CharacterKind, CharacterSelectSystem, SelectedCharacter};
 pub use stage::{SelectedStage, StageCursor, StageKind, StageSelectSystem};
+pub use locale::{loc, Lang};
 pub use meta::{MetaSave, ModeTransitionSystem, SurvivorMode};
 pub use powerup::{apply_powerups, try_purchase, PowerUpKind, ShopCursor, ShopInputSystem};
 pub use chest::{Chest, ChestPickupSystem, EvolutionRule, EVOLUTION_RULES, try_evolve, spawn_chest};
@@ -65,6 +68,7 @@ pub use particle::{ParticleSystem, spawn_death_burst, spawn_collect_burst};
 pub use sfx::{SfxEvent, SfxQueue, SfxSystem};
 pub use stats::{read_player_stats, StatRecalcSystem};
 pub use weapon::{AxeSystem, CrossSystem, FireWandSystem, HitFlash, HitFlashSystem, KnifeSystem, MagicWandSystem, WhipSystem, FLASH_DURATION, SCALE_BUMP};
+pub use debug_input::DebugInputSystem;
 pub use world_setup::{setup_survivor_world, spawn_player};
 pub use xp::{spawn_xp_gem, MagnetSystem, XpAccumulator, XpGem};
 

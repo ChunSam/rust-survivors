@@ -3,6 +3,8 @@
 /// Phase 3-B 에서 도입. StatRecalcSystem 이 PassiveInventory 를 읽어
 /// PlayerStats 를 매 프레임 재계산한다.
 
+use super::locale::{loc, Lang};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PassiveKind {
     Spinach,        // +1 might per level
@@ -25,24 +27,24 @@ pub enum PassiveKind {
 
 impl PassiveKind {
     /// 카드 풀 라벨용. 한 줄.
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            PassiveKind::Spinach       => "Spinach: MIGHT +1",
-            PassiveKind::Armor         => "Armor: ARMOR +1",
-            PassiveKind::HollowHeart   => "Hollow Heart: MAX HP +20",
-            PassiveKind::Pummarola     => "Pummarola: REGEN +0.5/s",
-            PassiveKind::EmptyTome     => "Empty Tome: CD -8%",
-            PassiveKind::Candelabrador => "Candelabrador: AREA +10%",
-            PassiveKind::Bracer        => "Bracer: PROJ SPEED +10%",
-            PassiveKind::Spellbinder   => "Spellbinder: DURATION +10%",
-            PassiveKind::Duplicator    => "Duplicator: AMOUNT +1",
-            PassiveKind::Wings         => "Wings: MOVE +10%",
-            PassiveKind::Attractorb    => "Attractorb: MAGNET +25%",
-            PassiveKind::Clover        => "Clover: LUCK +10%",
-            PassiveKind::Crown         => "Crown: XP +8%",
-            PassiveKind::StoneMask     => "Stone Mask: GREED +10%",
-            PassiveKind::SkullOManiac  => "Skull O'Maniac: CURSE +10%",
-            PassiveKind::Tiragisu      => "Tiragisu: REVIVAL +1",
+            PassiveKind::Spinach       => loc(lang, "시금치: 공격력 +1",        "Spinach: MIGHT +1"),
+            PassiveKind::Armor         => loc(lang, "방어구: 방어력 +1",        "Armor: ARMOR +1"),
+            PassiveKind::HollowHeart   => loc(lang, "빈 심장: 최대 HP +20",    "Hollow Heart: MAX HP +20"),
+            PassiveKind::Pummarola     => loc(lang, "포마롤라: 회복 +0.5/초",   "Pummarola: REGEN +0.5/s"),
+            PassiveKind::EmptyTome     => loc(lang, "빈 서적: 쿨다운 -8%",     "Empty Tome: CD -8%"),
+            PassiveKind::Candelabrador => loc(lang, "촛대: 범위 +10%",         "Candelabrador: AREA +10%"),
+            PassiveKind::Bracer        => loc(lang, "팔찌: 투사체 속도 +10%",   "Bracer: PROJ SPEED +10%"),
+            PassiveKind::Spellbinder   => loc(lang, "마법 결속자: 지속 +10%",   "Spellbinder: DURATION +10%"),
+            PassiveKind::Duplicator    => loc(lang, "복제기: 수량 +1",          "Duplicator: AMOUNT +1"),
+            PassiveKind::Wings         => loc(lang, "날개: 이동 +10%",          "Wings: MOVE +10%"),
+            PassiveKind::Attractorb    => loc(lang, "인력구: 자력 +25%",        "Attractorb: MAGNET +25%"),
+            PassiveKind::Clover        => loc(lang, "클로버: 운 +10%",          "Clover: LUCK +10%"),
+            PassiveKind::Crown         => loc(lang, "왕관: XP +8%",            "Crown: XP +8%"),
+            PassiveKind::StoneMask     => loc(lang, "석가면: 탐욕 +10%",        "Stone Mask: GREED +10%"),
+            PassiveKind::SkullOManiac  => loc(lang, "해골 광: 저주 +10%",       "Skull O'Maniac: CURSE +10%"),
+            PassiveKind::Tiragisu      => loc(lang, "티라지수: 부활 +1",        "Tiragisu: REVIVAL +1"),
         }
     }
 

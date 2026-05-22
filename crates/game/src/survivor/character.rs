@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use winit::keyboard::KeyCode;
 
 use super::inventory::{WeaponInventory, WeaponKind, WeaponSlot};
+use super::locale::{loc, Lang};
 use super::meta::{MetaSave, SurvivorMode};
 use super::player::PlayerStats;
 
@@ -41,14 +42,14 @@ impl CharacterKind {
         CharacterKind::Porta,
     ];
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            CharacterKind::Antonio    => "Antonio (Whip)",
-            CharacterKind::Imelda     => "Imelda (MagicWand)",
-            CharacterKind::Pasqualina => "Pasqualina (Knife)",
-            CharacterKind::Gennaro    => "Gennaro (Axe)",
-            CharacterKind::Arca       => "Arca (FireWand)",
-            CharacterKind::Porta      => "Porta (Lightning)",
+            CharacterKind::Antonio    => loc(lang, "안토니오 (채찍)",          "Antonio (Whip)"),
+            CharacterKind::Imelda     => loc(lang, "이멜다 (마법 지팡이)",      "Imelda (MagicWand)"),
+            CharacterKind::Pasqualina => loc(lang, "파스콸리나 (나이프)",        "Pasqualina (Knife)"),
+            CharacterKind::Gennaro    => loc(lang, "젠나로 (도끼)",             "Gennaro (Axe)"),
+            CharacterKind::Arca       => loc(lang, "아르카 (불 지팡이)",         "Arca (FireWand)"),
+            CharacterKind::Porta      => loc(lang, "포르타 (번개)",             "Porta (Lightning)"),
         }
     }
 
@@ -248,11 +249,11 @@ impl System for CharacterSelectSystem {
                 if let Some(m) = world.resource_mut::<SurvivorMode>() {
                     *m = SurvivorMode::Title;
                 }
-                println!("Selected: {}", kind.label());
+                println!("Selected: {}", kind.label(Lang::En));
             } else {
                 println!(
                     "{} locked (need {} gold, have {})",
-                    kind.label(),
+                    kind.label(Lang::En),
                     kind.unlock_gold(),
                     gold
                 );

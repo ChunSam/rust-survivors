@@ -13,6 +13,7 @@ use winit::keyboard::KeyCode;
 
 use super::character::CharacterCursor;
 use super::hud::GameStats;
+use super::locale::Lang;
 use super::pickup::GoldWallet;
 use super::powerup::ShopCursor;
 use super::stage::{SelectedStage, StageCursor, StageKind};
@@ -32,6 +33,8 @@ pub struct MetaSave {
     pub achievements:    Vec<String>,
     pub best_time:       f32,
     pub kills_total:     u32,
+    #[serde(default)]
+    pub lang:            Lang,  // 표시 언어 (Ko/En). L 키로 토글, 저장 파일에 보존.
 }
 
 impl MetaSave {
@@ -107,7 +110,7 @@ impl System for ModeTransitionSystem {
         match mode {
             SurvivorMode::Title => {
                 // 입력 캐시 (borrow 분리)
-                let (enter_pressed, shop_pressed, char_sel_pressed, stage_sel_pressed) = {
+                let (enter_pressed, shop_pressed, char_sel_pressed, stage_sel_pressed, lang_pressed) = {
                     let i = match world.resource::<InputState>() {
                         Some(i) => i,
                         None    => return,
@@ -117,8 +120,16 @@ impl System for ModeTransitionSystem {
                         i.just_pressed(KeyCode::KeyS),
                         i.just_pressed(KeyCode::KeyC),
                         i.just_pressed(KeyCode::KeyT),
+                        i.just_pressed(KeyCode::KeyL),
                     )
                 };
+                if lang_pressed {
+                    if let Some(meta) = world.resource_mut::<MetaSave>() {
+                        meta.lang = meta.lang.toggle();
+                        meta.save_to_disk();
+                        println!("Language: {:?}", meta.lang);
+                    }
+                }
                 if enter_pressed {
                     // SpawnDirector waves 를 SelectedStage 기반으로 갱신 (게임 시작 직전)
                     let stage = world
@@ -138,7 +149,7 @@ impl System for ModeTransitionSystem {
                     if let Some(gs) = world.resource_mut::<GameState>() {
                         *gs = GameState::Playing;
                     }
-                    println!("Game started (stage: {}).", stage.label());
+                    println!("Game started (stage: {}).", stage.label(Lang::En));
                 }
                 if shop_pressed {
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
@@ -272,6 +283,7 @@ mod tests {
             unlocked_stages: vec!["MadForest".to_string()],
             unlocked_chars:  vec!["Antonio".to_string()],
             achievements:    vec!["FirstBlood".to_string()],
+            lang:            super::super::locale::Lang::Ko,
         };
         m.powerup_levels.insert("Might".to_string(), 3);
 

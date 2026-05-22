@@ -7,6 +7,7 @@ use super::character::{CharacterCursor, CharacterKind};
 use super::damage_number::DamageNumber;
 use super::health::Health;
 use super::levelup::PendingLevelUp;
+use super::locale::{loc, Lang};
 use super::meta::{MetaSave, SurvivorMode};
 use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
@@ -33,27 +34,38 @@ impl System for HudSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
         // Phase 8-A: SurvivorMode 별 화면 분기
         let mode = world.resource::<SurvivorMode>().copied().unwrap_or(SurvivorMode::InGame);
+        // Phase 11 로컬라이제이션: MetaSave.lang 을 읽어 모든 문자열 선택에 사용.
+        let lang = world.resource::<MetaSave>().map(|m| m.lang).unwrap_or(Lang::Ko);
 
         match mode {
             SurvivorMode::Title => {
                 if let Some(q) = world.resource_mut::<TextQueue>() {
                     q.push(DrawText {
-                        text:     "RUST SURVIVORS".to_string(),
+                        text:     loc(lang, "러스트 서바이버즈", "RUST SURVIVORS").to_string(),
                         position: Vec2::new(220.0, 180.0),
                         size:     56.0,
                         color:    [255, 220, 80, 255],
                     });
                     q.push(DrawText {
-                        text:     "Press ENTER to start".to_string(),
+                        text:     loc(lang, "엔터 키로 시작", "Press ENTER to start").to_string(),
                         position: Vec2::new(280.0, 280.0),
                         size:     22.0,
                         color:    [255, 255, 255, 255],
                     });
                     q.push(DrawText {
-                        text:     "C = CHAR  T = STAGE  S = SHOP".to_string(),
-                        position: Vec2::new(220.0, 380.0),
+                        text:     loc(lang,
+                            "C = 캐릭터  T = 스테이지  S = 상점",
+                            "C = CHAR  T = STAGE  S = SHOP",
+                        ).to_string(),
+                        position: Vec2::new(220.0, 340.0),
                         size:     18.0,
                         color:    [200, 200, 255, 255],
+                    });
+                    q.push(DrawText {
+                        text:     loc(lang, "L = 언어 전환", "L = Toggle Language").to_string(),
+                        position: Vec2::new(320.0, 380.0),
+                        size:     14.0,
+                        color:    [160, 160, 200, 255],
                     });
                 }
                 // 메타 정보 표시
@@ -63,12 +75,19 @@ impl System for HudSystem {
                 if let Some((gold, best, kills)) = meta_info {
                     if let Some(q) = world.resource_mut::<TextQueue>() {
                         q.push(DrawText {
-                            text:     format!(
-                                "Gold {}  Best {:02}:{:02}  Kills {}",
-                                gold, (best as u32) / 60, (best as u32) % 60, kills
-                            ),
-                            position: Vec2::new(260.0, 340.0),
-                            size:     18.0,
+                            text: if lang == Lang::Ko {
+                                format!(
+                                    "골드 {}  최고 {:02}:{:02}  처치 {}",
+                                    gold, (best as u32) / 60, (best as u32) % 60, kills
+                                )
+                            } else {
+                                format!(
+                                    "Gold {}  Best {:02}:{:02}  Kills {}",
+                                    gold, (best as u32) / 60, (best as u32) % 60, kills
+                                )
+                            },
+                            position: Vec2::new(220.0, 430.0),
+                            size:     16.0,
                             color:    [200, 200, 200, 255],
                         });
                     }
@@ -86,13 +105,13 @@ impl System for HudSystem {
                     .unwrap_or(0);
                 if let Some(q) = world.resource_mut::<TextQueue>() {
                     q.push(DrawText {
-                        text:     "CHARACTER SELECT".to_string(),
+                        text:     loc(lang, "캐릭터 선택", "CHARACTER SELECT").to_string(),
                         position: Vec2::new(250.0, 30.0),
                         size:     32.0,
                         color:    [255, 220, 80, 255],
                     });
                     q.push(DrawText {
-                        text:     format!("Gold: {}", gold),
+                        text:     format!("{} {}", loc(lang, "골드:", "Gold:"), gold),
                         position: Vec2::new(550.0, 30.0),
                         size:     20.0,
                         color:    [255, 255, 100, 255],
@@ -104,7 +123,7 @@ impl System for HudSystem {
                         let lock_str = if unlocked {
                             String::new()
                         } else {
-                            format!("[LOCKED need {}]", need)
+                            format!("[{} {}]", loc(lang, "잠김", "LOCKED"), need)
                         };
                         let color = if i == cursor_idx {
                             [255, 255, 80, 255]
@@ -114,14 +133,17 @@ impl System for HudSystem {
                             [120, 120, 120, 255]
                         };
                         q.push(DrawText {
-                            text:     format!("{} {} {}", prefix, kind.label(), lock_str),
+                            text:     format!("{} {} {}", prefix, kind.label(lang), lock_str),
                             position: Vec2::new(120.0, 100.0 + i as f32 * 32.0),
                             size:     18.0,
                             color,
                         });
                     }
                     q.push(DrawText {
-                        text:     "W/S = navigate  ENTER = select  ESC = back".to_string(),
+                        text:     loc(lang,
+                            "W/S = 이동  엔터 = 선택  ESC = 뒤로",
+                            "W/S = navigate  ENTER = select  ESC = back",
+                        ).to_string(),
                         position: Vec2::new(150.0, 320.0),
                         size:     14.0,
                         color:    [180, 180, 180, 255],
@@ -140,7 +162,7 @@ impl System for HudSystem {
                     .unwrap_or_else(|| vec!["MadForest".to_string()]);
                 if let Some(q) = world.resource_mut::<TextQueue>() {
                     q.push(DrawText {
-                        text:     "STAGE SELECT".to_string(),
+                        text:     loc(lang, "스테이지 선택", "STAGE SELECT").to_string(),
                         position: Vec2::new(280.0, 30.0),
                         size:     32.0,
                         color:    [255, 220, 80, 255],
@@ -155,7 +177,7 @@ impl System for HudSystem {
                         let lock_str = if is_unlocked {
                             String::new()
                         } else {
-                            "[LOCKED]".to_string()
+                            loc(lang, "[잠김]", "[LOCKED]").to_string()
                         };
                         let color = if i == cursor_idx {
                             [255, 255, 80, 255]
@@ -165,14 +187,17 @@ impl System for HudSystem {
                             [120, 120, 120, 255]
                         };
                         q.push(DrawText {
-                            text:     format!("{} {} {}", prefix, stage.label(), lock_str),
+                            text:     format!("{} {} {}", prefix, stage.label(lang), lock_str),
                             position: Vec2::new(120.0, 100.0 + i as f32 * 40.0),
                             size:     22.0,
                             color,
                         });
                     }
                     q.push(DrawText {
-                        text:     "W/S = navigate  ENTER = select  ESC = back".to_string(),
+                        text:     loc(lang,
+                            "W/S = 이동  엔터 = 선택  ESC = 뒤로",
+                            "W/S = navigate  ENTER = select  ESC = back",
+                        ).to_string(),
                         position: Vec2::new(150.0, 280.0),
                         size:     14.0,
                         color:    [180, 180, 180, 255],
@@ -183,13 +208,13 @@ impl System for HudSystem {
             SurvivorMode::StageClear => {
                 if let Some(q) = world.resource_mut::<TextQueue>() {
                     q.push(DrawText {
-                        text:     "STAGE CLEAR!".to_string(),
+                        text:     loc(lang, "스테이지 클리어!", "STAGE CLEAR!").to_string(),
                         position: Vec2::new(260.0, 200.0),
                         size:     56.0,
                         color:    [255, 220, 80, 255],
                     });
                     q.push(DrawText {
-                        text:     "Press ENTER to return".to_string(),
+                        text:     loc(lang, "엔터 키로 돌아가기", "Press ENTER to return").to_string(),
                         position: Vec2::new(280.0, 290.0),
                         size:     22.0,
                         color:    [255, 255, 255, 255],
@@ -202,14 +227,14 @@ impl System for HudSystem {
                 let cursor_idx  = world.resource::<ShopCursor>().map(|c| c.index).unwrap_or(0);
                 if let Some(q) = world.resource_mut::<TextQueue>() {
                     q.push(DrawText {
-                        text:     "POWERUP SHOP".to_string(),
+                        text:     loc(lang, "파워업 상점", "POWERUP SHOP").to_string(),
                         position: Vec2::new(280.0, 30.0),
                         size:     32.0,
                         color:    [255, 220, 80, 255],
                     });
                     if let Some(meta) = &meta_clone {
                         q.push(DrawText {
-                            text:     format!("Gold: {}", meta.gold_total),
+                            text:     format!("{} {}", loc(lang, "골드:", "Gold:"), meta.gold_total),
                             position: Vec2::new(550.0, 30.0),
                             size:     20.0,
                             color:    [255, 255, 100, 255],
@@ -229,12 +254,13 @@ impl System for HudSystem {
                         };
                         q.push(DrawText {
                             text: format!(
-                                "{} {:<12} Lv {}/{}  cost {}",
+                                "{} {:<10} Lv {}/{}  {}{}",
                                 prefix,
-                                kind.key(),
+                                kind.label(lang),
                                 lv,
                                 kind.max_level(),
-                                cost
+                                loc(lang, "비용 ", "cost "),
+                                cost,
                             ),
                             position: Vec2::new(80.0, 80.0 + i as f32 * 26.0),
                             size:     16.0,
@@ -242,7 +268,10 @@ impl System for HudSystem {
                         });
                     }
                     q.push(DrawText {
-                        text:     "W/S = navigate  ENTER = buy  ESC = back".to_string(),
+                        text:     loc(lang,
+                            "W/S = 이동  엔터 = 구매  ESC = 뒤로",
+                            "W/S = navigate  ENTER = buy  ESC = back",
+                        ).to_string(),
                         position: Vec2::new(150.0, 80.0 + PowerUpKind::ALL.len() as f32 * 26.0 + 20.0),
                         size:     14.0,
                         color:    [180, 180, 180, 255],
@@ -286,10 +315,17 @@ impl System for HudSystem {
 
         // 3) 좌상단 HUD 한 줄 (800×600 viewport 기준 좌상단 (10, 10))
         if let (Some((hp, hp_max)), Some((xp, lv, xp_max))) = (player_info, xp_info) {
-            let line = format!(
-                "{:02}:{:02}  Lv {}  XP {}/{}  HP {:.0}/{:.0}  Passives {}  Gold {}  Kills {}",
-                mm, ss, lv, xp, xp_max, hp, hp_max, passive_count, gold, kills
-            );
+            let line = if lang == Lang::Ko {
+                format!(
+                    "{:02}:{:02}  레벨 {}  경험치 {}/{}  HP {:.0}/{:.0}  패시브 {}  골드 {}  처치 {}",
+                    mm, ss, lv, xp, xp_max, hp, hp_max, passive_count, gold, kills
+                )
+            } else {
+                format!(
+                    "{:02}:{:02}  Lv {}  XP {}/{}  HP {:.0}/{:.0}  Passives {}  Gold {}  Kills {}",
+                    mm, ss, lv, xp, xp_max, hp, hp_max, passive_count, gold, kills
+                )
+            };
             if let Some(q) = world.resource_mut::<TextQueue>() {
                 q.push(DrawText {
                     text:     line,
@@ -307,25 +343,25 @@ impl System for HudSystem {
                     let offered = p.offered; // [CardKind; 3] 복사
                     if let Some(q) = world.resource_mut::<TextQueue>() {
                         q.push(DrawText {
-                            text:     "LEVEL UP!".to_string(),
+                            text:     loc(lang, "레벨 업!", "LEVEL UP!").to_string(),
                             position: Vec2::new(320.0, 220.0),
                             size:     48.0,
                             color:    [255, 220, 80, 255],
                         });
                         q.push(DrawText {
-                            text:     format!("1. {}", offered[0].label()),
+                            text:     format!("1. {}", offered[0].label(lang)),
                             position: Vec2::new(320.0, 290.0),
                             size:     22.0,
                             color:    [255, 255, 255, 255],
                         });
                         q.push(DrawText {
-                            text:     format!("2. {}", offered[1].label()),
+                            text:     format!("2. {}", offered[1].label(lang)),
                             position: Vec2::new(320.0, 325.0),
                             size:     22.0,
                             color:    [255, 255, 255, 255],
                         });
                         q.push(DrawText {
-                            text:     format!("3. {}", offered[2].label()),
+                            text:     format!("3. {}", offered[2].label(lang)),
                             position: Vec2::new(320.0, 360.0),
                             size:     22.0,
                             color:    [255, 255, 255, 255],
@@ -339,13 +375,13 @@ impl System for HudSystem {
         if matches!(state, GameState::GameOver) {
             if let Some(q) = world.resource_mut::<TextQueue>() {
                 q.push(DrawText {
-                    text:     "YOU DIED".to_string(),
+                    text:     loc(lang, "사망", "YOU DIED").to_string(),
                     position: Vec2::new(310.0, 250.0),
                     size:     56.0,
                     color:    [255, 60, 60, 255],
                 });
                 q.push(DrawText {
-                    text:     "Press R to restart".to_string(),
+                    text:     loc(lang, "R 키로 재시작", "Press R to restart").to_string(),
                     position: Vec2::new(310.0, 325.0),
                     size:     22.0,
                     color:    [255, 255, 255, 255],
@@ -361,7 +397,7 @@ impl System for HudSystem {
         if let Some((kind, hp, max)) = boss_info {
             if let Some(q) = world.resource_mut::<TextQueue>() {
                 q.push(DrawText {
-                    text:     format!("{}  {:.0}/{:.0}", kind.label(), hp.max(0.0), max),
+                    text:     format!("{}  {:.0}/{:.0}", kind.label(lang), hp.max(0.0), max),
                     position: Vec2::new(220.0, 50.0),
                     size:     22.0,
                     color:    [255, 100, 100, 255],
