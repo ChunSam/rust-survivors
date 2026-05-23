@@ -129,8 +129,8 @@ RedrawRequested    → update(dt) → render()
 
 ## Git / GitHub
 
-- 저장소: https://github.com/ChunSam/rust-game-engine
-- 최신 릴리즈: [v0.1.0](https://github.com/ChunSam/rust-game-engine/releases/tag/v0.1.0)
+- 게임 저장소: https://github.com/ChunSam/rust-survivors
+- 엔진 저장소: https://github.com/ChunSam/rust-2d-engine
 - 브랜치: `main`
 
 ## 사용자 정보
@@ -149,8 +149,12 @@ RedrawRequested    → update(dt) → render()
   - 11-C: 화면 흔들기 확장 — Bomb(0.4s/14px), Rosary(0.35s/10px), 플레이어 피격(0.15s/4px)
   - 11-D: 절차적 SFX — `AudioManager::play_tone` + `SfxQueue` 리소스 + `SfxSystem`. 피격/사망/레벨업/픽업/XP 이벤트 연결
   - 11-E: 스프라이트 파티클 — `Particle` + `ParticleSystem` + `spawn_death_burst` / `spawn_collect_burst`
-  - 11-F: 동적 카메라 줌 — 보스 활성 시 zoom 0.80, 평상 시 zoom 1.0 (lerp 0.015)
-- **다음**: 시각 검증 (cargo run -p game --bin survivor --release) 후 버그 수정 → 출시 준비
+  - 11-F: 동적 카메라 줌 — 보스 활성 시 zoom 0.65, 평상 시 zoom 1.0 (lerp 0.05)
+- **시각 검증 완료 (2026-05-22)**: Phase 11-A~F 전 항목 통과. 수정된 버그 3건:
+  - SFX 무음 → `AudioManager` world_setup.rs 미삽입 수정
+  - 파티클 미표시 → `Particle.size` 필드 누락으로 스케일 0~1px 렌더링되던 것 수정
+  - 보스 줌 미작동 → ZOOM_BOSS 0.80→0.65, ZOOM_LERP 0.015→0.05 로 조정
+- **다음**: BGM · SFX 음원 파일 추가 → 업적 시스템 → 로컬라이제이션 → macOS/Windows 빌드 → 출시 준비
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 
