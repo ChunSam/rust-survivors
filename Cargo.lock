@@ -735,8 +735,8 @@ dependencies = [
 
 [[package]]
 name = "engine"
-version = "0.1.0"
-source = "git+https://github.com/ChunSam/rust-2d-engine#8f2e5a42c356d1b680410b84bc4f124ae5ce6ed2"
+version = "0.3.0"
+source = "git+https://github.com/ChunSam/rust-2d-engine#fa9013c7566e0d6a60b73ba0c9c3be3dc2a8136f"
 dependencies = [
  "bytemuck",
  "dirs",
