@@ -26,7 +26,7 @@ jobs:
         run: cargo fmt --check
 
       - name: Game lib tests
-        run: cargo test -p game --lib
+        run: cargo test -p game --lib -- --test-threads=1
 
       - name: Survivor debug build
         run: cargo build -p game --bin survivor
@@ -36,11 +36,11 @@ jobs:
 
       - name: Package macOS app and folder
         if: runner.os == 'macOS'
-        run: scripts/package_macos.sh
+        run: bash scripts/package_macos.sh
 
       - name: Verify macOS packages
         if: runner.os == 'macOS'
-        run: scripts/verify_macos_package.sh
+        run: bash scripts/verify_macos_package.sh
 
       - name: Package Windows folder
         if: runner.os == 'Windows'

@@ -27,7 +27,7 @@ gh run list --workflow release-smoke.yml --limit 5
 각 OS에서 실행:
 
 - `cargo fmt --check`
-- `cargo test -p game --lib`
+- `cargo test -p game --lib -- --test-threads=1`
 - `cargo build -p game --bin survivor`
 - `cargo build -p game --bin survivor --release`
 - macOS: `scripts/package_macos.sh` (`RustSurvivors` 폴더 + `RustSurvivors.app`)
@@ -43,7 +43,7 @@ gh run list --workflow release-smoke.yml --limit 5
 
 ```bash
 cargo fmt
-cargo test -p game --lib
+cargo test -p game --lib -- --test-threads=1
 cargo build -p game --bin survivor
 cargo build -p game --bin survivor --release
 ```
@@ -51,7 +51,7 @@ cargo build -p game --bin survivor --release
 2026-05-24 자동 검증 결과:
 
 - `cargo fmt`: 통과
-- `cargo test -p game --lib`: 통과, 96 passed
+- `cargo test -p game --lib -- --test-threads=1`: 통과, 96 passed
 - `cargo build -p game --bin survivor`: 통과
 - `cargo build -p game --bin survivor --release`: 통과
 - macOS 임시 패키지 폴더 `dist/macos/RustSurvivors` 생성 확인
@@ -87,7 +87,7 @@ cargo build -p game --bin survivor --release
 1. 패키징 스크립트 실행:
 
    ```bash
-   scripts/package_macos.sh
+   bash scripts/package_macos.sh
    ```
 
    이 스크립트는 마지막에 `scripts/verify_macos_package.sh`를 호출해 필수 파일, `Info.plist`, macOS metadata 파일, manifest hash를 함께 검증한다.
@@ -132,7 +132,7 @@ cargo build -p game --bin survivor --release
 7. 패키지를 별도로 재검증:
 
    ```bash
-   scripts/verify_macos_package.sh
+   bash scripts/verify_macos_package.sh
    ```
 
 8. `.app` 직접 실행:

@@ -25,7 +25,7 @@
 - 로컬 `crates/engine`은 legacy/reference snapshot이며 새 작업 대상이 아니다.
 - 검증 기준:
   - `cargo fmt`
-  - `cargo test -p game --lib`
+  - `cargo test -p game --lib -- --test-threads=1`
   - `cargo build -p game --bin survivor`
   - 필요 시 `cargo run -p game --bin survivor`
 
@@ -73,7 +73,7 @@
 
 완료 기준:
 
-- `cargo test -p game --lib` 통과
+- `cargo test -p game --lib -- --test-threads=1` 통과
 - `cargo build -p game --bin survivor` 통과
 - 수동 체크 결과가 문서에 남아 있음
 
@@ -246,7 +246,7 @@
 검증 증거:
 
 - `cargo fmt --check` 통과.
-- `cargo test -p game --lib` 통과: 96 passed.
+- `cargo test -p game --lib -- --test-threads=1` 통과: 96 passed.
 - `cargo build -p game --bin survivor --release` 통과.
 - `scripts/package_macos.sh` 통과: `dist/macos/RustSurvivors`, `dist/macos/RustSurvivors.app` 생성.
 - `scripts/verify_macos_package.sh` 통과.

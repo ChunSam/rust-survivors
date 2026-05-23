@@ -89,7 +89,7 @@ find "$APP_DIR" \( -name '._*' -o -name '.DS_Store' \) -delete
 find "$MACOS_DIST_ROOT" -maxdepth 1 \( -name '._*' -o -name '.DS_Store' \) -delete
 test -f "$APP_DIR/PACKAGE_MANIFEST.sha256"
 
-"$ROOT_DIR/scripts/verify_macos_package.sh" "$DIST_DIR" "$APP_DIR"
+bash "$ROOT_DIR/scripts/verify_macos_package.sh" "$DIST_DIR" "$APP_DIR"
 
 echo "Packaged macOS folder: $DIST_DIR"
 echo "Packaged macOS app: $APP_DIR"

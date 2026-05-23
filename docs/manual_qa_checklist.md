@@ -23,8 +23,8 @@
 ## 실행
 
 ```bash
-scripts/package_macos.sh
-scripts/verify_macos_package.sh
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
 cd dist/macos/RustSurvivors
 ./survivor
 ```
