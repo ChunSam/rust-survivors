@@ -213,23 +213,16 @@ impl System for HudSystem {
                 if let Some((gold, best, kills)) = meta_info {
                     if let Some(q) = world.resource_mut::<TextQueue>() {
                         q.push(DrawText {
-                            text: if lang == Lang::Ko {
-                                format!(
-                                    "골드 {}  최고 {:02}:{:02}  처치 {}",
-                                    gold,
-                                    (best as u32) / 60,
-                                    (best as u32) % 60,
-                                    kills
-                                )
-                            } else {
-                                format!(
-                                    "Gold {}  Best {:02}:{:02}  Kills {}",
-                                    gold,
-                                    (best as u32) / 60,
-                                    (best as u32) % 60,
-                                    kills
-                                )
-                            },
+                            text: format!(
+                                "{} {}  {} {:02}:{:02}  {} {}",
+                                text(lang, UiText::Gold),
+                                gold,
+                                text(lang, UiText::Best),
+                                (best as u32) / 60,
+                                (best as u32) % 60,
+                                text(lang, UiText::Kills),
+                                kills
+                            ),
                             position: Vec2::new(cx - 230.0, cy + 130.0),
                             size: 16.0,
                             color: [200, 200, 200, 255],
@@ -401,17 +394,18 @@ impl System for HudSystem {
                         color: [255, 220, 80, 255],
                     });
                     q.push(DrawText {
-                        text: if lang == Lang::Ko {
-                            format!(
-                                "시간: {:02}:{:02}  레벨: {}  처치: {}  골드: {}",
-                                mm, ss, lv_stat, kills_stat, gold_stat
-                            )
-                        } else {
-                            format!(
-                                "Time: {:02}:{:02}  Lv: {}  Kills: {}  Gold: {}",
-                                mm, ss, lv_stat, kills_stat, gold_stat
-                            )
-                        },
+                        text: format!(
+                            "{} {:02}:{:02}  {} {}  {} {}  {} {}",
+                            text(lang, UiText::Time),
+                            mm,
+                            ss,
+                            text(lang, UiText::Lv),
+                            lv_stat,
+                            text(lang, UiText::Kills),
+                            kills_stat,
+                            text(lang, UiText::Gold),
+                            gold_stat
+                        ),
                         position: Vec2::new(cx - 185.0, cy - 10.0),
                         size: 18.0,
                         color: [200, 230, 200, 255],
@@ -802,61 +796,71 @@ impl System for HudSystem {
             let hp_text = format!("{:.0}/{:.0}", hp.max(0.0), hp_max);
             let xp_text = format!("{}/{}", xp, xp_max);
             let mut stat_line: Option<String> = None;
-            let info_line = match (hud_detail, lang) {
-                (HudDetail::Minimal, Lang::Ko) => {
+            let info_line = match hud_detail {
+                HudDetail::Minimal => {
                     format!(
-                        "{:02}:{:02}  Lv {}  HP {}  XP {}  처치 {}",
-                        mm, ss, lv, hp_text, xp_text, kills
+                        "{:02}:{:02}  {} {}  {} {}  {} {}  {} {}",
+                        mm,
+                        ss,
+                        text(lang, UiText::Lv),
+                        lv,
+                        text(lang, UiText::Hp),
+                        hp_text,
+                        text(lang, UiText::Xp),
+                        xp_text,
+                        text(lang, UiText::Kills),
+                        kills
                     )
                 }
-                (HudDetail::Minimal, Lang::En) => {
-                    format!(
-                        "{:02}:{:02}  Lv {}  HP {}  XP {}  Kills {}",
-                        mm, ss, lv, hp_text, xp_text, kills
-                    )
-                }
-                (HudDetail::Detailed, Lang::Ko) => {
+                HudDetail::Detailed => {
                     if let Some(stats) = player_stats {
                         stat_line = Some(format!(
-                            "공격 {:.0}%  쿨다운 {:.0}%  범위 {:.0}%  투사체 +{}  이동 {:.0}%",
+                            "{} {:.0}%  {} {:.0}%  {} {:.0}%  {} +{}  {} {:.0}%",
+                            text(lang, UiText::Might),
                             stats.might * 100.0,
+                            text(lang, UiText::Cooldown),
                             stats.cooldown * 100.0,
+                            text(lang, UiText::Area),
                             stats.area * 100.0,
+                            text(lang, UiText::Amount),
                             stats.amount,
+                            text(lang, UiText::MoveSpeed),
                             stats.move_speed * 100.0
                         ));
                     }
                     format!(
-                        "{:02}:{:02}  Lv {}  HP {}  XP {}  골드 {}  처치 {}",
-                        mm, ss, lv, hp_text, xp_text, gold, kills
+                        "{:02}:{:02}  {} {}  {} {}  {} {}  {} {}  {} {}",
+                        mm,
+                        ss,
+                        text(lang, UiText::Lv),
+                        lv,
+                        text(lang, UiText::Hp),
+                        hp_text,
+                        text(lang, UiText::Xp),
+                        xp_text,
+                        text(lang, UiText::Gold),
+                        gold,
+                        text(lang, UiText::Kills),
+                        kills
                     )
                 }
-                (HudDetail::Detailed, Lang::En) => {
-                    if let Some(stats) = player_stats {
-                        stat_line = Some(format!(
-                            "Might {:.0}%  Cooldown {:.0}%  Area {:.0}%  Amount +{}  Move {:.0}%",
-                            stats.might * 100.0,
-                            stats.cooldown * 100.0,
-                            stats.area * 100.0,
-                            stats.amount,
-                            stats.move_speed * 100.0
-                        ));
-                    }
+                HudDetail::Normal => {
                     format!(
-                        "{:02}:{:02}  Lv {}  HP {}  XP {}  Gold {}  Kills {}",
-                        mm, ss, lv, hp_text, xp_text, gold, kills
-                    )
-                }
-                (HudDetail::Normal, Lang::Ko) => {
-                    format!(
-                        "{:02}:{:02}  Lv {}  HP {}  XP {}  골드 {}  패시브 {}  처치 {}",
-                        mm, ss, lv, hp_text, xp_text, gold, passive_count, kills
-                    )
-                }
-                (HudDetail::Normal, Lang::En) => {
-                    format!(
-                        "{:02}:{:02}  Lv {}  HP {}  XP {}  Gold {}  Passives {}  Kills {}",
-                        mm, ss, lv, hp_text, xp_text, gold, passive_count, kills
+                        "{:02}:{:02}  {} {}  {} {}  {} {}  {} {}  {} {}  {} {}",
+                        mm,
+                        ss,
+                        text(lang, UiText::Lv),
+                        lv,
+                        text(lang, UiText::Hp),
+                        hp_text,
+                        text(lang, UiText::Xp),
+                        xp_text,
+                        text(lang, UiText::Gold),
+                        gold,
+                        text(lang, UiText::Passives),
+                        passive_count,
+                        text(lang, UiText::Kills),
+                        kills
                     )
                 }
             };
@@ -1088,17 +1092,18 @@ impl System for HudSystem {
                     color: [255, 60, 60, 255],
                 });
                 q.push(DrawText {
-                    text: if lang == Lang::Ko {
-                        format!(
-                            "시간 {:02}:{:02}  레벨 {}  처치 {}  골드 {}",
-                            mm2, ss2, lv_stat, kills, gold
-                        )
-                    } else {
-                        format!(
-                            "Time {:02}:{:02}  Lv {}  Kills {}  Gold {}",
-                            mm2, ss2, lv_stat, kills, gold
-                        )
-                    },
+                    text: format!(
+                        "{} {:02}:{:02}  {} {}  {} {}  {} {}",
+                        text(lang, UiText::Time),
+                        mm2,
+                        ss2,
+                        text(lang, UiText::Lv),
+                        lv_stat,
+                        text(lang, UiText::Kills),
+                        kills,
+                        text(lang, UiText::Gold),
+                        gold
+                    ),
                     position: Vec2::new(cx - 220.0, cy - 20.0),
                     size: 18.0,
                     color: [220, 180, 180, 255],

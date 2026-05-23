@@ -9,6 +9,7 @@ use glam::Vec2;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::passive::{PassiveInventory, PassiveKind};
 use super::player::Player;
+use super::sfx::{SfxEvent, SfxQueue};
 use super::sprites::{add_sprite, SurvivorSprite};
 
 /// 보물상자 태그 컴포넌트.
@@ -57,6 +58,11 @@ impl System for ChestPickupSystem {
 
         for chest in &chests {
             world.despawn(*chest);
+        }
+        if let Some(q) = world.resource_mut::<SfxQueue>() {
+            for _ in 0..chests.len() {
+                q.push(SfxEvent::ChestOpen);
+            }
         }
 
         // 픽업 개수만큼 진화 시도
@@ -295,7 +301,6 @@ pub fn spawn_chest(world: &mut World, pos: Vec2) {
 mod tests {
     use super::*;
     use crate::survivor::inventory::{WeaponInventory, WeaponKind};
-    use crate::survivor::levelup::{CardKind, LevelUpSystem};
     use crate::survivor::passive::PassiveInventory;
     use crate::survivor::player::Player;
     use crate::survivor::world_setup::spawn_player;

@@ -1,7 +1,8 @@
 # Rust Survivors 작업 계획서
 
-작성일: 2026-05-23  
-상태: 1차 확정안. HUD/화면 개선과 업적 시스템을 우선 진행한다.
+작성일: 2026-05-23
+갱신일: 2026-05-24
+상태: Phase A~F 구현/문서/로컬 패키징 검증 완료. 남은 게이트는 Windows CI 실제 실행 결과와 수동 GUI QA다.
 
 ## 1. 목표
 
@@ -221,6 +222,8 @@
 - 배포 체크리스트: `docs/release_checklist.md`
 - 오디오 파일명 규격: `docs/audio_assets.md`
 - 자산 라이선스 목록: `docs/ASSET_LICENSES.md`
+- 수동 QA 체크리스트: `docs/manual_qa_checklist.md`
+- macOS/Windows CI smoke: `.github/workflows/release-smoke.yml`
 
 ## 11. 권장 실행 순서
 
@@ -231,9 +234,34 @@
 5. Phase E: 외부 음원 BGM/SFX 연결
 6. Phase F: 배포 준비
 
-## 12. Settings 화면 계획
+## 11.5 현재 완료 상태 (2026-05-24)
 
-별도 Settings 화면을 추가한다.
+- Phase A: `survivor` README와 베타/수동 QA 체크리스트 갱신. macOS 패키지 Title smoke 결과 기록.
+- Phase B: Settings 기반 HUD 정보량 3단계, 텍스트 기반 장비 슬롯 6+6 고정 표시, 한/영 장비명/빈 슬롯 표기 정리.
+- Phase C: 업적 20종, save 연동, 중복 방지, 캐릭터/스테이지/파워업 보상, Shop 업적 요약 표시.
+- Phase D: `UiText` 기반 주요 UI 문자열 정리, 언어 System/Ko/En 설정, 번역 누락 단위 테스트.
+- Phase E: BGM/SFX 외부 파일 우선 로드, Boss BGM, 보물상자/보스 등장 SFX, 절차적 fallback, `docs/audio_assets.md` 정리.
+- Phase F: macOS 폴더 패키지 + `.app` 번들, Windows 패키징/검증 스크립트, macOS/Windows CI smoke, `PACKAGE_MANIFEST.sha256`, 라이선스 문서 포함.
+
+검증 증거:
+
+- `cargo fmt --check` 통과.
+- `cargo test -p game --lib` 통과: 96 passed.
+- `cargo build -p game --bin survivor --release` 통과.
+- `scripts/package_macos.sh` 통과: `dist/macos/RustSurvivors`, `dist/macos/RustSurvivors.app` 생성.
+- `scripts/verify_macos_package.sh` 통과.
+- `.github`, `docs`, `scripts`, `assets`, `dist/macos` 내 `._*` / `.DS_Store` 없음.
+
+잔여 외부 게이트:
+
+- GitHub Actions `release-smoke`의 `windows-latest` 실제 실행 결과 확인.
+  - 2026-05-24 현재 `gh run list --workflow release-smoke.yml` 결과: 원격 default branch에 workflow가 아직 없어 `HTTP 404: workflow release-smoke.yml not found on the default branch`.
+  - 이 게이트는 `.github/workflows/release-smoke.yml` 포함 변경분을 commit/push한 뒤 `gh workflow run release-smoke.yml --ref main`으로 실행해야 닫을 수 있다.
+- 사람이 직접 `docs/manual_qa_checklist.md` 기준으로 Settings, 800x600 HUD, 메뉴 화면, 오디오, 저장/업적 QA 수행.
+
+## 12. Settings 화면 구현 상태
+
+별도 Settings 화면은 구현됐다.
 
 설정 항목:
 
@@ -244,23 +272,31 @@
 
 진입 방식:
 
-- Title 메뉴에서 Settings 진입
-- Pause 또는 InGame에서 ESC 흐름과 연결할지는 구현 시 현재 `SurvivorMode` 구조를 보고 결정
+- Title 메뉴에서 `O`로 Settings 진입
+- `W/S` 또는 방향키로 항목 이동
+- `A/D` 또는 좌우 방향키로 값 변경
+- 해상도 항목에서 `Enter`로 resize 적용
+- `ESC`로 Title 복귀
 
 저장 방식:
 
-- save 호환성은 유지하지 않아도 되므로 `MetaSave` 또는 별도 설정 save 구조에 단순 추가한다.
-- 언어가 시스템 감지일 때는 실행 시 시스템 언어를 읽고, 한국어/영어가 명시되면 저장값을 우선한다.
+- `MetaSave`에 언어/HUD 정보량/BGM 볼륨/SFX 볼륨/해상도 key를 저장한다.
+- 언어가 시스템 감지일 때는 실행 시 `LC_ALL`, `LC_MESSAGES`, `LANG` 순서로 확인하고, 한국어/영어가 명시되면 저장값을 우선한다.
 
 ## 13. 다음 착수 순서
 
-먼저 안전한 문서/검증 작업으로 현재 기준선을 맞춘다.
+초기 착수 목록은 완료됐다. 다음 순서는 잔여 검증 게이트를 닫는 것이다.
 
-1. `crates/game/src/survivor/README.md`를 현재 `CLAUDE.md` 기준으로 갱신
-2. `docs/beta_test_checklist.html`에 타이틀/HUD/선택 화면 가독성 체크 항목 추가
-3. `cargo test -p game --lib`와 `cargo build -p game --bin survivor` 재확인
+1. GitHub Actions `release-smoke`를 실행해 `macos-latest`와 `windows-latest` 결과 확인
+   - 선행 조건: 현재 변경분 commit/push
+   - 실행: `gh workflow run release-smoke.yml --ref main`
+   - 조회: `gh run list --workflow release-smoke.yml --limit 5`
+2. Windows artifact `dist/windows/RustSurvivors`를 `scripts\verify_windows_package.ps1` 기준으로 검증한 결과 확인
+3. macOS `.app`을 실제 GUI로 열어 Title → Settings → InGame → Pause/GameOver 흐름 수동 QA
+4. 800x600 해상도에서 HUD/LevelUp/Shop/CharacterSelect/StageSelect 겹침 확인
+5. 외부 오디오 파일 교체 시 `docs/ASSET_LICENSES.md`에 출처/라이선스/저작자 표기 요구사항 추가
 
-그 다음 기능 작업을 작은 단위로 진행한다.
+완료된 기능 착수 목록:
 
 1. 별도 Settings 화면 추가
 2. Settings에 언어/HUD 정보량/BGM 볼륨/SFX 볼륨 설정 추가

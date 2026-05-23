@@ -12,6 +12,7 @@ use super::health::Health;
 use super::hud::GameStats;
 use super::locale::{loc, Lang};
 use super::player::Player;
+use super::sfx::{SfxEvent, SfxQueue};
 use super::sprites::{add_sprite, SurvivorSprite};
 use super::LAYER_ENEMY;
 use engine::components::GameState;
@@ -225,6 +226,9 @@ impl System for BossSpawnSystem {
         for kind in to_spawn {
             // 플레이어 위쪽 200px 에서 등장
             spawn_boss(world, player_pos + Vec2::new(0.0, -200.0), kind);
+            if let Some(q) = world.resource_mut::<SfxQueue>() {
+                q.push(SfxEvent::BossAppear);
+            }
             println!("BOSS APPROACHES: {}", kind.label(Lang::En));
         }
     }

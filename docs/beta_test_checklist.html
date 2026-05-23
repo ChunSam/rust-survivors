@@ -160,7 +160,7 @@
 <body>
   <main>
     <h1>Rust Survivors 베타 테스트 체크리스트</h1>
-    <p>작성일: 2026-05-23 · 대상: <code>cargo run -p game --bin survivor</code></p>
+    <p>작성일: 2026-05-23 · 갱신일: 2026-05-24 · 대상: <code>cargo run -p game --bin survivor</code></p>
 
     <div class="summary">
       <div class="stat"><strong>4</strong><span>자동 검증 명령 통과</span></div>
@@ -331,8 +331,8 @@
           </tr>
           <tr>
             <td><span class="tag risk">P2</span></td>
-            <td>외부 음원 라이선스 문서 정리가 필요합니다.</td>
-            <td>필요 파일명은 <code>docs/audio_assets.md</code>에 정리되어 있습니다.</td>
+            <td>외부 음원 교체 시 라이선스 추적이 필요합니다.</td>
+            <td>현재 placeholder와 필요 파일명은 <code>docs/ASSET_LICENSES.md</code>, <code>docs/audio_assets.md</code>에 정리되어 있습니다.</td>
           </tr>
         </tbody>
       </table>
@@ -340,13 +340,14 @@
 
     <section>
       <h2>자동 검증 결과</h2>
-      <p>최근 검증: 2026-05-23</p>
+      <p>최근 검증: 2026-05-24</p>
       <ul class="checklist">
-        <li><span class="box"></span><span><code>cargo fmt</code> 통과</span></li>
-        <li><span class="box"></span><span><code>cargo test -p game --lib</code> 통과: 89 passed (2026-05-23 확인)</span></li>
-        <li><span class="box"></span><span><code>cargo build -p game --bin survivor</code> 통과 (2026-05-23 확인)</span></li>
+        <li><span class="box"></span><span><code>cargo fmt --check</code> 통과</span></li>
+        <li><span class="box"></span><span><code>cargo test -p game --lib</code> 통과: 96 passed (2026-05-24 확인)</span></li>
+        <li><span class="box"></span><span><code>cargo build -p game --bin survivor</code> 통과</span></li>
         <li><span class="box"></span><span><code>cargo build -p game --bin survivor --release</code> 통과</span></li>
-        <li><span class="box"></span><span><code>scripts/package_macos.sh</code> 통과: <code>dist/macos/RustSurvivors</code> 생성</span></li>
+        <li><span class="box"></span><span><code>scripts/package_macos.sh</code> 통과: <code>dist/macos/RustSurvivors</code>, <code>dist/macos/RustSurvivors.app</code> 생성</span></li>
+        <li><span class="box"></span><span>macOS 패키지 <code>PACKAGE_MANIFEST.sha256</code> 검증 통과</span></li>
       </ul>
     </section>
   </main>

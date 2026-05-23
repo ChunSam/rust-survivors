@@ -31,6 +31,10 @@ fn default_volume() -> f32 {
     1.0
 }
 
+pub fn step_volume(volume: f32, delta: i32) -> f32 {
+    (volume + delta as f32 * 0.1).clamp(0.0, 1.0)
+}
+
 /// 저장되는 언어 선택값. System 은 실행 환경의 LANG 계열 환경변수를 따른다.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LanguageSetting {
@@ -252,6 +256,13 @@ impl ResolutionPreset {
 
     pub fn index(self) -> usize {
         Self::ALL.iter().position(|&p| p == self).unwrap_or(1)
+    }
+
+    pub fn step_key(key: &str, delta: i32) -> &'static str {
+        let current = Self::from_key(key).index() as i32;
+        let len = Self::ALL.len() as i32;
+        let next = (current + delta).rem_euclid(len) as usize;
+        Self::ALL[next].key()
     }
 }
 
@@ -614,20 +625,12 @@ impl System for ModeTransitionSystem {
                                 meta.lang = meta.language_setting.effective();
                             }
                             1 => meta.hud_detail = meta.hud_detail.step(delta),
-                            2 => {
-                                meta.bgm_volume =
-                                    (meta.bgm_volume + delta as f32 * 0.1).clamp(0.0, 1.0);
-                            }
-                            3 => {
-                                meta.sfx_volume =
-                                    (meta.sfx_volume + delta as f32 * 0.1).clamp(0.0, 1.0);
-                            }
+                            2 => meta.bgm_volume = step_volume(meta.bgm_volume, delta),
+                            3 => meta.sfx_volume = step_volume(meta.sfx_volume, delta),
                             4 => {
-                                let current =
-                                    ResolutionPreset::from_key(&meta.resolution_key).index() as i32;
-                                let len = ResolutionPreset::ALL.len() as i32;
-                                let next = (current + delta).rem_euclid(len) as usize;
-                                meta.resolution_key = ResolutionPreset::ALL[next].key().to_string();
+                                meta.resolution_key =
+                                    ResolutionPreset::step_key(&meta.resolution_key, delta)
+                                        .to_string();
                             }
                             _ => {}
                         }
@@ -698,6 +701,57 @@ mod tests {
         assert!((loaded.bgm_volume - 0.8).abs() < 0.01);
         assert!((loaded.sfx_volume - 0.6).abs() < 0.01);
         assert_eq!(loaded.powerup_levels.get("Might"), Some(&3u8));
+    }
+
+    #[test]
+    fn language_setting_effective_lang_uses_explicit_choice() {
+        let mut m = MetaSave {
+            language_setting: LanguageSetting::Ko,
+            ..Default::default()
+        };
+        assert_eq!(m.effective_lang(), Lang::Ko);
+
+        m.language_setting = LanguageSetting::En;
+        assert_eq!(m.effective_lang(), Lang::En);
+    }
+
+    #[test]
+    fn language_setting_steps_with_wraparound() {
+        assert_eq!(LanguageSetting::System.step(1), LanguageSetting::Ko);
+        assert_eq!(LanguageSetting::Ko.step(1), LanguageSetting::En);
+        assert_eq!(LanguageSetting::En.step(1), LanguageSetting::System);
+        assert_eq!(LanguageSetting::System.step(-1), LanguageSetting::En);
+    }
+
+    #[test]
+    fn hud_detail_steps_with_wraparound() {
+        assert_eq!(HudDetail::Minimal.step(1), HudDetail::Normal);
+        assert_eq!(HudDetail::Normal.step(1), HudDetail::Detailed);
+        assert_eq!(HudDetail::Detailed.step(1), HudDetail::Minimal);
+        assert_eq!(HudDetail::Minimal.step(-1), HudDetail::Detailed);
+    }
+
+    #[test]
+    fn step_volume_changes_by_tenths_and_clamps() {
+        assert!((step_volume(0.5, 1) - 0.6).abs() < 0.001);
+        assert!((step_volume(0.5, -1) - 0.4).abs() < 0.001);
+        assert!((step_volume(0.95, 1) - 1.0).abs() < 0.001);
+        assert!((step_volume(0.05, -1) - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn resolution_preset_key_lookup_and_step_wraparound() {
+        assert_eq!(
+            ResolutionPreset::from_key("unknown"),
+            ResolutionPreset::R1280x720
+        );
+        assert_eq!(
+            ResolutionPreset::from_key("1920x1080").dimensions(),
+            (1920, 1080)
+        );
+        assert_eq!(ResolutionPreset::step_key("1280x720", 1), "1600x900");
+        assert_eq!(ResolutionPreset::step_key("800x600", -1), "1920x1080");
+        assert_eq!(ResolutionPreset::step_key("unknown", -1), "800x600");
     }
 
     #[test]

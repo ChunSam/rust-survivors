@@ -40,13 +40,43 @@ fn play_file(audio: &mut AudioManager, channel: &str, key: &str, volume: f32) ->
 /// SFX 이벤트 종류.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SfxEvent {
-    EnemyHit,  // 적 피격 (단발 틱음)
-    EnemyDie,  // 적 사망 (짧은 저음)
-    PlayerHit, // 플레이어 피격 (중간 충격음)
-    LevelUp,   // 레벨업 (상승 화음)
-    XpGem,     // 경험치 젬 수집 (고음 핑)
-    Pickup,    // 일반 픽업 (밝은 핑)
-    Bomb,      // 폭탄 폭발 (저주파 굉음)
+    EnemyHit,   // 적 피격 (단발 틱음)
+    EnemyDie,   // 적 사망 (짧은 저음)
+    PlayerHit,  // 플레이어 피격 (중간 충격음)
+    LevelUp,    // 레벨업 (상승 화음)
+    XpGem,      // 경험치 젬 수집 (고음 핑)
+    Pickup,     // 일반 픽업 (밝은 핑)
+    Bomb,       // 폭탄 폭발 (저주파 굉음)
+    ChestOpen,  // 보물상자 열림
+    BossAppear, // 보스 등장
+}
+
+impl SfxEvent {
+    pub const ALL: &'static [Self] = &[
+        Self::EnemyHit,
+        Self::EnemyDie,
+        Self::PlayerHit,
+        Self::LevelUp,
+        Self::XpGem,
+        Self::Pickup,
+        Self::Bomb,
+        Self::ChestOpen,
+        Self::BossAppear,
+    ];
+
+    pub fn file_key(self) -> &'static str {
+        match self {
+            Self::EnemyHit => "sfx_enemy_hit",
+            Self::EnemyDie => "sfx_enemy_die",
+            Self::PlayerHit => "sfx_player_hit",
+            Self::LevelUp => "sfx_levelup",
+            Self::XpGem => "sfx_xp",
+            Self::Pickup => "sfx_pickup",
+            Self::Bomb => "sfx_bomb",
+            Self::ChestOpen => "sfx_chest_open",
+            Self::BossAppear => "sfx_boss_appear",
+        }
+    }
 }
 
 /// 프레임 단위 SFX 이벤트 버퍼. ECS 리소스로 삽입.
@@ -96,7 +126,7 @@ impl System for SfxSystem {
                     if hit_n < 2 {
                         // 짧은 고음 틱 — 여러 무기가 동시에 때려도 2회로 제한
                         let ch = format!("sfx_hit_{hit_n}");
-                        if !play_file(audio, &ch, "sfx_enemy_hit", volume) {
+                        if !play_file(audio, &ch, event.file_key(), volume) {
                             audio.play_tone(&ch, 420.0, 0.045, 0.22 * volume);
                         }
                         hit_n += 1;
@@ -105,7 +135,7 @@ impl System for SfxSystem {
                 SfxEvent::EnemyDie => {
                     if die_n < 2 {
                         let ch = format!("sfx_die_{die_n}");
-                        if !play_file(audio, &ch, "sfx_enemy_die", volume) {
+                        if !play_file(audio, &ch, event.file_key(), volume) {
                             audio.play_tone(&ch, 160.0, 0.13, 0.35 * volume);
                         }
                         die_n += 1;
@@ -113,13 +143,13 @@ impl System for SfxSystem {
                 }
                 SfxEvent::PlayerHit => {
                     // 플레이어 피격은 게임당 cooldown 이 있어 많아야 1회/초
-                    if !play_file(audio, "sfx_player_hit", "sfx_player_hit", volume) {
+                    if !play_file(audio, "sfx_player_hit", event.file_key(), volume) {
                         audio.play_tone("sfx_player_hit", 200.0, 0.12, 0.50 * volume);
                     }
                 }
                 SfxEvent::LevelUp => {
                     // 상승하는 두 음 — 두 번째 톤으로 즉시 덮어쓰지 않도록 다른 채널
-                    if !play_file(audio, "sfx_levelup", "sfx_levelup", volume) {
+                    if !play_file(audio, "sfx_levelup", event.file_key(), volume) {
                         audio.play_tone("sfx_lvl_lo", 440.0, 0.18, 0.55 * volume);
                         audio.play_tone("sfx_lvl_hi", 660.0, 0.25, 0.55 * volume);
                     }
@@ -127,25 +157,53 @@ impl System for SfxSystem {
                 SfxEvent::XpGem => {
                     if xp_n < 3 {
                         let ch = format!("sfx_xp_{xp_n}");
-                        if !play_file(audio, &ch, "sfx_xp", volume) {
+                        if !play_file(audio, &ch, event.file_key(), volume) {
                             audio.play_tone(&ch, 880.0, 0.04, 0.12 * volume);
                         }
                         xp_n += 1;
                     }
                 }
                 SfxEvent::Pickup => {
-                    if !play_file(audio, "sfx_pickup", "sfx_pickup", volume) {
+                    if !play_file(audio, "sfx_pickup", event.file_key(), volume) {
                         audio.play_tone("sfx_pickup", 1040.0, 0.09, 0.40 * volume);
                     }
                 }
                 SfxEvent::Bomb => {
                     // 저주파 굉음 + 하모닉
-                    if !play_file(audio, "sfx_bomb", "sfx_bomb", volume) {
+                    if !play_file(audio, "sfx_bomb", event.file_key(), volume) {
                         audio.play_tone("sfx_bomb_lo", 60.0, 0.45, 0.70 * volume);
                         audio.play_tone("sfx_bomb_hi", 120.0, 0.30, 0.45 * volume);
                     }
                 }
+                SfxEvent::ChestOpen => {
+                    if !play_file(audio, "sfx_chest_open", event.file_key(), volume) {
+                        audio.play_tone("sfx_chest_lo", 520.0, 0.12, 0.45 * volume);
+                        audio.play_tone("sfx_chest_hi", 780.0, 0.18, 0.35 * volume);
+                    }
+                }
+                SfxEvent::BossAppear => {
+                    if !play_file(audio, "sfx_boss_appear", event.file_key(), volume) {
+                        audio.play_tone("sfx_boss_lo", 90.0, 0.55, 0.70 * volume);
+                        audio.play_tone("sfx_boss_hi", 180.0, 0.35, 0.45 * volume);
+                    }
+                }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn sfx_events_have_unique_file_keys() {
+        let mut keys = HashSet::new();
+        for event in SfxEvent::ALL {
+            assert!(keys.insert(event.file_key()), "duplicate key {:?}", event);
+        }
+        assert!(keys.contains("sfx_chest_open"));
+        assert!(keys.contains("sfx_boss_appear"));
     }
 }

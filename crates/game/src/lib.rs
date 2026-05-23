@@ -15,10 +15,10 @@ mod tests {
         Enemy, EnemyAiSystem, EnemyContactDamageSystem, EnemyKind, FireWandSystem, GameStats,
         GarlicSystem, Health, HitFlash, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem,
         KingBibleSystem, KnifeSystem, LevelUpSystem, LightningFlash, LightningRingSystem,
-        MagicWandSystem, MagnetSystem, MetaSave, ModeTransitionSystem, OrbitingBook,
-        OrbitingBookSystem, PendingLevelUp, Player, PlayerStats, Projectile, ProjectileBehavior,
-        ProjectileSystem, SpawnDirector, SpawnDirectorSystem, StageProgress, SurvivorMode,
-        WeaponInventory, WeaponKind, WeaponSlot, WhipSystem, XpAccumulator, XpGem, Zombie,
+        MagicWandSystem, MagnetSystem, OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player,
+        PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnDirector,
+        SpawnDirectorSystem, StageProgress, WeaponInventory, WeaponKind, WeaponSlot, WhipSystem,
+        XpAccumulator, XpGem, Zombie,
     };
     use engine::components::GameState;
     use engine::{Camera, System, Transform, World};
@@ -1232,8 +1232,6 @@ mod tests {
 
         // 풀 반경(50px) 안에 좀비 스폰 (30px)
         spawn_zombie(&mut world, Vec2::new(30.0, 0.0));
-        let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
-
         // dt = 0.6 → tick_cooldown(0.5) 초과 → 1회 tick 발화
         HolyWaterPoolSystem::default().run(&mut world, 0.6);
 

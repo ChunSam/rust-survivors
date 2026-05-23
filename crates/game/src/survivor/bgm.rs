@@ -13,15 +13,17 @@ use engine::audio::AudioManager;
 use engine::components::GameState;
 use engine::{System, World};
 
+use super::boss::Boss;
 use super::meta::MetaSave;
 use super::meta::SurvivorMode;
 
 /// 모드 → BGM 파일명 매핑.
-fn bgm_key(mode: SurvivorMode, state: &GameState) -> &'static str {
-    match (mode, state) {
-        (_, GameState::GameOver) => "bgm_gameover",
-        (SurvivorMode::InGame, _) => "bgm_ingame",
-        (SurvivorMode::StageClear, _) => "bgm_stageclear",
+fn bgm_key(mode: SurvivorMode, state: &GameState, boss_active: bool) -> &'static str {
+    match (mode, state, boss_active) {
+        (_, GameState::GameOver, _) => "bgm_gameover",
+        (SurvivorMode::StageClear, _, _) => "bgm_stageclear",
+        (SurvivorMode::InGame, _, true) => "bgm_boss",
+        (SurvivorMode::InGame, _, false) => "bgm_ingame",
         _ => "bgm_title", // Title / CharacterSelect / StageSelect / Shop
     }
 }
@@ -66,8 +68,9 @@ impl System for BgmSystem {
             .resource::<GameState>()
             .cloned()
             .unwrap_or(GameState::Playing);
+        let boss_active = world.query::<Boss>().next().is_some();
 
-        let target = bgm_key(mode, &state);
+        let target = bgm_key(mode, &state, boss_active);
 
         if self.current == Some(target) {
             let volume = world
@@ -104,5 +107,30 @@ impl System for BgmSystem {
             audio.set_volume("bgm", volume);
         }
         self.current = Some(target);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bgm_key_switches_to_boss_track_only_during_ingame_boss() {
+        assert_eq!(
+            bgm_key(SurvivorMode::InGame, &GameState::Playing, false),
+            "bgm_ingame"
+        );
+        assert_eq!(
+            bgm_key(SurvivorMode::InGame, &GameState::Playing, true),
+            "bgm_boss"
+        );
+        assert_eq!(
+            bgm_key(SurvivorMode::StageClear, &GameState::Paused, true),
+            "bgm_stageclear"
+        );
+        assert_eq!(
+            bgm_key(SurvivorMode::InGame, &GameState::GameOver, true),
+            "bgm_gameover"
+        );
     }
 }
