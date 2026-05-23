@@ -186,22 +186,18 @@ RedrawRequested    → update(dt) → render()
 - 학습 목적 우선 — 성능보다 코드 가독성·원리 이해를 중시
 - **Vampire Survivors 클론 한정**으로는 학습용을 넘어 **상용 빌드를 목표**로 진행 (아래 로드맵 참고)
 
-## 진행 상황 (2026-05-22)
+## 진행 상황 (2026-05-23)
 
-- **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** + **Phase 2 전체 (무기 풀 확장)** + **Phase 3 전체 (PlayerStats + 패시브 16종)** + **Phase 4 전체 (적 다양화)** + **Phase 5 (보스 3종 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)** + **Phase 7 (픽업 5종)** + **Phase 8 완료 (메인 메뉴 + 메타 진행 + 저장)** + **Phase 9 완료 (캐릭터 6종 + CharacterSelect + 해금)** + **Phase 10 완료 (다중 스테이지 3종 + StageSelect + 클리어 해금)** + **Phase 11-A~F 완료 (폴리쉬 6종)**
-- **상태**: 게임 lib 테스트 83개 통과 · binary 3개(`game`/`text_demo`/`survivor`) 빌드 대상. 엔진 테스트는 별도 `rust-2d-engine` 저장소에서 관리
-- **달성 (Phase 11-A~F)**:
-  - 11-A: `DamageNumber` 컴포넌트 + `DamageNumberSystem` (수명 0.6s, 위로 40px/s, 알파 페이드)
-  - 11-B: 히트 플래시 — 흰색 펄스 + `Transform` 스케일 1.18× 버프 (duration/original_scale 추가)
-  - 11-C: 화면 흔들기 확장 — Bomb(0.4s/14px), Rosary(0.35s/10px), 플레이어 피격(0.15s/4px)
-  - 11-D: 절차적 SFX — `AudioManager::play_tone` + `SfxQueue` 리소스 + `SfxSystem`. 피격/사망/레벨업/픽업/XP 이벤트 연결
-  - 11-E: 스프라이트 파티클 — `Particle` + `ParticleSystem` + `spawn_death_burst` / `spawn_collect_burst`
-  - 11-F: 동적 카메라 줌 — 보스 활성 시 zoom 0.65, 평상 시 zoom 1.0 (lerp 0.05)
-- **시각 검증 완료 (2026-05-22)**: Phase 11-A~F 전 항목 통과. 수정된 버그 3건:
-  - SFX 무음 → `AudioManager` world_setup.rs 미삽입 수정
-  - 파티클 미표시 → `Particle.size` 필드 누락으로 스케일 0~1px 렌더링되던 것 수정
-  - 보스 줌 미작동 → ZOOM_BOSS 0.80→0.65, ZOOM_LERP 0.015→0.05 로 조정
-- **다음**: BGM · SFX 음원 파일 추가 → 업적 시스템 → 로컬라이제이션 → macOS/Windows 빌드 → 출시 준비
+- **완료**: Phase 0~10 + Phase 11-A~F (폴리쉬 6종) + **Phase 11 추가 (Settings·HUD·업적·타이틀·스프라이트)**
+- **상태**: binary 3개(`game`/`text_demo`/`survivor`) 빌드 대상. 엔진 테스트는 별도 `rust-2d-engine` 저장소에서 관리
+- **달성 (Phase 11 추가)**:
+  - Settings 화면 — 언어(한/영/시스템감지) / HUD 정보량(최소/중간/상세) / BGM·SFX 볼륨. Title 메뉴 `O` 키로 진입
+  - HUD 텍스트 3단계 — 장비 슬롯 한글 이름 표기(`채찍 3`), 800×600 기준 겹침 방지
+  - 업적 20종 (`achievement.rs`) — 달성 감지 시스템, 캐릭터/스테이지/파워업 혼합 보상, Shop/Meta 화면 표시
+  - 타이틀 배경 (`title_visual.rs`) + atlas sprite 매핑 (`sprites.rs`) + 텍스처 아틀라스 추가
+  - 로컬라이제이션 (`locale.rs`) — 한/영 UI 문자열 구조 정비
+  - 패키징 스크립트 — `scripts/package_macos.sh` / `scripts/package_windows.ps1`
+- **다음**: 로컬라이제이션 확대 적용 → 외부 음원 연결 → ASSET_LICENSES.md 정리 → 배포
 
 상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 
