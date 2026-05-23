@@ -12,7 +12,9 @@ use super::sfx::SfxQueue;
 use super::sprites::{add_sprite, SurvivorSprite};
 use super::stage::{SelectedStage, StageCursor};
 use super::xp::XpAccumulator;
-use engine::{AudioManager, Transform, World};
+#[cfg(not(test))]
+use engine::AudioManager;
+use engine::{Transform, World};
 use glam::Vec2;
 
 /// 플레이어 엔티티를 World 에 스폰. 좌표는 월드 (0,0) — 카메라 follow 가 화면 중앙에 둠.
@@ -118,7 +120,10 @@ pub fn setup_survivor_world(world: &mut World) {
         d.waves = waves;
         d.spawn_elapsed = 0.0;
     }
-    // Phase 11-D: AudioManager + SfxQueue — 최초 init 시 삽입
+    // Phase 11-D: AudioManager + SfxQueue — 최초 init 시 삽입.
+    // 실제 오디오 장치 초기화는 Windows CI 같은 test runner 환경에서 native crash를 낼 수 있어
+    // test 빌드에서는 큐만 검증한다. binary 빌드에서는 그대로 실제 AudioManager를 삽입한다.
+    #[cfg(not(test))]
     if world.resource::<AudioManager>().is_none() {
         if let Some(audio) = AudioManager::new() {
             world.insert_resource(audio);
