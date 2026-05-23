@@ -61,9 +61,9 @@ cargo build -p game --bin survivor --release
 - macOS 패키지에 `PACKAGE_MANIFEST.sha256` 생성 확인
 - macOS 패키지를 `scripts/verify_macos_package.sh`로 검증
 - `scripts/package_macos.sh` 실행 확인
-- 현재 로컬 Rust target: `aarch64-apple-darwin`만 설치됨. Windows 산출물은 Windows 환경에서 확인 필요
-- Windows 산출물 검증 명령: `scripts\verify_windows_package.ps1`
-- Windows 산출물 실제 검증 경로: GitHub Actions `release-smoke`의 `windows-latest game checks`
+- GitHub Actions `release-smoke` run `26340730147`: `macos-latest`, `windows-latest` 모두 통과
+- Windows 산출물 검증: `windows-latest game checks`에서 `scripts\package_windows.ps1`, `scripts\verify_windows_package.ps1`, artifact upload 통과
+- 다운로드한 `RustSurvivors-windows` artifact의 `PACKAGE_MANIFEST.sha256` 로컬 재검증 통과
 
 2026-05-23 GUI smoke 결과:
 

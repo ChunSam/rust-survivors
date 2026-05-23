@@ -18,7 +18,9 @@
 - `scripts/verify_macos_package.sh`로 `PACKAGE_MANIFEST.sha256` 해시 검증 확인.
 - `ASSET_LICENSES.md`와 `audio_assets.md`가 폴더 패키지와 `.app` 번들에 포함됨.
 - `.github`, `docs`, `scripts`, `assets`, `dist/macos` 내 `._*` / `.DS_Store` 없음.
-- Windows 패키지는 GitHub Actions `windows-latest`에서 확인해야 함.
+- GitHub Actions `release-smoke` run `26340730147`에서 macOS/Windows package와 manifest 검증 통과.
+- 다운로드한 `RustSurvivors-windows` artifact의 `PACKAGE_MANIFEST.sha256` 로컬 재검증 통과.
+- Windows artifact 실행 smoke는 실제 Windows GUI 환경에서 사람이 확인해야 함.
 
 ## 실행
 

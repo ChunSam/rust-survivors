@@ -250,13 +250,14 @@
 - `cargo build -p game --bin survivor --release` 통과.
 - `scripts/package_macos.sh` 통과: `dist/macos/RustSurvivors`, `dist/macos/RustSurvivors.app` 생성.
 - `scripts/verify_macos_package.sh` 통과.
+- GitHub Actions `release-smoke` run `26340730147` 통과.
+  - `macos-latest`: fmt, game lib tests, debug/release build, macOS package, macOS manifest 검증, artifact upload 통과.
+  - `windows-latest`: fmt, game lib tests, debug/release build, Windows package, Windows manifest 검증, artifact upload 통과.
+- 다운로드한 `RustSurvivors-macos` / `RustSurvivors-windows` artifacts의 `PACKAGE_MANIFEST.sha256` 로컬 재검증 통과.
 - `.github`, `docs`, `scripts`, `assets`, `dist/macos` 내 `._*` / `.DS_Store` 없음.
 
 잔여 외부 게이트:
 
-- GitHub Actions `release-smoke`의 `windows-latest` 실제 실행 결과 확인.
-  - 2026-05-24 현재 `gh run list --workflow release-smoke.yml` 결과: 원격 default branch에 workflow가 아직 없어 `HTTP 404: workflow release-smoke.yml not found on the default branch`.
-  - 이 게이트는 `.github/workflows/release-smoke.yml` 포함 변경분을 commit/push한 뒤 `gh workflow run release-smoke.yml --ref main`으로 실행해야 닫을 수 있다.
 - 사람이 직접 `docs/manual_qa_checklist.md` 기준으로 Settings, 800x600 HUD, 메뉴 화면, 오디오, 저장/업적 QA 수행.
 
 ## 12. Settings 화면 구현 상태
@@ -285,16 +286,12 @@
 
 ## 13. 다음 착수 순서
 
-초기 착수 목록은 완료됐다. 다음 순서는 잔여 검증 게이트를 닫는 것이다.
+초기 착수 목록과 CI/패키지 검증 게이트는 완료됐다. 다음 순서는 사람이 직접 확인해야 하는 GUI QA다.
 
-1. GitHub Actions `release-smoke`를 실행해 `macos-latest`와 `windows-latest` 결과 확인
-   - 선행 조건: 현재 변경분 commit/push
-   - 실행: `gh workflow run release-smoke.yml --ref main`
-   - 조회: `gh run list --workflow release-smoke.yml --limit 5`
-2. Windows artifact `dist/windows/RustSurvivors`를 `scripts\verify_windows_package.ps1` 기준으로 검증한 결과 확인
-3. macOS `.app`을 실제 GUI로 열어 Title → Settings → InGame → Pause/GameOver 흐름 수동 QA
-4. 800x600 해상도에서 HUD/LevelUp/Shop/CharacterSelect/StageSelect 겹침 확인
-5. 외부 오디오 파일 교체 시 `docs/ASSET_LICENSES.md`에 출처/라이선스/저작자 표기 요구사항 추가
+1. macOS `.app`을 실제 GUI로 열어 Title → Settings → InGame → Pause/GameOver 흐름 수동 QA
+2. 800x600 해상도에서 HUD/LevelUp/Shop/CharacterSelect/StageSelect 겹침 확인
+3. 실제 Windows 환경에서 artifact 실행 smoke 확인
+4. 외부 오디오 파일 교체 시 `docs/ASSET_LICENSES.md`에 출처/라이선스/저작자 표기 요구사항 추가
 
 완료된 기능 착수 목록:
 
