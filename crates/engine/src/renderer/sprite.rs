@@ -2,27 +2,41 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
+use glam::{Mat4, Quat, Vec3};
 use wgpu::util::DeviceExt;
 
 use crate::camera::Camera;
 use crate::components::{AnimationPlayer, Sprite, Transform, UvRect};
 use crate::ecs::World;
 use crate::renderer::texture::Texture;
+use crate::renderer::ui::DrawRect;
 
 // ─── GPU에 올라가는 버텍스 구조체 ─────────────────────────────────────────────
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct Vertex {
     position: [f32; 2],
-    uv:       [f32; 2],
+    uv: [f32; 2],
 }
 
 // 단위 쿼드: 중심 (0,0), 크기 1×1
 const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.5, -0.5], uv: [0.0, 1.0] },
-    Vertex { position: [ 0.5, -0.5], uv: [1.0, 1.0] },
-    Vertex { position: [ 0.5,  0.5], uv: [1.0, 0.0] },
-    Vertex { position: [-0.5,  0.5], uv: [0.0, 0.0] },
+    Vertex {
+        position: [-0.5, -0.5],
+        uv: [0.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, -0.5],
+        uv: [1.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, 0.5],
+        uv: [1.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, 0.5],
+        uv: [0.0, 0.0],
+    },
 ];
 const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 
@@ -31,34 +45,62 @@ const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct InstanceRaw {
-    model:     [[f32; 4]; 4], // offset   0 — 64 bytes
-    color:     [f32; 4],      // offset  64 — 16 bytes (shader_location 6)
-    uv_offset: [f32; 2],      // offset  80 —  8 bytes (shader_location 7)
-    uv_size:   [f32; 2],      // offset  88 —  8 bytes (shader_location 8)
+    model: [[f32; 4]; 4], // offset   0 — 64 bytes
+    color: [f32; 4],      // offset  64 — 16 bytes (shader_location 6)
+    uv_offset: [f32; 2],  // offset  80 —  8 bytes (shader_location 7)
+    uv_size: [f32; 2],    // offset  88 —  8 bytes (shader_location 8)
 }
 
 impl InstanceRaw {
     fn from(transform: &Transform, sprite: &Sprite, uv: UvRect) -> Self {
         Self {
-            model:     transform.to_matrix().to_cols_array_2d(),
-            color:     sprite.color,
+            model: transform.to_matrix().to_cols_array_2d(),
+            color: sprite.color,
             uv_offset: [uv.u_offset, uv.v_offset],
-            uv_size:   [uv.u_size,   uv.v_size],
+            uv_size: [uv.u_size, uv.v_size],
         }
     }
 
     fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceRaw>() as u64,
-            step_mode:    wgpu::VertexStepMode::Instance,
-            attributes:   &[
-                wgpu::VertexAttribute { offset: 0,  shader_location: 2, format: wgpu::VertexFormat::Float32x4 },
-                wgpu::VertexAttribute { offset: 16, shader_location: 3, format: wgpu::VertexFormat::Float32x4 },
-                wgpu::VertexAttribute { offset: 32, shader_location: 4, format: wgpu::VertexFormat::Float32x4 },
-                wgpu::VertexAttribute { offset: 48, shader_location: 5, format: wgpu::VertexFormat::Float32x4 },
-                wgpu::VertexAttribute { offset: 64, shader_location: 6, format: wgpu::VertexFormat::Float32x4 },
-                wgpu::VertexAttribute { offset: 80, shader_location: 7, format: wgpu::VertexFormat::Float32x2 },
-                wgpu::VertexAttribute { offset: 88, shader_location: 8, format: wgpu::VertexFormat::Float32x2 },
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: 16,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: 32,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: 48,
+                    shader_location: 5,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: 64,
+                    shader_location: 6,
+                    format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: 80,
+                    shader_location: 7,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: 88,
+                    shader_location: 8,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
             ],
         }
     }
@@ -73,123 +115,153 @@ struct CameraUniform {
 
 // ─── 스프라이트 렌더러 ─────────────────────────────────────────────────────────
 pub struct SpriteRenderer {
-    pipeline:           wgpu::RenderPipeline,
-    vertex_buf:         wgpu::Buffer,
-    index_buf:          wgpu::Buffer,
-    instance_buf:       wgpu::Buffer,
-    instance_capacity:  usize,
-    camera_buf:         wgpu::Buffer,
-    camera_bind_group:  wgpu::BindGroup,
-    texture_layout:     wgpu::BindGroupLayout,
-    white_texture:      Texture,
-    texture_cache:      HashMap<String, Arc<Texture>>,
+    pipeline: wgpu::RenderPipeline,
+    vertex_buf: wgpu::Buffer,
+    index_buf: wgpu::Buffer,
+    instance_buf: wgpu::Buffer,
+    instance_capacity: usize,
+    camera_buf: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
+    texture_layout: wgpu::BindGroupLayout,
+    white_texture: Texture,
+    texture_cache: HashMap<String, Arc<Texture>>,
+    // UI screen-space 렌더링용
+    ui_camera_buf: wgpu::Buffer,
+    ui_camera_bind_group: wgpu::BindGroup,
+    ui_instance_buf: wgpu::Buffer,
+    ui_instance_capacity: usize,
 }
 
 impl SpriteRenderer {
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
-        // ── 셰이더 로드 (파일에서) ───────────────────────────────────────────
-        let shader_src = std::fs::read_to_string("assets/shaders/sprite.wgsl")
-            .expect("assets/shaders/sprite.wgsl 을 찾지 못했습니다");
+        // ── 셰이더 로드 (컴파일 타임 임베딩) ───────────────────────────────────
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label:  Some("sprite shader"),
-            source: wgpu::ShaderSource::Wgsl(shader_src.into()),
+            label: Some("sprite shader"),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("shaders/sprite.wgsl").into(),
+            ),
         });
 
         // ── 카메라 유니폼 버퍼 ──────────────────────────────────────────────
         let camera_buf = device.create_buffer(&wgpu::BufferDescriptor {
-            label:              Some("camera uniform"),
-            size:               std::mem::size_of::<CameraUniform>() as u64,
-            usage:              wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            label: Some("camera uniform"),
+            size: std::mem::size_of::<CameraUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
         let camera_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label:   Some("camera layout"),
+            label: Some("camera layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
-                binding:    0,
+                binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
-                ty:         wgpu::BindingType::Buffer {
-                    ty:                 wgpu::BufferBindingType::Uniform,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size:   None,
+                    min_binding_size: None,
                 },
                 count: None,
             }],
         });
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label:   Some("camera bind group"),
-            layout:  &camera_layout,
+            label: Some("camera bind group"),
+            layout: &camera_layout,
             entries: &[wgpu::BindGroupEntry {
-                binding:  0,
+                binding: 0,
                 resource: camera_buf.as_entire_binding(),
             }],
         });
 
         // ── 텍스처 레이아웃 + 기본 흰색 텍스처 ─────────────────────────────
         let texture_layout = Texture::bind_group_layout(device);
-        let white_texture  = Texture::white(device, queue, &texture_layout);
+        let white_texture = Texture::white(device, queue, &texture_layout);
 
         // ── 렌더 파이프라인 ─────────────────────────────────────────────────
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label:                Some("sprite pipeline layout"),
-            bind_group_layouts:   &[&camera_layout, &texture_layout],
+            label: Some("sprite pipeline layout"),
+            bind_group_layouts: &[&camera_layout, &texture_layout],
             push_constant_ranges: &[],
         });
         let vertex_layout = wgpu::VertexBufferLayout {
             array_stride: std::mem::size_of::<Vertex>() as u64,
-            step_mode:    wgpu::VertexStepMode::Vertex,
-            attributes:   &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2],
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2],
         };
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label:  Some("sprite pipeline"),
+            label: Some("sprite pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
-                module:      &shader,
+                module: &shader,
                 entry_point: "vs_main",
-                buffers:     &[vertex_layout, InstanceRaw::layout()],
+                buffers: &[vertex_layout, InstanceRaw::layout()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module:      &shader,
+                module: &shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format,
-                    blend:      Some(wgpu::BlendState::ALPHA_BLENDING),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                     write_mask: wgpu::ColorWrites::ALL,
                 })],
                 compilation_options: Default::default(),
             }),
             primitive: wgpu::PrimitiveState {
-                topology:          wgpu::PrimitiveTopology::TriangleList,
+                topology: wgpu::PrimitiveTopology::TriangleList,
                 strip_index_format: None,
-                front_face:        wgpu::FrontFace::Ccw,
-                cull_mode:         None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
                 ..Default::default()
             },
             depth_stencil: None,
-            multisample:   wgpu::MultisampleState::default(),
-            multiview:     None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
             // wgpu 22 에서 추가된 파이프라인 캐시 필드 — None 이면 캐시 비활성화
             cache: None,
         });
 
         // ── 정적 버텍스·인덱스 버퍼 ────────────────────────────────────────
         let vertex_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label:    Some("quad vertex"),
+            label: Some("quad vertex"),
             contents: bytemuck::cast_slice(VERTICES),
-            usage:    wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label:    Some("quad index"),
+            label: Some("quad index"),
             contents: bytemuck::cast_slice(INDICES),
-            usage:    wgpu::BufferUsages::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
         });
 
         // ── 초기 인스턴스 버퍼 (128개 분량 예약) ───────────────────────────
         let capacity = 128;
         let instance_buf = device.create_buffer(&wgpu::BufferDescriptor {
-            label:              Some("instance buffer"),
-            size:               (capacity * std::mem::size_of::<InstanceRaw>()) as u64,
-            usage:              wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            label: Some("instance buffer"),
+            size: (capacity * std::mem::size_of::<InstanceRaw>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        // ── UI screen-space 카메라 버퍼 + 바인드 그룹 ──────────────────────
+        let ui_camera_buf = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("ui camera uniform"),
+            size: std::mem::size_of::<CameraUniform>() as u64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let ui_camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("ui camera bind group"),
+            layout: &camera_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: ui_camera_buf.as_entire_binding(),
+            }],
+        });
+
+        // ── UI 인스턴스 버퍼 (64개 분량 예약) ─────────────────────────────
+        let ui_capacity = 64;
+        let ui_instance_buf = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("ui instance buffer"),
+            size: (ui_capacity * std::mem::size_of::<InstanceRaw>()) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
 
@@ -204,6 +276,10 @@ impl SpriteRenderer {
             texture_layout,
             white_texture,
             texture_cache: HashMap::new(),
+            ui_camera_buf,
+            ui_camera_bind_group,
+            ui_instance_buf,
+            ui_instance_capacity: ui_capacity,
         }
     }
 
@@ -228,20 +304,22 @@ impl SpriteRenderer {
     /// 묶어 multi-draw)에서 구현할 예정이다.
     pub fn render(
         &mut self,
-        device:  &wgpu::Device,
-        queue:   &wgpu::Queue,
-        view:    &wgpu::TextureView,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view: &wgpu::TextureView,
         encoder: &mut wgpu::CommandEncoder,
-        world:   &World,
-        width:   u32,
-        height:  u32,
+        world: &World,
+        width: u32,
+        height: u32,
     ) {
         // ── 카메라: ECS 리소스에서 Camera 를 읽어 view_proj 를 계산한다 ───
         //   Camera 리소스가 없으면 기본값(좌상단 직교 투영)으로 폴백한다.
         let fallback = Camera::default(); // Camera 가 없을 때만 사용 (이론상 없어야 정상)
-        let camera   = world.resource::<Camera>().unwrap_or(&fallback);
+        let camera = world.resource::<Camera>().unwrap_or(&fallback);
         let view_proj = camera.view_proj(width as f32, height as f32);
-        let cam = CameraUniform { view_proj: view_proj.to_cols_array_2d() };
+        let cam = CameraUniform {
+            view_proj: view_proj.to_cols_array_2d(),
+        };
         queue.write_buffer(&self.camera_buf, 0, bytemuck::bytes_of(&cam));
 
         // ── 텍스처별로 스프라이트를 그룹핑 ────────────────────────────────
@@ -253,7 +331,8 @@ impl SpriteRenderer {
         for (entity, sprite) in world.query::<Sprite>() {
             if let Some(transform) = world.get::<Transform>(entity) {
                 // AnimationPlayer가 없으면 텍스처 전체(UvRect::FULL)를 사용한다.
-                let uv = world.get::<AnimationPlayer>(entity)
+                let uv = world
+                    .get::<AnimationPlayer>(entity)
                     .map(|p| p.current_uv())
                     .unwrap_or(UvRect::FULL);
 
@@ -262,7 +341,10 @@ impl SpriteRenderer {
                     group_order.push(key.clone());
                 }
                 // z 값과 함께 저장해 그룹 내 정렬에 활용한다.
-                groups.entry(key).or_default().push((transform.z, InstanceRaw::from(transform, sprite, uv)));
+                groups
+                    .entry(key)
+                    .or_default()
+                    .push((transform.z, InstanceRaw::from(transform, sprite, uv)));
             }
         }
         if groups.is_empty() {
@@ -277,16 +359,17 @@ impl SpriteRenderer {
         }
 
         // ── 모든 그룹을 하나의 버퍼에 순서대로 쓴다 ───────────────────────
-        let all_instances: Vec<InstanceRaw> = group_order.iter()
+        let all_instances: Vec<InstanceRaw> = group_order
+            .iter()
             .flat_map(|k| groups[k].iter().map(|(_, raw)| *raw))
             .collect();
 
         if all_instances.len() > self.instance_capacity {
             self.instance_capacity = all_instances.len().next_power_of_two();
             self.instance_buf = device.create_buffer(&wgpu::BufferDescriptor {
-                label:              Some("instance buffer"),
-                size:               (self.instance_capacity * std::mem::size_of::<InstanceRaw>()) as u64,
-                usage:              wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                label: Some("instance buffer"),
+                size: (self.instance_capacity * std::mem::size_of::<InstanceRaw>()) as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
             });
         }
@@ -299,13 +382,13 @@ impl SpriteRenderer {
                 view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load:  wgpu::LoadOp::Load, // 배경색은 App이 먼저 Clear
+                    load: wgpu::LoadOp::Load, // 배경색은 App이 먼저 Clear
                     store: wgpu::StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
-            occlusion_query_set:      None,
-            timestamp_writes:         None,
+            occlusion_query_set: None,
+            timestamp_writes: None,
         });
 
         pass.set_pipeline(&self.pipeline);
@@ -319,11 +402,12 @@ impl SpriteRenderer {
         for key in &group_order {
             let instances = &groups[key]; // Vec<(f32, InstanceRaw)>
             let byte_start = base * instance_size;
-            let byte_end   = byte_start + instances.len() as u64 * instance_size;
+            let byte_end = byte_start + instances.len() as u64 * instance_size;
 
             // 캐시에 없거나 texture: None이면 흰색 텍스처(색상 스프라이트)로 폴백
             let bind_group = match key {
-                Some(path) => self.texture_cache
+                Some(path) => self
+                    .texture_cache
                     .get(path)
                     .map(|t| &t.bind_group)
                     .unwrap_or(&self.white_texture.bind_group),
@@ -336,5 +420,91 @@ impl SpriteRenderer {
 
             base += instances.len() as u64;
         }
+    }
+
+    /// 화면 고정(screen-space) UI 사각형을 렌더링한다.
+    ///
+    /// 스프라이트 패스 직후, 텍스트 패스 직전에 호출한다.
+    /// `rects`는 `UiQueue`에서 drain한 슬라이스를 전달한다.
+    pub fn render_ui_rects_from_slice(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view: &wgpu::TextureView,
+        encoder: &mut wgpu::CommandEncoder,
+        rects: &[DrawRect],
+        width: u32,
+        height: u32,
+    ) {
+        if rects.is_empty() {
+            return;
+        }
+
+        // 화면 좌상단 (0,0), 우하단 (width,height) 직교 투영
+        let screen_proj = Mat4::orthographic_rh(0.0, width as f32, height as f32, 0.0, -1.0, 1.0);
+        let cam = CameraUniform {
+            view_proj: screen_proj.to_cols_array_2d(),
+        };
+        queue.write_buffer(&self.ui_camera_buf, 0, bytemuck::bytes_of(&cam));
+
+        // z 오름차순 안정 정렬
+        let mut sorted: Vec<&DrawRect> = rects.iter().collect();
+        sorted.sort_by(|a, b| a.z.partial_cmp(&b.z).unwrap_or(std::cmp::Ordering::Equal));
+
+        // DrawRect → InstanceRaw 변환 (중심 좌표 기준)
+        let instances: Vec<InstanceRaw> = sorted
+            .iter()
+            .map(|rect| {
+                let cx = rect.x + rect.w * 0.5;
+                let cy = rect.y + rect.h * 0.5;
+                let model = Mat4::from_scale_rotation_translation(
+                    Vec3::new(rect.w, rect.h, 1.0),
+                    Quat::IDENTITY,
+                    Vec3::new(cx, cy, 0.0),
+                );
+                InstanceRaw {
+                    model: model.to_cols_array_2d(),
+                    color: rect.color,
+                    uv_offset: [0.0, 0.0],
+                    uv_size: [1.0, 1.0],
+                }
+            })
+            .collect();
+
+        // 인스턴스 버퍼 용량 초과 시 동적 재할당
+        if instances.len() > self.ui_instance_capacity {
+            self.ui_instance_capacity = instances.len().next_power_of_two();
+            self.ui_instance_buf = device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("ui instance buffer"),
+                size: (self.ui_instance_capacity * std::mem::size_of::<InstanceRaw>()) as u64,
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        }
+        queue.write_buffer(&self.ui_instance_buf, 0, bytemuck::cast_slice(&instances));
+
+        // UI 렌더 패스 (LoadOp::Load 로 스프라이트 위에 합성)
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("ui pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            occlusion_query_set: None,
+            timestamp_writes: None,
+        });
+
+        pass.set_pipeline(&self.pipeline);
+        pass.set_bind_group(0, &self.ui_camera_bind_group, &[]);
+        pass.set_bind_group(1, &self.white_texture.bind_group, &[]);
+        pass.set_vertex_buffer(0, self.vertex_buf.slice(..));
+        pass.set_index_buffer(self.index_buf.slice(..), wgpu::IndexFormat::Uint16);
+        pass.set_vertex_buffer(1, self.ui_instance_buf.slice(..));
+        pass.draw_indexed(0..INDICES.len() as u32, 0, 0..instances.len() as u32);
     }
 }
