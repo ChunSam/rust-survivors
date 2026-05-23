@@ -18,9 +18,9 @@ impl Health {
 
 // ─── HealthRegenSystem ────────────────────────────────────────────────────────
 
-use engine::{Entity, System, World};
-use engine::components::GameState;
 use super::player::{Player, PlayerStats};
+use engine::components::GameState;
+use engine::{Entity, System, World};
 
 /// 매 프레임 PlayerStats.recovery 만큼 Player HP 를 자연 회복.
 ///

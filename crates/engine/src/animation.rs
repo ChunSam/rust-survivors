@@ -12,7 +12,9 @@ impl System for AnimationSystem {
 
         for entity in entities {
             if let Some(player) = world.get_mut::<AnimationPlayer>(entity) {
-                let Some(clip) = player.clips.get(player.current_clip) else { continue };
+                let Some(clip) = player.clips.get(player.current_clip) else {
+                    continue;
+                };
                 let frame_duration = 1.0 / clip.fps.max(0.001);
                 let looping = clip.looping;
                 let frame_count = clip.frames.len();
@@ -22,7 +24,11 @@ impl System for AnimationSystem {
                     player.timer -= frame_duration;
                     player.current_frame += 1;
                     if player.current_frame >= frame_count {
-                        player.current_frame = if looping { 0 } else { frame_count.saturating_sub(1) };
+                        player.current_frame = if looping {
+                            0
+                        } else {
+                            frame_count.saturating_sub(1)
+                        };
                     }
                 }
             }

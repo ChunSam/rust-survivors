@@ -1,7 +1,7 @@
 use glam::Vec2;
 
-use crate::ecs::Entity;
 use super::grid::{Collider, CollisionLayer, SpatialGrid};
+use crate::ecs::Entity;
 
 impl SpatialGrid {
     /// 원 영역 내의 모든 엔티티를 반환한다.
@@ -9,12 +9,7 @@ impl SpatialGrid {
     /// - `mask` 와 엔티티 레이어의 AND 가 0 이면 제외.
     /// - Circle 콜라이더: 중심 간 거리 ≤ radius + collider.radius
     /// - Aabb 콜라이더: 쿼리 원과 AABB 의 교차 여부
-    pub fn query_radius(
-        &self,
-        center: Vec2,
-        radius: f32,
-        mask: CollisionLayer,
-    ) -> Vec<Entity> {
+    pub fn query_radius(&self, center: Vec2, radius: f32, mask: CollisionLayer) -> Vec<Entity> {
         // 쿼리 원을 감싸는 AABB 로 후보 셀 범위를 좁힌다
         let search_min = Vec2::new(center.x - radius, center.y - radius);
         let search_max = Vec2::new(center.x + radius, center.y + radius);
@@ -25,7 +20,7 @@ impl SpatialGrid {
         for entity in candidates {
             let entry = match self.entries.get(&entity) {
                 Some(e) => e,
-                None    => continue,
+                None => continue,
             };
 
             // 레이어 마스크 확인
@@ -45,19 +40,14 @@ impl SpatialGrid {
     /// AABB 영역과 겹치는 모든 엔티티를 반환한다.
     ///
     /// - `mask` 와 엔티티 레이어의 AND 가 0 이면 제외.
-    pub fn query_aabb(
-        &self,
-        min: Vec2,
-        max: Vec2,
-        mask: CollisionLayer,
-    ) -> Vec<Entity> {
+    pub fn query_aabb(&self, min: Vec2, max: Vec2, mask: CollisionLayer) -> Vec<Entity> {
         let candidates = self.candidates_in_aabb(min, max);
         let mut result = Vec::new();
 
         for entity in candidates {
             let entry = match self.entries.get(&entity) {
                 Some(e) => e,
-                None    => continue,
+                None => continue,
             };
 
             if !mask.matches(entry.layer) {

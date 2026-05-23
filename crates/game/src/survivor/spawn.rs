@@ -1,8 +1,9 @@
-use engine::{Collider, CollisionLayer, Sprite, Transform, World};
-use glam::Vec2;
 use super::enemy::{Enemy, EnemyAi, EnemyAiKind, EnemyKind, Zombie};
 use super::health::Health;
+use super::sprites::{add_sprite, add_tinted_sprite, SurvivorSprite};
 use super::LAYER_ENEMY;
+use engine::{Collider, CollisionLayer, Transform, World};
+use glam::Vec2;
 
 /// 지정 위치에 EnemyKind 에 맞는 적 엔티티를 스폰한다.
 ///
@@ -13,7 +14,11 @@ pub fn spawn_enemy(world: &mut World, pos: Vec2, kind: EnemyKind) {
 
 /// 엘리트 여부를 지정해 스폰. 엘리트는 HP×5 / scale×1.5 / contact_damage×1.5 + 노란빛 색.
 pub fn spawn_enemy_elite(world: &mut World, pos: Vec2, kind: EnemyKind, is_elite: bool) {
-    let splits = if matches!(kind, EnemyKind::Slime) { 2 } else { 0 };
+    let splits = if matches!(kind, EnemyKind::Slime) {
+        2
+    } else {
+        0
+    };
     spawn_enemy_full(world, pos, kind, splits, is_elite);
 }
 
@@ -23,7 +28,13 @@ pub fn spawn_enemy_with_splits(world: &mut World, pos: Vec2, kind: EnemyKind, sp
 }
 
 /// 모든 옵션을 받는 내부 헬퍼.
-pub fn spawn_enemy_full(world: &mut World, pos: Vec2, kind: EnemyKind, split_remaining: u8, is_elite: bool) {
+pub fn spawn_enemy_full(
+    world: &mut World,
+    pos: Vec2,
+    kind: EnemyKind,
+    split_remaining: u8,
+    is_elite: bool,
+) {
     let mut stats = kind.stats();
     if is_elite {
         stats.hp *= 5.0;
@@ -37,38 +48,71 @@ pub fn spawn_enemy_full(world: &mut World, pos: Vec2, kind: EnemyKind, split_rem
     }
 
     let ai_kind = match kind {
-        EnemyKind::Ghost  => EnemyAiKind::Hover { stop_at: 80.0 },
-        EnemyKind::Mage   => EnemyAiKind::Kite  { min_dist: 200.0 },
+        EnemyKind::Ghost => EnemyAiKind::Hover { stop_at: 80.0 },
+        EnemyKind::Mage => EnemyAiKind::Kite { min_dist: 200.0 },
         EnemyKind::Mantis => EnemyAiKind::Dash {
-            cooldown:      2.5,
-            elapsed:       0.0,
-            dash_speed:    350.0,
+            cooldown: 2.5,
+            elapsed: 0.0,
+            dash_speed: 350.0,
             dash_lifetime: 0.4,
-            dashing:       0.0,
+            dashing: 0.0,
         },
-        EnemyKind::Plant  => EnemyAiKind::Stay,
-        EnemyKind::Slime  => EnemyAiKind::Split,
+        EnemyKind::Plant => EnemyAiKind::Stay,
+        EnemyKind::Slime => EnemyAiKind::Split,
         _ => EnemyAiKind::Chase,
     };
 
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::new(stats.scale, stats.scale),
-        rotation: 0.0,
-        z:        0.5,
-    });
-    world.add_component(e, Sprite::colored(stats.color[0], stats.color[1], stats.color[2]));
-    world.add_component(e, Enemy {
-        kind,
-        contact_damage: stats.contact_damage,
-        split_remaining,
-        is_elite,
-    });
-    world.add_component(e, EnemyAi { move_speed: stats.move_speed, ai: ai_kind });
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::new(stats.scale, stats.scale),
+            rotation: 0.0,
+            z: 0.5,
+        },
+    );
+    let sprite = match kind {
+        EnemyKind::Zombie => SurvivorSprite::Zombie,
+        EnemyKind::Bat => SurvivorSprite::Bat,
+        EnemyKind::Ghost => SurvivorSprite::Ghost,
+        EnemyKind::Skeleton => SurvivorSprite::Skeleton,
+        EnemyKind::Mage => SurvivorSprite::Mage,
+        EnemyKind::Mantis => SurvivorSprite::Mantis,
+        EnemyKind::Plant => SurvivorSprite::Plant,
+        EnemyKind::Slime => SurvivorSprite::Slime,
+        EnemyKind::Mummy => SurvivorSprite::Mummy,
+        EnemyKind::Knight => SurvivorSprite::Knight,
+    };
+    if is_elite {
+        add_tinted_sprite(world, e, sprite, [1.25, 1.05, 0.55, 1.0]);
+    } else {
+        add_sprite(world, e, sprite);
+    }
+    world.add_component(
+        e,
+        Enemy {
+            kind,
+            contact_damage: stats.contact_damage,
+            split_remaining,
+            is_elite,
+        },
+    );
+    world.add_component(
+        e,
+        EnemyAi {
+            move_speed: stats.move_speed,
+            ai: ai_kind,
+        },
+    );
     world.add_component(e, Health::new(stats.hp));
     world.add_component(e, CollisionLayer(LAYER_ENEMY));
-    world.add_component(e, Collider::Circle { radius: stats.scale / 2.0 });
+    world.add_component(
+        e,
+        Collider::Circle {
+            radius: stats.scale / 2.0,
+        },
+    );
 
     // 하위 호환: Zombie 종류에는 Zombie 태그도 부착 (기존 코드 호환)
     if matches!(kind, EnemyKind::Zombie) {

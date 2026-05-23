@@ -1,3 +1,7 @@
+use super::locale::{loc, Lang};
+use super::meta::{MetaSave, SurvivorMode};
+use super::player::PlayerStats;
+use engine::input::InputState;
 /// Phase 8-B: PowerUp 매장 19종.
 ///
 /// - `PowerUpKind` — 19종 영구 강화 종류 (Reroll/Skip/Banish 포함).
@@ -5,38 +9,33 @@
 /// - `ShopInputSystem` — W/S/Enter/Esc 입력 처리.
 /// - `try_purchase` — gold 차감 + level 증가.
 /// - `apply_powerups` — StatRecalcSystem 에서 패시브 합산 *후* 호출.
-
 use engine::{System, World};
-use engine::input::InputState;
 use winit::keyboard::KeyCode;
-use super::locale::{loc, Lang};
-use super::meta::{MetaSave, SurvivorMode};
-use super::player::PlayerStats;
 
 // ─── PowerUpKind ──────────────────────────────────────────────────────────────
 
 /// 영구 PowerUp 종류 (Phase 8-B). CLAUDE.md 로드맵 18종 + Banish = 19종.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PowerUpKind {
-    Might,        // +1 might per lv
-    Armor,        // +1 armor
-    MaxHealth,    // +20 max_health
-    Recovery,     // +0.5/s
-    Cooldown,     // *0.95 per lv
-    Area,         // *1.05
-    Speed,        // *1.05 (projectile_speed)
-    Duration,     // *1.05
-    Amount,       // +1
-    MoveSpeed,    // *1.05
-    Magnet,       // *1.10
-    Growth,       // *1.05
-    Greed,        // *1.05
-    Luck,         // *1.05
-    Curse,        // *1.05 (적 강화 — placeholder)
-    Revival,      // +1
-    Reroll,       // +1 (LevelUp 카드 reroll 횟수)
-    Skip,         // +1 (LevelUp skip 횟수)
-    Banish,       // +1 (LevelUp banish 횟수)
+    Might,     // +1 might per lv
+    Armor,     // +1 armor
+    MaxHealth, // +20 max_health
+    Recovery,  // +0.5/s
+    Cooldown,  // *0.95 per lv
+    Area,      // *1.05
+    Speed,     // *1.05 (projectile_speed)
+    Duration,  // *1.05
+    Amount,    // +1
+    MoveSpeed, // *1.05
+    Magnet,    // *1.10
+    Growth,    // *1.05
+    Greed,     // *1.05
+    Luck,      // *1.05
+    Curse,     // *1.05 (적 강화 — placeholder)
+    Revival,   // +1
+    Reroll,    // +1 (LevelUp 카드 reroll 횟수)
+    Skip,      // +1 (LevelUp skip 횟수)
+    Banish,    // +1 (LevelUp banish 횟수)
 }
 
 impl PowerUpKind {
@@ -65,25 +64,25 @@ impl PowerUpKind {
     /// MetaSave.powerup_levels 에서 사용하는 문자열 키.
     pub fn key(self) -> &'static str {
         match self {
-            PowerUpKind::Might     => "Might",
-            PowerUpKind::Armor     => "Armor",
+            PowerUpKind::Might => "Might",
+            PowerUpKind::Armor => "Armor",
             PowerUpKind::MaxHealth => "MaxHealth",
-            PowerUpKind::Recovery  => "Recovery",
-            PowerUpKind::Cooldown  => "Cooldown",
-            PowerUpKind::Area      => "Area",
-            PowerUpKind::Speed     => "Speed",
-            PowerUpKind::Duration  => "Duration",
-            PowerUpKind::Amount    => "Amount",
+            PowerUpKind::Recovery => "Recovery",
+            PowerUpKind::Cooldown => "Cooldown",
+            PowerUpKind::Area => "Area",
+            PowerUpKind::Speed => "Speed",
+            PowerUpKind::Duration => "Duration",
+            PowerUpKind::Amount => "Amount",
             PowerUpKind::MoveSpeed => "MoveSpeed",
-            PowerUpKind::Magnet    => "Magnet",
-            PowerUpKind::Growth    => "Growth",
-            PowerUpKind::Greed     => "Greed",
-            PowerUpKind::Luck      => "Luck",
-            PowerUpKind::Curse     => "Curse",
-            PowerUpKind::Revival   => "Revival",
-            PowerUpKind::Reroll    => "Reroll",
-            PowerUpKind::Skip      => "Skip",
-            PowerUpKind::Banish    => "Banish",
+            PowerUpKind::Magnet => "Magnet",
+            PowerUpKind::Growth => "Growth",
+            PowerUpKind::Greed => "Greed",
+            PowerUpKind::Luck => "Luck",
+            PowerUpKind::Curse => "Curse",
+            PowerUpKind::Revival => "Revival",
+            PowerUpKind::Reroll => "Reroll",
+            PowerUpKind::Skip => "Skip",
+            PowerUpKind::Banish => "Banish",
         }
     }
 
@@ -98,25 +97,25 @@ impl PowerUpKind {
     /// 표시 이름 (한/영).
     pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            PowerUpKind::Might     => loc(lang, "공격력",         "Might"),
-            PowerUpKind::Armor     => loc(lang, "방어력",         "Armor"),
-            PowerUpKind::MaxHealth => loc(lang, "최대 HP",        "Max Health"),
-            PowerUpKind::Recovery  => loc(lang, "회복",           "Recovery"),
-            PowerUpKind::Cooldown  => loc(lang, "쿨다운",         "Cooldown"),
-            PowerUpKind::Area      => loc(lang, "범위",           "Area"),
-            PowerUpKind::Speed     => loc(lang, "투사체 속도",     "Proj Speed"),
-            PowerUpKind::Duration  => loc(lang, "지속 시간",       "Duration"),
-            PowerUpKind::Amount    => loc(lang, "수량",           "Amount"),
-            PowerUpKind::MoveSpeed => loc(lang, "이동 속도",       "Move Speed"),
-            PowerUpKind::Magnet    => loc(lang, "자력",           "Magnet"),
-            PowerUpKind::Growth    => loc(lang, "성장",           "Growth"),
-            PowerUpKind::Greed     => loc(lang, "탐욕",           "Greed"),
-            PowerUpKind::Luck      => loc(lang, "운",             "Luck"),
-            PowerUpKind::Curse     => loc(lang, "저주",           "Curse"),
-            PowerUpKind::Revival   => loc(lang, "부활",           "Revival"),
-            PowerUpKind::Reroll    => loc(lang, "재추첨",         "Reroll"),
-            PowerUpKind::Skip      => loc(lang, "건너뛰기",        "Skip"),
-            PowerUpKind::Banish    => loc(lang, "추방",           "Banish"),
+            PowerUpKind::Might => loc(lang, "공격력", "Might"),
+            PowerUpKind::Armor => loc(lang, "방어력", "Armor"),
+            PowerUpKind::MaxHealth => loc(lang, "최대 HP", "Max Health"),
+            PowerUpKind::Recovery => loc(lang, "회복", "Recovery"),
+            PowerUpKind::Cooldown => loc(lang, "쿨다운", "Cooldown"),
+            PowerUpKind::Area => loc(lang, "범위", "Area"),
+            PowerUpKind::Speed => loc(lang, "투사체 속도", "Proj Speed"),
+            PowerUpKind::Duration => loc(lang, "지속 시간", "Duration"),
+            PowerUpKind::Amount => loc(lang, "수량", "Amount"),
+            PowerUpKind::MoveSpeed => loc(lang, "이동 속도", "Move Speed"),
+            PowerUpKind::Magnet => loc(lang, "자력", "Magnet"),
+            PowerUpKind::Growth => loc(lang, "성장", "Growth"),
+            PowerUpKind::Greed => loc(lang, "탐욕", "Greed"),
+            PowerUpKind::Luck => loc(lang, "운", "Luck"),
+            PowerUpKind::Curse => loc(lang, "저주", "Curse"),
+            PowerUpKind::Revival => loc(lang, "부활", "Revival"),
+            PowerUpKind::Reroll => loc(lang, "재추첨", "Reroll"),
+            PowerUpKind::Skip => loc(lang, "건너뛰기", "Skip"),
+            PowerUpKind::Banish => loc(lang, "추방", "Banish"),
         }
     }
 
@@ -146,7 +145,10 @@ pub struct ShopInputSystem;
 
 impl System for ShopInputSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
-        let mode = world.resource::<SurvivorMode>().copied().unwrap_or(SurvivorMode::Title);
+        let mode = world
+            .resource::<SurvivorMode>()
+            .copied()
+            .unwrap_or(SurvivorMode::Title);
         if !matches!(mode, SurvivorMode::Shop) {
             return;
         }
@@ -156,7 +158,7 @@ impl System for ShopInputSystem {
         let (up, down, enter, esc) = {
             let i = match world.resource::<InputState>() {
                 Some(i) => i,
-                None    => return,
+                None => return,
             };
             (
                 i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
@@ -252,22 +254,22 @@ pub fn apply_powerups(stats: &mut PlayerStats, meta: &MetaSave) {
         }
         let lvf = lv as f32;
         match kind {
-            PowerUpKind::Might     => stats.might            += lvf,
-            PowerUpKind::Armor     => stats.armor            += lvf,
-            PowerUpKind::MaxHealth => stats.max_health       += 20.0 * lvf,
-            PowerUpKind::Recovery  => stats.recovery         += 0.5 * lvf,
-            PowerUpKind::Cooldown  => stats.cooldown         *= 0.95_f32.powf(lvf),
-            PowerUpKind::Area      => stats.area             *= 1.05_f32.powf(lvf),
-            PowerUpKind::Speed     => stats.projectile_speed *= 1.05_f32.powf(lvf),
-            PowerUpKind::Duration  => stats.duration         *= 1.05_f32.powf(lvf),
-            PowerUpKind::Amount    => stats.amount           += lv as i32,
-            PowerUpKind::MoveSpeed => stats.move_speed       *= 1.05_f32.powf(lvf),
-            PowerUpKind::Magnet    => stats.magnet           *= 1.10_f32.powf(lvf),
-            PowerUpKind::Growth    => stats.growth           *= 1.05_f32.powf(lvf),
-            PowerUpKind::Greed     => stats.greed            *= 1.05_f32.powf(lvf),
-            PowerUpKind::Luck      => stats.luck             *= 1.05_f32.powf(lvf),
-            PowerUpKind::Curse     => stats.curse            *= 1.05_f32.powf(lvf),
-            PowerUpKind::Revival   => stats.revival          += lv as u32,
+            PowerUpKind::Might => stats.might += lvf,
+            PowerUpKind::Armor => stats.armor += lvf,
+            PowerUpKind::MaxHealth => stats.max_health += 20.0 * lvf,
+            PowerUpKind::Recovery => stats.recovery += 0.5 * lvf,
+            PowerUpKind::Cooldown => stats.cooldown *= 0.95_f32.powf(lvf),
+            PowerUpKind::Area => stats.area *= 1.05_f32.powf(lvf),
+            PowerUpKind::Speed => stats.projectile_speed *= 1.05_f32.powf(lvf),
+            PowerUpKind::Duration => stats.duration *= 1.05_f32.powf(lvf),
+            PowerUpKind::Amount => stats.amount += lv as i32,
+            PowerUpKind::MoveSpeed => stats.move_speed *= 1.05_f32.powf(lvf),
+            PowerUpKind::Magnet => stats.magnet *= 1.10_f32.powf(lvf),
+            PowerUpKind::Growth => stats.growth *= 1.05_f32.powf(lvf),
+            PowerUpKind::Greed => stats.greed *= 1.05_f32.powf(lvf),
+            PowerUpKind::Luck => stats.luck *= 1.05_f32.powf(lvf),
+            PowerUpKind::Curse => stats.curse *= 1.05_f32.powf(lvf),
+            PowerUpKind::Revival => stats.revival += lv as u32,
             // LevelUp 카드 시스템에서 직접 소비 — placeholder
             PowerUpKind::Reroll | PowerUpKind::Skip | PowerUpKind::Banish => {}
         }
@@ -305,7 +307,10 @@ mod tests {
         let ok = try_purchase(&mut world, PowerUpKind::Might);
         assert!(ok, "gold 200 으로 Might Lv1(cost 100) 구매 성공해야 함");
 
-        let gold_left = world.resource::<MetaSave>().map(|m| m.gold_total).unwrap_or(0);
+        let gold_left = world
+            .resource::<MetaSave>()
+            .map(|m| m.gold_total)
+            .unwrap_or(0);
         assert_eq!(gold_left, 100, "구매 후 gold 100 남아야 함");
 
         let lv = world

@@ -1,10 +1,11 @@
-use engine::{Collider, CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
 use engine::components::GameState;
+use engine::{Collider, CollisionLayer, Entity, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 
 use super::damage::apply_damage_to_enemy;
 use super::enemy::Enemy;
 use super::hud::GameStats;
+use super::sprites::{add_sprite, SurvivorSprite};
 use super::LAYER_ENEMY;
 
 /// 투사체 이동 방식.
@@ -20,26 +21,28 @@ use super::LAYER_ENEMY;
 #[derive(Debug, Clone, Copy)]
 pub enum ProjectileBehavior {
     Straight,
-    Arc { gravity: f32 },
+    Arc {
+        gravity: f32,
+    },
     /// 부메랑 동작. `elapsed` 가 `return_at` 초에 도달하면 velocity 반전.
     /// `returned = true` 이면 이미 반전 완료 — 다시 반전하지 않는다.
     Boomerang {
         return_at: f32,
-        elapsed:   f32,
-        returned:  bool,
+        elapsed: f32,
+        returned: bool,
     },
 }
 
 /// 투사체 컴포넌트. velocity 단위는 px/s.
 #[derive(Debug, Clone)]
 pub struct Projectile {
-    pub velocity:   Vec2,
-    pub lifetime:   f32,            // 남은 수명 (초). 0 이하면 despawn
-    pub pierce:     u8,             // 남은 관통 횟수. 0 이면 다음 hit 후 despawn
-    pub damage:     f32,
-    pub layer_mask: CollisionLayer, // 어느 레이어를 타격할지
-    pub radius:     f32,            // 충돌 판정 반경 (px)
-    pub behavior:   ProjectileBehavior, // 이동 방식 (직선 / 포물선)
+    pub velocity: Vec2,
+    pub lifetime: f32, // 남은 수명 (초). 0 이하면 despawn
+    pub pierce: u8,    // 남은 관통 횟수. 0 이면 다음 hit 후 despawn
+    pub damage: f32,
+    pub layer_mask: CollisionLayer,   // 어느 레이어를 타격할지
+    pub radius: f32,                  // 충돌 판정 반경 (px)
+    pub behavior: ProjectileBehavior, // 이동 방식 (직선 / 포물선)
 }
 
 /// 모든 Projectile 의 lifetime / 이동 / 충돌 일괄 처리.
@@ -52,7 +55,9 @@ pub struct ProjectileSystem {
 
 impl Default for ProjectileSystem {
     fn default() -> Self {
-        Self { grid: SpatialGrid::new(128.0) }
+        Self {
+            grid: SpatialGrid::new(128.0),
+        }
     }
 }
 
@@ -66,10 +71,30 @@ impl System for ProjectileSystem {
         self.grid.rebuild(world);
 
         // 1) 모든 Projectile 의 파라미터를 복사해 캐시 (borrow 끊기)
-        let projs: Vec<(Entity, Vec2, Vec2, f32, u8, f32, CollisionLayer, f32, ProjectileBehavior)> = world
+        let projs: Vec<(
+            Entity,
+            Vec2,
+            Vec2,
+            f32,
+            u8,
+            f32,
+            CollisionLayer,
+            f32,
+            ProjectileBehavior,
+        )> = world
             .query2::<Projectile, Transform>()
             .map(|(e, p, t)| {
-                (e, t.position, p.velocity, p.lifetime, p.pierce, p.damage, p.layer_mask, p.radius, p.behavior)
+                (
+                    e,
+                    t.position,
+                    p.velocity,
+                    p.lifetime,
+                    p.pierce,
+                    p.damage,
+                    p.layer_mask,
+                    p.radius,
+                    p.behavior,
+                )
             })
             .collect();
 
@@ -88,7 +113,11 @@ impl System for ProjectileSystem {
                 ProjectileBehavior::Arc { gravity } => {
                     new_velocity.y += gravity * dt;
                 }
-                ProjectileBehavior::Boomerang { return_at, ref mut elapsed, ref mut returned } => {
+                ProjectileBehavior::Boomerang {
+                    return_at,
+                    ref mut elapsed,
+                    ref mut returned,
+                } => {
                     *elapsed += dt;
                     if !*returned && *elapsed >= return_at {
                         new_velocity = -new_velocity;
@@ -96,7 +125,7 @@ impl System for ProjectileSystem {
                     }
                 }
             }
-            let new_pos  = pos + new_velocity * dt;
+            let new_pos = pos + new_velocity * dt;
             let new_life = life - dt;
 
             if new_life <= 0.0 {
@@ -108,7 +137,7 @@ impl System for ProjectileSystem {
             let candidates = self.grid.query_radius(new_pos, radius, mask);
 
             let mut new_pierce = pierce;
-            let mut consumed   = false;
+            let mut consumed = false;
 
             for cand in candidates {
                 // Enemy 컴포넌트를 가진 엔티티인지 확인 (모든 적 종류 처리)
@@ -128,7 +157,14 @@ impl System for ProjectileSystem {
             if consumed {
                 to_despawn.push(proj_e);
             } else {
-                proj_updates.push((proj_e, new_pos, new_life, new_pierce, new_velocity, new_behavior));
+                proj_updates.push((
+                    proj_e,
+                    new_pos,
+                    new_life,
+                    new_pierce,
+                    new_velocity,
+                    new_behavior,
+                ));
             }
         }
 
@@ -138,10 +174,10 @@ impl System for ProjectileSystem {
                 t.position = new_pos;
             }
             if let Some(p) = world.get_mut::<Projectile>(proj_e) {
-                p.lifetime  = new_life;
-                p.pierce    = new_pierce;
-                p.velocity  = new_velocity;
-                p.behavior  = new_behavior;
+                p.lifetime = new_life;
+                p.pierce = new_pierce;
+                p.velocity = new_velocity;
+                p.behavior = new_behavior;
             }
         }
 
@@ -180,15 +216,24 @@ impl System for ProjectileSystem {
 /// - `damage`   : 타격 데미지
 /// - `color`    : RGB 색 (Sprite::colored 에 전달)
 pub fn spawn_projectile(
-    world:    &mut World,
-    pos:      Vec2,
+    world: &mut World,
+    pos: Vec2,
     velocity: Vec2,
     lifetime: f32,
-    pierce:   u8,
-    damage:   f32,
-    color:    [f32; 3],
+    pierce: u8,
+    damage: f32,
+    color: [f32; 3],
 ) {
-    spawn_projectile_ex(world, pos, velocity, lifetime, pierce, damage, color, ProjectileBehavior::Straight);
+    spawn_projectile_ex(
+        world,
+        pos,
+        velocity,
+        lifetime,
+        pierce,
+        damage,
+        color,
+        ProjectileBehavior::Straight,
+    );
 }
 
 /// `ProjectileBehavior` 를 명시적으로 지정하는 투사체 스폰 헬퍼.
@@ -206,45 +251,68 @@ pub fn spawn_projectile(
 /// - `color`    : RGB 색 (Sprite::colored 에 전달)
 /// - `behavior` : 이동 방식 (`Straight`, `Arc { gravity }`, `Boomerang { return_at, elapsed, returned }`)
 pub fn spawn_projectile_ex(
-    world:    &mut World,
-    pos:      Vec2,
+    world: &mut World,
+    pos: Vec2,
     velocity: Vec2,
     lifetime: f32,
-    pierce:   u8,
-    damage:   f32,
-    color:    [f32; 3],
+    pierce: u8,
+    damage: f32,
+    color: [f32; 3],
     behavior: ProjectileBehavior,
 ) {
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::new(10.0, 10.0),
-        rotation: 0.0,
-        z:        0.4,
-    });
-    world.add_component(e, Sprite::colored(color[0], color[1], color[2]));
-    world.add_component(e, Projectile {
-        velocity,
-        lifetime,
-        pierce,
-        damage,
-        layer_mask: CollisionLayer(LAYER_ENEMY),
-        radius: 6.0,
-        behavior,
-    });
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::new(10.0, 10.0),
+            rotation: 0.0,
+            z: 0.4,
+        },
+    );
+    let sprite = projectile_sprite(color, behavior);
+    add_sprite(world, e, sprite);
+    world.add_component(
+        e,
+        Projectile {
+            velocity,
+            lifetime,
+            pierce,
+            damage,
+            layer_mask: CollisionLayer(LAYER_ENEMY),
+            radius: 6.0,
+            behavior,
+        },
+    );
     // 충돌 그리드에 올리기 위한 Collider (ProjectileSystem 이 query_radius 로 detect)
     world.add_component(e, Collider::Circle { radius: 6.0 });
+}
+
+fn projectile_sprite(color: [f32; 3], behavior: ProjectileBehavior) -> SurvivorSprite {
+    match behavior {
+        ProjectileBehavior::Arc { .. } => SurvivorSprite::Axe,
+        ProjectileBehavior::Boomerang { .. } => SurvivorSprite::Axe,
+        ProjectileBehavior::Straight => {
+            if color[0] > 0.75 && color[1] > 0.75 {
+                SurvivorSprite::MagicBolt
+            } else if color[0] > 0.7 && color[1] < 0.5 {
+                SurvivorSprite::MagicBolt
+            } else {
+                SurvivorSprite::Knife
+            }
+        }
+    }
 }
 
 // ─── 단위 테스트 ──────────────────────────────────────────────────────────────
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use engine::World;
-    use engine::components::GameState;
-    use glam::Vec2;
     use super::super::health::Health;
     use super::super::spawn::spawn_zombie;
+    use super::*;
+    use engine::components::GameState;
+    use engine::World;
+    use glam::Vec2;
 
     fn playing_world() -> World {
         let mut world = World::new();

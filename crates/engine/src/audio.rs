@@ -3,8 +3,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::time::Duration;
 
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 use rodio::source::SineWave;
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
 
 /// 오디오 재생 관리자 (ECS 리소스로 삽입)
 ///
@@ -12,9 +12,9 @@ use rodio::source::SineWave;
 /// `_stream` 필드: `OutputStream`이 drop되면 모든 Sink의 소리가 즉시 멈춘다.
 /// 사용하지 않지만 반드시 `AudioManager`와 같이 살아있어야 하므로 `_` 접두사로 소유만 한다.
 pub struct AudioManager {
-    _stream:       OutputStream,
+    _stream: OutputStream,
     stream_handle: OutputStreamHandle,
-    sinks:         HashMap<String, Sink>,
+    sinks: HashMap<String, Sink>,
 }
 
 impl AudioManager {
@@ -95,7 +95,9 @@ impl AudioManager {
     /// - `duration_secs`: 재생 시간
     /// - `volume`: 음량 배율 (0.0 ~ 1.0)
     pub fn play_tone(&mut self, channel: &str, freq: f32, duration_secs: f32, volume: f32) {
-        if let Some(old) = self.sinks.remove(channel) { old.stop(); }
+        if let Some(old) = self.sinks.remove(channel) {
+            old.stop();
+        }
         let sink = match Sink::try_new(&self.stream_handle) {
             Ok(s) => s,
             Err(_) => return,

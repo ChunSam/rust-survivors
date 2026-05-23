@@ -1,12 +1,11 @@
+use engine::input::InputState;
 /// Phase 10: 다중 스테이지 3종 + StageSelect 화면 + 클리어 시 다음 스테이지 해금.
 ///
 /// - `StageKind` — MadForest / InlaidLibrary / DairyPlant (3종).
 /// - `SelectedStage` — 현재 선택된 스테이지 리소스.
 /// - `StageCursor` — StageSelect 화면 커서 리소스.
 /// - `StageSelectSystem` — W/S/Enter/Esc 입력 처리 + SpawnDirector 갱신.
-
 use engine::{System, World};
-use engine::input::InputState;
 use serde::{Deserialize, Serialize};
 use winit::keyboard::KeyCode;
 
@@ -25,7 +24,9 @@ pub enum StageKind {
 }
 
 impl Default for StageKind {
-    fn default() -> Self { Self::MadForest }
+    fn default() -> Self {
+        Self::MadForest
+    }
 }
 
 impl StageKind {
@@ -37,44 +38,46 @@ impl StageKind {
 
     pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            StageKind::MadForest     => loc(lang, "광란의 숲 (1)",    "Mad Forest (1)"),
-            StageKind::InlaidLibrary => loc(lang, "상감 도서관 (2)",   "Inlaid Library (2)"),
-            StageKind::DairyPlant    => loc(lang, "유제품 공장 (3)",   "Dairy Plant (3)"),
+            StageKind::MadForest => loc(lang, "광란의 숲 (1)", "Mad Forest (1)"),
+            StageKind::InlaidLibrary => loc(lang, "상감 도서관 (2)", "Inlaid Library (2)"),
+            StageKind::DairyPlant => loc(lang, "유제품 공장 (3)", "Dairy Plant (3)"),
         }
     }
 
     pub fn key(self) -> &'static str {
         match self {
-            StageKind::MadForest     => "MadForest",
+            StageKind::MadForest => "MadForest",
             StageKind::InlaidLibrary => "InlaidLibrary",
-            StageKind::DairyPlant    => "DairyPlant",
+            StageKind::DairyPlant => "DairyPlant",
         }
     }
 
     /// 배경색 (HUD 표시용 색상 레퍼런스 — wgpu clear color 는 App 통제).
     pub fn background_label_color(self) -> [u8; 4] {
         match self {
-            StageKind::MadForest     => [100, 180, 100, 255],
-            StageKind::InlaidLibrary => [180, 140,  80, 255],
-            StageKind::DairyPlant    => [200, 220, 240, 255],
+            StageKind::MadForest => [100, 180, 100, 255],
+            StageKind::InlaidLibrary => [180, 140, 80, 255],
+            StageKind::DairyPlant => [200, 220, 240, 255],
         }
     }
 
     /// 이전 스테이지 — 클리어해야 해금. MadForest 는 None (기본 해금).
     pub fn prerequisite(self) -> Option<StageKind> {
         match self {
-            StageKind::MadForest     => None,
+            StageKind::MadForest => None,
             StageKind::InlaidLibrary => Some(StageKind::MadForest),
-            StageKind::DairyPlant    => Some(StageKind::InlaidLibrary),
+            StageKind::DairyPlant => Some(StageKind::InlaidLibrary),
         }
     }
 
     /// 컴파일 타임에 임베딩된 스테이지별 wave RON 문자열.
     pub fn waves_ron(self) -> &'static str {
         match self {
-            StageKind::MadForest     => include_str!("../../../../assets/data/waves_mad_forest.ron"),
-            StageKind::InlaidLibrary => include_str!("../../../../assets/data/waves_inlaid_library.ron"),
-            StageKind::DairyPlant    => include_str!("../../../../assets/data/waves_dairy_plant.ron"),
+            StageKind::MadForest => include_str!("../../../../assets/data/waves_mad_forest.ron"),
+            StageKind::InlaidLibrary => {
+                include_str!("../../../../assets/data/waves_inlaid_library.ron")
+            }
+            StageKind::DairyPlant => include_str!("../../../../assets/data/waves_dairy_plant.ron"),
         }
     }
 
@@ -110,7 +113,10 @@ pub struct StageSelectSystem;
 
 impl System for StageSelectSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
-        let mode = world.resource::<SurvivorMode>().copied().unwrap_or(SurvivorMode::Title);
+        let mode = world
+            .resource::<SurvivorMode>()
+            .copied()
+            .unwrap_or(SurvivorMode::Title);
         if !matches!(mode, SurvivorMode::StageSelect) {
             return;
         }
@@ -119,7 +125,7 @@ impl System for StageSelectSystem {
         let (up, down, enter, esc) = {
             let i = match world.resource::<InputState>() {
                 Some(i) => i,
-                None    => return,
+                None => return,
             };
             (
                 i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
@@ -149,7 +155,10 @@ impl System for StageSelectSystem {
 
         // 선택 확정
         if enter {
-            let idx   = world.resource::<StageCursor>().map(|c| c.index).unwrap_or(0);
+            let idx = world
+                .resource::<StageCursor>()
+                .map(|c| c.index)
+                .unwrap_or(0);
             let stage = StageKind::ALL[idx];
 
             // 해금 검증: 선행 stage 가 없거나(MadForest), 선행 stage 가 unlocked 목록에 있으면 진입 가능
@@ -176,7 +185,10 @@ impl System for StageSelectSystem {
                 }
                 println!("Selected stage: {}", stage.label(Lang::En));
             } else {
-                println!("{} locked — clear previous stage first", stage.label(Lang::En));
+                println!(
+                    "{} locked — clear previous stage first",
+                    stage.label(Lang::En)
+                );
             }
         }
 
@@ -203,7 +215,10 @@ mod tests {
     #[test]
     fn mad_forest_waves_load() {
         let waves = StageKind::MadForest.load_waves();
-        assert!(!waves.is_empty(), "MadForest waves.ron 파싱 결과가 비어있음");
+        assert!(
+            !waves.is_empty(),
+            "MadForest waves.ron 파싱 결과가 비어있음"
+        );
     }
 
     #[test]

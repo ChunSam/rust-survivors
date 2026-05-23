@@ -1,10 +1,11 @@
-use engine::{Collider, CollisionLayer, Entity, Sprite, System, Transform, World};
 use engine::components::GameState;
+use engine::{Collider, CollisionLayer, Entity, System, Transform, World};
 use glam::Vec2;
 
 use super::particle::spawn_collect_burst;
 use super::player::{Player, PlayerStats};
 use super::sfx::{SfxEvent, SfxQueue};
+use super::sprites::{add_sprite, SurvivorSprite};
 use super::LAYER_XP;
 
 /// 적이 떨어뜨리는 경험치 보석.
@@ -17,22 +18,26 @@ pub struct XpGem {
 /// 1-E 에서 level / next_threshold 추가. 레벨업 전환은 `LevelUpSystem` 이 담당.
 #[derive(Debug, Clone, PartialEq)]
 pub struct XpAccumulator {
-    pub current:        u32,
-    pub level:          u32,
+    pub current: u32,
+    pub level: u32,
     pub next_threshold: u32,
 }
 
 impl Default for XpAccumulator {
     fn default() -> Self {
-        Self { current: 0, level: 1, next_threshold: 5 }  // L1 → 5 XP 로 L2 진입
+        Self {
+            current: 0,
+            level: 1,
+            next_threshold: 5,
+        } // L1 → 5 XP 로 L2 진입
     }
 }
 
 /// Magnet 흡수 + 픽업 처리 시스템.
 pub struct MagnetSystem {
-    pub pickup_radius:  f32, // 이 거리 안에 들어오면 픽업
-    pub magnet_radius:  f32, // 이 거리 안에 들어오면 플레이어 쪽으로 끌어당김
-    pub attract_speed:  f32, // 끌어당기는 속도 (px/s)
+    pub pickup_radius: f32, // 이 거리 안에 들어오면 픽업
+    pub magnet_radius: f32, // 이 거리 안에 들어오면 플레이어 쪽으로 끌어당김
+    pub attract_speed: f32, // 끌어당기는 속도 (px/s)
 }
 
 impl Default for MagnetSystem {
@@ -86,7 +91,11 @@ impl System for MagnetSystem {
             if dist <= effective_pickup_radius {
                 to_pickup.push((e, value));
             } else if dist <= effective_magnet_radius {
-                let dir = if dist > 0.0 { to_player / dist } else { Vec2::ZERO };
+                let dir = if dist > 0.0 {
+                    to_player / dist
+                } else {
+                    Vec2::ZERO
+                };
                 let new_pos = pos + dir * self.attract_speed * dt;
                 to_attract.push((e, new_pos));
             }
@@ -96,7 +105,8 @@ impl System for MagnetSystem {
         // XpAccumulator 는 Player 컴포넌트로만 사용. 리소스로는 insert 하지 않음.
         if !to_pickup.is_empty() {
             // growth 배율 적용: 각 gem 의 value 에 growth 곱 후 합산
-            let total: u32 = to_pickup.iter()
+            let total: u32 = to_pickup
+                .iter()
                 .map(|(_, v)| (*v as f32 * growth_multiplier).round() as u32)
                 .sum();
             let player_entity = world
@@ -109,7 +119,9 @@ impl System for MagnetSystem {
                 }
             }
             if let Some(q) = world.resource_mut::<SfxQueue>() {
-                for _ in 0..to_pickup.len().min(3) { q.push(SfxEvent::XpGem); }
+                for _ in 0..to_pickup.len().min(3) {
+                    q.push(SfxEvent::XpGem);
+                }
             }
             // XP 수집 파티클 — 플레이어 위치에 스폰 (과부하 방지: 배치당 1번)
             spawn_collect_burst(world, player_pos);
@@ -134,13 +146,16 @@ impl System for MagnetSystem {
 /// WhipSystem 이 zombie 사망 직전 위치에서 호출.
 pub fn spawn_xp_gem(world: &mut World, pos: Vec2, value: u32) {
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::new(12.0, 12.0),
-        rotation: 0.0,
-        z:        0.3, // zombie(0.5) 아래, player(1.0) 보다 낮음
-    });
-    world.add_component(e, Sprite::colored(0.4, 0.9, 1.0)); // 청록색
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::new(12.0, 12.0),
+            rotation: 0.0,
+            z: 0.3, // zombie(0.5) 아래, player(1.0) 보다 낮음
+        },
+    );
+    add_sprite(world, e, SurvivorSprite::XpGem);
     world.add_component(e, XpGem { value });
     world.add_component(e, CollisionLayer(LAYER_XP));
     world.add_component(e, Collider::Circle { radius: 6.0 });

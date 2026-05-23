@@ -1,62 +1,66 @@
+use engine::components::GameState;
 /// Phase 7: 픽업 5종 (Coin / Chicken / Vacuum / Bomb / Rosary).
 ///
 /// 적 사망 시 낮은 확률로 드롭 (Coin/Chicken/Rosary),
 /// 보스 사망 시 항상 드롭 (Vacuum/Bomb).
 /// 픽업 시 즉시 효과 발동.
-
-use engine::{Entity, Sprite, System, Transform, World};
-use engine::components::GameState;
+use engine::{Entity, System, Transform, World};
 use glam::Vec2;
 use rand::Rng;
 
 use super::boss::CameraShake;
 use super::damage::apply_damage_to_enemy;
-use super::sfx::{SfxEvent, SfxQueue};
 use super::enemy::Enemy;
 use super::health::Health;
 use super::hud::GameStats;
 use super::player::Player;
+use super::sfx::{SfxEvent, SfxQueue};
+use super::sprites::{add_sprite, SurvivorSprite};
 use super::xp::XpGem;
 
 /// 픽업 종류 — 적/보스 사망 시 드롭.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PickupKind {
-    Coin,     // 적 사망 시 ~1% 드롭. 픽업 → GoldWallet.current += 1
-    Chicken,  // 적 사망 시 ~0.5% 드롭. 픽업 → Player Health +20 (max clamp)
-    Vacuum,   // 보스 사망 시 100% 드롭. 픽업 → 화면 내 모든 XpGem 을 Player 위치로 즉시 이동
-    Bomb,     // 보스 사망 시 100% 드롭. 픽업 → 화면 내 모든 적에 100 데미지 (광역)
-    Rosary,   // 적 사망 시 ~0.1% 드롭. 픽업 → 화면 내 모든 적 즉사
+    Coin,    // 적 사망 시 ~1% 드롭. 픽업 → GoldWallet.current += 1
+    Chicken, // 적 사망 시 ~0.5% 드롭. 픽업 → Player Health +20 (max clamp)
+    Vacuum,  // 보스 사망 시 100% 드롭. 픽업 → 화면 내 모든 XpGem 을 Player 위치로 즉시 이동
+    Bomb,    // 보스 사망 시 100% 드롭. 픽업 → 화면 내 모든 적에 100 데미지 (광역)
+    Rosary,  // 적 사망 시 ~0.1% 드롭. 픽업 → 화면 내 모든 적 즉사
 }
 
 impl PickupKind {
     pub fn color(self) -> [f32; 3] {
         match self {
-            PickupKind::Coin    => [1.0, 0.85, 0.2],
+            PickupKind::Coin => [1.0, 0.85, 0.2],
             PickupKind::Chicken => [0.95, 0.6, 0.4],
-            PickupKind::Vacuum  => [0.5, 0.9, 1.0],
-            PickupKind::Bomb    => [0.3, 0.3, 0.3],
-            PickupKind::Rosary  => [1.0, 1.0, 1.0],
+            PickupKind::Vacuum => [0.5, 0.9, 1.0],
+            PickupKind::Bomb => [0.3, 0.3, 0.3],
+            PickupKind::Rosary => [1.0, 1.0, 1.0],
         }
     }
 
     pub fn scale(self) -> f32 {
         match self {
-            PickupKind::Coin    => 14.0,
+            PickupKind::Coin => 14.0,
             PickupKind::Chicken => 18.0,
-            PickupKind::Vacuum  => 20.0,
-            PickupKind::Bomb    => 22.0,
-            PickupKind::Rosary  => 16.0,
+            PickupKind::Vacuum => 20.0,
+            PickupKind::Bomb => 22.0,
+            PickupKind::Rosary => 16.0,
         }
     }
 }
 
 /// 픽업 컴포넌트.
 #[derive(Debug, Clone, Copy)]
-pub struct Pickup { pub kind: PickupKind }
+pub struct Pickup {
+    pub kind: PickupKind,
+}
 
 /// 메타 골드 지갑 (Phase 8 메타 진행에서 영구화 예정).
 #[derive(Debug, Default, Clone)]
-pub struct GoldWallet { pub current: u32 }
+pub struct GoldWallet {
+    pub current: u32,
+}
 
 /// 픽업 자동 픽업 시스템.
 pub struct PickupSystem {
@@ -64,18 +68,26 @@ pub struct PickupSystem {
 }
 
 impl Default for PickupSystem {
-    fn default() -> Self { Self { pickup_radius: 35.0 } }
+    fn default() -> Self {
+        Self {
+            pickup_radius: 35.0,
+        }
+    }
 }
 
 impl System for PickupSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
-        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) { return; }
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
 
         let Some((player_entity, player_pos)) = world
             .query2::<Player, Transform>()
             .next()
             .map(|(e, _, t)| (e, t.position))
-        else { return };
+        else {
+            return;
+        };
 
         let to_pickup: Vec<(Entity, PickupKind)> = world
             .query2::<Pickup, Transform>()
@@ -98,7 +110,9 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                 wallet.current += 1;
                 println!("Coin picked: gold {}", wallet.current);
             }
-            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Pickup); }
+            if let Some(q) = world.resource_mut::<SfxQueue>() {
+                q.push(SfxEvent::Pickup);
+            }
         }
         PickupKind::Chicken => {
             if let Some(h) = world.get_mut::<Health>(player) {
@@ -106,7 +120,9 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                 h.current = healed;
                 println!("Chicken picked: HP {:.0}/{:.0}", healed, h.max);
             }
-            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Pickup); }
+            if let Some(q) = world.resource_mut::<SfxQueue>() {
+                q.push(SfxEvent::Pickup);
+            }
         }
         PickupKind::Vacuum => {
             // 모든 XpGem 의 Transform.position 을 player 위치로 즉시 이동
@@ -125,13 +141,21 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
             let enemies: Vec<Entity> = world.query::<Enemy>().map(|(e, _)| e).collect();
             let mut killed: u32 = 0;
             for e in enemies {
-                if apply_damage_to_enemy(world, e, 100.0) { killed += 1; }
+                if apply_damage_to_enemy(world, e, 100.0) {
+                    killed += 1;
+                }
             }
             if killed > 0 {
-                if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += killed; }
+                if let Some(stats) = world.resource_mut::<GameStats>() {
+                    stats.kills += killed;
+                }
             }
-            if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.40, 14.0); }
-            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Bomb); }
+            if let Some(s) = world.resource_mut::<CameraShake>() {
+                s.trigger(0.40, 14.0);
+            }
+            if let Some(q) = world.resource_mut::<SfxQueue>() {
+                q.push(SfxEvent::Bomb);
+            }
             println!("Bomb picked: {} enemies killed", killed);
         }
         PickupKind::Rosary => {
@@ -142,10 +166,16 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                 apply_damage_to_enemy(world, e, 9999.0);
             }
             if count > 0 {
-                if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += count; }
+                if let Some(stats) = world.resource_mut::<GameStats>() {
+                    stats.kills += count;
+                }
             }
-            if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.35, 10.0); }
-            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::Bomb); }
+            if let Some(s) = world.resource_mut::<CameraShake>() {
+                s.trigger(0.35, 10.0);
+            }
+            if let Some(q) = world.resource_mut::<SfxQueue>() {
+                q.push(SfxEvent::Bomb);
+            }
             println!("Rosary picked: {} enemies cleared", count);
         }
     }
@@ -154,15 +184,24 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
 /// 픽업 엔티티 스폰 헬퍼.
 pub fn spawn_pickup(world: &mut World, pos: Vec2, kind: PickupKind) {
     let scale = kind.scale();
-    let color = kind.color();
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::new(scale, scale),
-        rotation: 0.0,
-        z:        0.35,
-    });
-    world.add_component(e, Sprite::colored(color[0], color[1], color[2]));
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::new(scale, scale),
+            rotation: 0.0,
+            z: 0.35,
+        },
+    );
+    let sprite = match kind {
+        PickupKind::Coin => SurvivorSprite::Coin,
+        PickupKind::Chicken => SurvivorSprite::Chicken,
+        PickupKind::Vacuum => SurvivorSprite::Vacuum,
+        PickupKind::Bomb => SurvivorSprite::Bomb,
+        PickupKind::Rosary => SurvivorSprite::Rosary,
+    };
+    add_sprite(world, e, sprite);
     world.add_component(e, Pickup { kind });
 }
 
@@ -177,9 +216,11 @@ pub fn try_drop_normal_pickup(world: &mut World, pos: Vec2) {
     let roll: f32 = rng.gen_range(0.0..1.0);
     if roll < 0.001 {
         spawn_pickup(world, pos, PickupKind::Rosary);
-    } else if roll < 0.006 {  // 0.001 ~ 0.006 → Chicken
+    } else if roll < 0.006 {
+        // 0.001 ~ 0.006 → Chicken
         spawn_pickup(world, pos, PickupKind::Chicken);
-    } else if roll < 0.016 {  // 0.006 ~ 0.016 → Coin
+    } else if roll < 0.016 {
+        // 0.006 ~ 0.016 → Coin
         spawn_pickup(world, pos, PickupKind::Coin);
     }
     // 그 외 픽업 없음 — 일반 XpGem 만
@@ -196,12 +237,12 @@ pub fn drop_boss_pickups(world: &mut World, pos: Vec2) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine::World;
-    use engine::components::GameState;
-    use crate::survivor::world_setup::spawn_player;
+    use crate::survivor::enemy::EnemyKind;
     use crate::survivor::player::Player;
     use crate::survivor::spawn::spawn_enemy;
-    use crate::survivor::enemy::EnemyKind;
+    use crate::survivor::world_setup::spawn_player;
+    use engine::components::GameState;
+    use engine::World;
 
     fn make_playing_world_with_player() -> (World, Entity) {
         let mut world = World::new();
@@ -227,7 +268,10 @@ mod tests {
 
         apply_pickup_effect(&mut world, player_entity, Vec2::ZERO, PickupKind::Chicken);
 
-        let hp = world.get_mut::<Health>(player_entity).map(|h| h.current).unwrap_or(0.0);
+        let hp = world
+            .get_mut::<Health>(player_entity)
+            .map(|h| h.current)
+            .unwrap_or(0.0);
         assert!(
             (hp - 70.0).abs() < 0.01,
             "Chicken 픽업 후 HP 가 70.0 이어야 함 (실제: {:.1})",
@@ -262,7 +306,14 @@ mod tests {
         apply_pickup_effect(&mut world, player_entity, Vec2::ZERO, PickupKind::Coin);
         apply_pickup_effect(&mut world, player_entity, Vec2::ZERO, PickupKind::Coin);
 
-        let gold = world.resource::<GoldWallet>().map(|w| w.current).unwrap_or(0);
-        assert_eq!(gold, 2, "Coin 2회 픽업 후 gold == 2 이어야 함 (실제: {})", gold);
+        let gold = world
+            .resource::<GoldWallet>()
+            .map(|w| w.current)
+            .unwrap_or(0);
+        assert_eq!(
+            gold, 2,
+            "Coin 2회 픽업 후 gold == 2 이어야 함 (실제: {})",
+            gold
+        );
     }
 }

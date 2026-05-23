@@ -1,5 +1,5 @@
-use engine::{CollisionLayer, Entity, Sprite, SpatialGrid, System, Transform, World};
 use engine::components::GameState;
+use engine::{CollisionLayer, Entity, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 use rand::seq::SliceRandom;
 
@@ -7,6 +7,7 @@ use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
+use super::sprites::{add_tinted_sprite, SurvivorSprite};
 use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
@@ -18,38 +19,60 @@ pub struct LightningFlash {
 
 /// LightningRing 슬롯 — cooldown 마다 strike_count 마리의 *랜덤 zombie* 위치에 즉시 area damage.
 pub struct LightningRingSystem {
-    pub grid:          SpatialGrid,
-    pub target_radius: f32,  // 후보 적 탐색 반경
+    pub grid: SpatialGrid,
+    pub target_radius: f32, // 후보 적 탐색 반경
 }
 
 impl Default for LightningRingSystem {
     fn default() -> Self {
-        Self { grid: SpatialGrid::new(128.0), target_radius: 600.0 }
+        Self {
+            grid: SpatialGrid::new(128.0),
+            target_radius: 600.0,
+        }
     }
 }
 
 impl System for LightningRingSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
-        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) { return; }
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
 
         let Some((player_entity, player_pos)) = world
             .query2::<Player, Transform>()
             .next()
             .map(|(e, _, t)| (e, t.position))
-        else { return };
+        else {
+            return;
+        };
 
         // stats 캐시
         let stats = read_player_stats(world);
 
         let fire_info = {
-            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
-            let Some(slot) = inv.lightning_ring_slot_mut() else { return };
-            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) { return; }
-            if let WeaponKind::LightningRing { damage, strike_count, hit_radius } = slot.kind {
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
+                return;
+            };
+            let Some(slot) = inv.lightning_ring_slot_mut() else {
+                return;
+            };
+            if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
+                return;
+            }
+            if let WeaponKind::LightningRing {
+                damage,
+                strike_count,
+                hit_radius,
+            } = slot.kind
+            {
                 Some((damage, strike_count, hit_radius))
-            } else { None }
+            } else {
+                None
+            }
         };
-        let Some((base_damage, base_strike_count, base_hit_radius)) = fire_info else { return };
+        let Some((base_damage, base_strike_count, base_hit_radius)) = fire_info else {
+            return;
+        };
 
         // stats 적용
         let damage = base_damage + stats.might;
@@ -58,8 +81,12 @@ impl System for LightningRingSystem {
 
         // 후보 zombie 들
         self.grid.rebuild(world);
-        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
-        if candidates.is_empty() { return; }
+        let candidates =
+            self.grid
+                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        if candidates.is_empty() {
+            return;
+        }
 
         // strike_count 마리 랜덤 선택
         let mut rng = rand::thread_rng();
@@ -77,7 +104,9 @@ impl System for LightningRingSystem {
             // 시각 flash 잠깐
             spawn_lightning_flash(world, target_pos);
             // area damage at target_pos
-            let hits = self.grid.query_radius(target_pos, hit_radius, CollisionLayer(LAYER_ENEMY));
+            let hits = self
+                .grid
+                .query_radius(target_pos, hit_radius, CollisionLayer(LAYER_ENEMY));
             for z in hits {
                 if apply_damage_to_enemy(world, z, damage) {
                     killed += 1;
@@ -86,7 +115,9 @@ impl System for LightningRingSystem {
         }
 
         if killed > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += killed; }
+            if let Some(stats) = world.resource_mut::<GameStats>() {
+                stats.kills += killed;
+            }
         }
     }
 }
@@ -96,7 +127,9 @@ pub struct LightningFlashSystem;
 
 impl System for LightningFlashSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
-        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) { return; }
+        if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
+            return;
+        }
         let updates: Vec<(Entity, f32)> = world
             .query::<LightningFlash>()
             .map(|(e, f)| (e, f.lifetime - dt))
@@ -109,19 +142,24 @@ impl System for LightningFlashSystem {
                 f.lifetime = new_life;
             }
         }
-        for e in to_despawn { world.despawn(e); }
+        for e in to_despawn {
+            world.despawn(e);
+        }
     }
 }
 
 /// 번개 flash 엔티티를 스폰한다.
 pub fn spawn_lightning_flash(world: &mut World, pos: Vec2) {
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::new(40.0, 40.0),
-        rotation: 0.0,
-        z:        0.7,
-    });
-    world.add_component(e, Sprite::colored(1.0, 1.0, 0.6)); // 노란 flash
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::new(40.0, 40.0),
+            rotation: 0.0,
+            z: 0.7,
+        },
+    );
+    add_tinted_sprite(world, e, SurvivorSprite::MagicBolt, [1.0, 1.0, 0.55, 0.9]);
     world.add_component(e, LightningFlash { lifetime: 0.15 });
 }

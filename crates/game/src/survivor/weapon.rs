@@ -1,5 +1,5 @@
-use engine::{CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
 use engine::components::GameState;
+use engine::{CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
 use glam::Vec2;
 use rand::seq::SliceRandom;
 
@@ -7,9 +7,9 @@ use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
+use super::projectile::{spawn_projectile, spawn_projectile_ex, ProjectileBehavior};
 use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
-use super::projectile::{spawn_projectile, spawn_projectile_ex, ProjectileBehavior};
 
 /// 히트 플래시 총 지속 시간(초). 흰색 → 원래 색으로 페이드하는 구간.
 pub const FLASH_DURATION: f32 = 0.14;
@@ -24,10 +24,10 @@ pub const SCALE_BUMP: f32 = 1.18;
 /// Phase 11-B: 흰색 순간 플래시 → 원래 색 페이드 + 스케일 펄스.
 /// `World::remove_component` 미구현이므로 sentinel 패턴으로 재처리 방지.
 pub struct HitFlash {
-    pub remaining:      f32,      // 남은 시간
-    pub duration:       f32,      // 총 지속 시간 (lerp 기준)
-    pub original:       [f32; 4], // 원래 스프라이트 색상
-    pub original_scale: Vec2,     // 원래 Transform 스케일
+    pub remaining: f32,       // 남은 시간
+    pub duration: f32,        // 총 지속 시간 (lerp 기준)
+    pub original: [f32; 4],   // 원래 스프라이트 색상
+    pub original_scale: Vec2, // 원래 Transform 스케일
 }
 
 /// 히트플래시 갱신 시스템. WhipSystem 다음에 등록.
@@ -42,14 +42,22 @@ impl System for HitFlashSystem {
             .collect();
 
         for (entity, remaining, duration, original, original_scale) in flashes {
-            if remaining <= 0.0 { continue; } // sentinel
+            if remaining <= 0.0 {
+                continue;
+            } // sentinel
 
             let new_remaining = remaining - dt;
             if new_remaining <= 0.0 {
                 // 만료 — 색·스케일 원복 후 sentinel
-                if let Some(s) = world.get_mut::<Sprite>(entity) { s.color = original; }
-                if let Some(t) = world.get_mut::<Transform>(entity) { t.scale = original_scale; }
-                if let Some(f) = world.get_mut::<HitFlash>(entity) { f.remaining = f32::NEG_INFINITY; }
+                if let Some(s) = world.get_mut::<Sprite>(entity) {
+                    s.color = original;
+                }
+                if let Some(t) = world.get_mut::<Transform>(entity) {
+                    t.scale = original_scale;
+                }
+                if let Some(f) = world.get_mut::<HitFlash>(entity) {
+                    f.remaining = f32::NEG_INFINITY;
+                }
             } else {
                 // t_norm: 1.0(방금 피격) → 0.0(만료 직전)
                 let t_norm = (new_remaining / duration).clamp(0.0, 1.0);
@@ -68,7 +76,9 @@ impl System for HitFlashSystem {
                 if let Some(t) = world.get_mut::<Transform>(entity) {
                     t.scale = original_scale.lerp(original_scale * SCALE_BUMP, scale_p);
                 }
-                if let Some(f) = world.get_mut::<HitFlash>(entity) { f.remaining = new_remaining; }
+                if let Some(f) = world.get_mut::<HitFlash>(entity) {
+                    f.remaining = new_remaining;
+                }
             }
         }
     }
@@ -101,7 +111,9 @@ impl System for WhipSystem {
             .query2::<Player, Transform>()
             .next()
             .map(|(e, _, t)| (e, t.position));
-        let Some((player_entity, player_pos)) = player_e_and_pos else { return };
+        let Some((player_entity, player_pos)) = player_e_and_pos else {
+            return;
+        };
 
         // 2) stats 캐시 (불변 빌림만 → 이후 get_mut 과 충돌 없음)
         let stats = read_player_stats(world);
@@ -109,20 +121,31 @@ impl System for WhipSystem {
         // 3) WeaponInventory 의 Whip 슬롯 tick + 파라미터 복사
         //    (get_mut borrow 를 블록 안에서 끊어야 이후 world 접근 가능)
         let fire_info: Option<(f32, f32, f32)> = {
-            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
-            let Some(slot) = inv.whip_slot_mut() else { return };
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
+                return;
+            };
+            let Some(slot) = inv.whip_slot_mut() else {
+                return;
+            };
             if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
             // 발화. 파라미터를 값으로 복사해 반환 (borrow 해제).
             #[allow(irrefutable_let_patterns)]
-            if let WeaponKind::Whip { damage, area_width, area_height } = slot.kind {
+            if let WeaponKind::Whip {
+                damage,
+                area_width,
+                area_height,
+            } = slot.kind
+            {
                 Some((damage, area_width, area_height))
             } else {
                 None
             }
         };
-        let Some((base_damage, area_width, area_height)) = fire_info else { return };
+        let Some((base_damage, area_width, area_height)) = fire_info else {
+            return;
+        };
 
         // stats 적용
         let damage = base_damage + stats.might;
@@ -161,7 +184,9 @@ impl System for WhipSystem {
             }
         }
         if killed > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() { stats.kills += killed; }
+            if let Some(stats) = world.resource_mut::<GameStats>() {
+                stats.kills += killed;
+            }
         }
     }
 }
@@ -172,14 +197,14 @@ impl System for WhipSystem {
 /// `spawn_projectile` 헬퍼를 통해 투사체를 생성하고,
 /// 이동·충돌·데미지는 `ProjectileSystem` 이 처리한다.
 pub struct MagicWandSystem {
-    pub grid:          SpatialGrid,
+    pub grid: SpatialGrid,
     pub target_radius: f32, // 가장 가까운 적 탐색 반경 (px)
 }
 
 impl Default for MagicWandSystem {
     fn default() -> Self {
         Self {
-            grid:          SpatialGrid::new(128.0),
+            grid: SpatialGrid::new(128.0),
             target_radius: 400.0,
         }
     }
@@ -205,18 +230,30 @@ impl System for MagicWandSystem {
 
         // 3) MagicWand 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8)> = {
-            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
-            let Some(slot) = inv.magic_wand_slot_mut() else { return };
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
+                return;
+            };
+            let Some(slot) = inv.magic_wand_slot_mut() else {
+                return;
+            };
             if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
-            if let WeaponKind::MagicWand { damage, projectile_speed, lifetime, pierce } = slot.kind {
+            if let WeaponKind::MagicWand {
+                damage,
+                projectile_speed,
+                lifetime,
+                pierce,
+            } = slot.kind
+            {
                 Some((damage, projectile_speed, lifetime, pierce))
             } else {
                 None
             }
         };
-        let Some((base_damage, base_speed, base_lifetime, pierce)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce)) = fire_info else {
+            return;
+        };
 
         // stats 적용
         let damage = base_damage + stats.might;
@@ -225,7 +262,9 @@ impl System for MagicWandSystem {
 
         // 4) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
-        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        let candidates =
+            self.grid
+                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
         if candidates.is_empty() {
             return;
         }
@@ -238,7 +277,9 @@ impl System for MagicWandSystem {
                 let db = (b.1 - player_pos).length_squared();
                 da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
             });
-        let Some((_target_entity, target_pos)) = nearest else { return };
+        let Some((_target_entity, target_pos)) = nearest else {
+            return;
+        };
 
         // 4) 방향 벡터 정규화 + 투사체 스폰 (연보라색)
         let dir = target_pos - player_pos;
@@ -266,14 +307,14 @@ impl System for MagicWandSystem {
 /// 매 cooldown 마다 가장 가까운 적 방향으로 `amount` 개의 직선 투사체를 동시 발사한다.
 /// `amount > 1` 이면 `spread_radians` 범위로 부채꼴 분산.
 pub struct KnifeSystem {
-    pub grid:          SpatialGrid,
+    pub grid: SpatialGrid,
     pub target_radius: f32,
 }
 
 impl Default for KnifeSystem {
     fn default() -> Self {
         Self {
-            grid:          SpatialGrid::new(128.0),
+            grid: SpatialGrid::new(128.0),
             target_radius: 400.0,
         }
     }
@@ -299,18 +340,41 @@ impl System for KnifeSystem {
 
         // 3) Knife 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
-            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
-            let Some(slot) = inv.knife_slot_mut() else { return };
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
+                return;
+            };
+            let Some(slot) = inv.knife_slot_mut() else {
+                return;
+            };
             if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
-            if let WeaponKind::Knife { damage, projectile_speed, lifetime, pierce, amount, spread_radians } = slot.kind {
-                Some((damage, projectile_speed, lifetime, pierce, amount, spread_radians))
+            if let WeaponKind::Knife {
+                damage,
+                projectile_speed,
+                lifetime,
+                pierce,
+                amount,
+                spread_radians,
+            } = slot.kind
+            {
+                Some((
+                    damage,
+                    projectile_speed,
+                    lifetime,
+                    pierce,
+                    amount,
+                    spread_radians,
+                ))
             } else {
                 None
             }
         };
-        let Some((base_damage, base_speed, base_lifetime, pierce, base_amount, spread_radians)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce, base_amount, spread_radians)) =
+            fire_info
+        else {
+            return;
+        };
 
         // stats 적용
         let damage = base_damage + stats.might;
@@ -320,7 +384,9 @@ impl System for KnifeSystem {
 
         // 3) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
-        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        let candidates =
+            self.grid
+                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
         if candidates.is_empty() {
             return; // 적 없으면 발사 skip
         }
@@ -333,7 +399,9 @@ impl System for KnifeSystem {
                 let db = (b.1 - player_pos).length_squared();
                 da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
             });
-        let Some((_target_entity, target_pos)) = nearest else { return };
+        let Some((_target_entity, target_pos)) = nearest else {
+            return;
+        };
 
         // 4) 방향 벡터 계산
         let dir = target_pos - player_pos;
@@ -349,7 +417,8 @@ impl System for KnifeSystem {
             let angle = if amount == 1 {
                 base_angle
             } else {
-                base_angle - spread_radians * 0.5 + spread_radians * (i as f32) / ((amount - 1) as f32)
+                base_angle - spread_radians * 0.5
+                    + spread_radians * (i as f32) / ((amount - 1) as f32)
             };
             let velocity = Vec2::new(angle.cos(), angle.sin()) * projectile_speed;
             spawn_projectile_ex(
@@ -404,18 +473,34 @@ impl System for AxeSystem {
 
         // 3) Axe 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, f32, u8, u8)> = {
-            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
-            let Some(slot) = inv.axe_slot_mut() else { return };
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
+                return;
+            };
+            let Some(slot) = inv.axe_slot_mut() else {
+                return;
+            };
             if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
-            if let WeaponKind::Axe { damage, initial_speed, gravity, lifetime, pierce, amount } = slot.kind {
+            if let WeaponKind::Axe {
+                damage,
+                initial_speed,
+                gravity,
+                lifetime,
+                pierce,
+                amount,
+            } = slot.kind
+            {
                 Some((damage, initial_speed, gravity, lifetime, pierce, amount))
             } else {
                 None
             }
         };
-        let Some((base_damage, base_speed, gravity, base_lifetime, pierce, base_amount)) = fire_info else { return };
+        let Some((base_damage, base_speed, gravity, base_lifetime, pierce, base_amount)) =
+            fire_info
+        else {
+            return;
+        };
 
         // stats 적용
         let damage = base_damage + stats.might;
@@ -427,7 +512,10 @@ impl System for AxeSystem {
         //    각 투사체마다 약간의 x 오프셋을 부여해 시각적으로 분산
         let x_offsets: &[f32] = &[-8.0, 0.0, 8.0, -16.0, 16.0, -24.0];
         for i in 0..amount {
-            let x_offset = x_offsets.get(i as usize).copied().unwrap_or((i as f32) * 8.0 - (amount as f32) * 4.0);
+            let x_offset = x_offsets
+                .get(i as usize)
+                .copied()
+                .unwrap_or((i as f32) * 8.0 - (amount as f32) * 4.0);
             let velocity = Vec2::new(x_offset, -initial_speed); // 음수 y = 위 방향
             spawn_projectile_ex(
                 world,
@@ -449,14 +537,14 @@ impl System for AxeSystem {
 /// `ProjectileBehavior::Boomerang { return_at, elapsed: 0.0, returned: false }` 를 사용한다.
 /// 황금색. pierce 가 크므로 적을 관통하며 갔다가 돌아온다.
 pub struct CrossSystem {
-    pub grid:          SpatialGrid,
+    pub grid: SpatialGrid,
     pub target_radius: f32,
 }
 
 impl Default for CrossSystem {
     fn default() -> Self {
         Self {
-            grid:          SpatialGrid::new(128.0),
+            grid: SpatialGrid::new(128.0),
             target_radius: 400.0,
         }
     }
@@ -482,18 +570,41 @@ impl System for CrossSystem {
 
         // 3) Cross 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
-            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
-            let Some(slot) = inv.cross_slot_mut() else { return };
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
+                return;
+            };
+            let Some(slot) = inv.cross_slot_mut() else {
+                return;
+            };
             if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
-            if let WeaponKind::Cross { damage, projectile_speed, lifetime, pierce, amount, return_at } = slot.kind {
-                Some((damage, projectile_speed, lifetime, pierce, amount, return_at))
+            if let WeaponKind::Cross {
+                damage,
+                projectile_speed,
+                lifetime,
+                pierce,
+                amount,
+                return_at,
+            } = slot.kind
+            {
+                Some((
+                    damage,
+                    projectile_speed,
+                    lifetime,
+                    pierce,
+                    amount,
+                    return_at,
+                ))
             } else {
                 None
             }
         };
-        let Some((base_damage, base_speed, base_lifetime, pierce, base_amount, return_at)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce, base_amount, return_at)) =
+            fire_info
+        else {
+            return;
+        };
 
         // stats 적용
         let damage = base_damage + stats.might;
@@ -503,7 +614,9 @@ impl System for CrossSystem {
 
         // 3) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
-        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        let candidates =
+            self.grid
+                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
         if candidates.is_empty() {
             return;
         }
@@ -516,7 +629,9 @@ impl System for CrossSystem {
                 let db = (b.1 - player_pos).length_squared();
                 da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
             });
-        let Some((_target_entity, target_pos)) = nearest else { return };
+        let Some((_target_entity, target_pos)) = nearest else {
+            return;
+        };
 
         // 4) 방향 벡터 계산
         let dir = target_pos - player_pos;
@@ -545,7 +660,11 @@ impl System for CrossSystem {
                 pierce,
                 damage,
                 [0.9, 0.9, 0.5], // 황금색 — Cross 컬러
-                ProjectileBehavior::Boomerang { return_at, elapsed: 0.0, returned: false },
+                ProjectileBehavior::Boomerang {
+                    return_at,
+                    elapsed: 0.0,
+                    returned: false,
+                },
             );
         }
     }
@@ -557,14 +676,14 @@ impl System for CrossSystem {
 /// MagicWand(가장 가까운 적) 와 달리 무작위 타깃 선택.
 /// 주황색. pierce 없음, 데미지 큼.
 pub struct FireWandSystem {
-    pub grid:          SpatialGrid,
+    pub grid: SpatialGrid,
     pub target_radius: f32,
 }
 
 impl Default for FireWandSystem {
     fn default() -> Self {
         Self {
-            grid:          SpatialGrid::new(128.0),
+            grid: SpatialGrid::new(128.0),
             target_radius: 400.0,
         }
     }
@@ -590,18 +709,30 @@ impl System for FireWandSystem {
 
         // 3) FireWand 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8)> = {
-            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else { return };
-            let Some(slot) = inv.fire_wand_slot_mut() else { return };
+            let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
+                return;
+            };
+            let Some(slot) = inv.fire_wand_slot_mut() else {
+                return;
+            };
             if !slot.tick_with_cooldown_multiplier(dt, stats.cooldown) {
                 return;
             }
-            if let WeaponKind::FireWand { damage, projectile_speed, lifetime, pierce } = slot.kind {
+            if let WeaponKind::FireWand {
+                damage,
+                projectile_speed,
+                lifetime,
+                pierce,
+            } = slot.kind
+            {
                 Some((damage, projectile_speed, lifetime, pierce))
             } else {
                 None
             }
         };
-        let Some((base_damage, base_speed, base_lifetime, pierce)) = fire_info else { return };
+        let Some((base_damage, base_speed, base_lifetime, pierce)) = fire_info else {
+            return;
+        };
 
         // stats 적용
         let damage = base_damage + stats.might;
@@ -610,15 +741,21 @@ impl System for FireWandSystem {
 
         // 3) grid rebuild + 후보 적 수집
         self.grid.rebuild(world);
-        let candidates = self.grid.query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
+        let candidates =
+            self.grid
+                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
         if candidates.is_empty() {
             return;
         }
 
         // 4) 후보 중 랜덤 1마리 선택
         let mut rng = rand::thread_rng();
-        let Some(&target_entity) = candidates.choose(&mut rng) else { return };
-        let Some(target_pos) = world.get::<Transform>(target_entity).map(|t| t.position) else { return };
+        let Some(&target_entity) = candidates.choose(&mut rng) else {
+            return;
+        };
+        let Some(target_pos) = world.get::<Transform>(target_entity).map(|t| t.position) else {
+            return;
+        };
 
         // 5) 방향 벡터 정규화 + 투사체 스폰 (주황색)
         let dir = target_pos - player_pos;

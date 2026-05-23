@@ -1,28 +1,51 @@
-# CLAUDE.md — Rust 2D Game Engine
+# CLAUDE.md — Rust Survivors
 
 ## 프로젝트 개요
 
-학습 목적으로 Rust로 처음부터 만드는 2D 게임 엔진.
-wgpu 렌더링 · 직접 구현한 ECS · rapier2d 물리를 단계적으로 구축했다.
+`rust-2d-engine`을 기반으로 만드는 Vampire Survivors 스타일 탑다운 자동공격 로그라이트 게임.
+
+이 저장소의 주 작업 대상은 **게임(`rust-survivors`)** 이다.
+엔진은 별도 저장소 **`rust-2d-engine`** 으로 분리되었고, 이 게임은 Cargo git dependency 로 엔진을 가져온다.
+
+> 중요: 이 저장소에 `crates/engine/` 디렉토리가 남아 있어도 현재 workspace 멤버가 아니다.
+> 게임 빌드가 사용하는 엔진은 `crates/game/Cargo.toml`의 `engine = { git = "https://github.com/ChunSam/rust-2d-engine" }` 이다.
+> 엔진 자체를 수정해야 하면 이 저장소에서 직접 고치지 말고 `rust-2d-engine` 저장소에서 작업한다.
 
 ## 크레이트 구조
 
 ```
-Rust-GameEngine/          ← Cargo workspace
-├── crates/engine/        ← 엔진 라이브러리 (lib)
-└── crates/game/          ← 플랫포머 데모 (bin)
+Rust-GameEngine/          ← 현재 로컬 작업 폴더
+├── Cargo.toml            ← workspace: members = ["crates/game"]
+├── crates/game/          ← 게임 크레이트 (lib + bin)
+│   ├── src/main.rs       ← 플랫포머 데모 bin (`game`)
+│   ├── src/bin/survivor.rs ← 서바이버 게임 bin (`survivor`)
+│   └── src/survivor/     ← Vampire Survivors 클론 게임 로직
+├── crates/engine/        ← 과거/참조용 로컬 엔진 스냅샷. 현재 workspace 빌드 대상 아님
+└── assets/               ← 게임 자산 (오디오, 폰트, 텍스처, 데이터)
 ```
 
 ## 주요 명령어
 
 ```bash
-cargo run -p game              # 데모 실행 (debug)
-cargo run -p game --release    # 데모 실행 (최적화)
-cargo test -p engine           # 엔진 단위 테스트
-cargo build --release          # 릴리즈 빌드 (~28초 풀빌드, 캐시 시 0.3초)
+cargo run -p game --bin survivor           # 서바이버 실행 (debug)
+cargo run -p game --bin survivor --release # 서바이버 실행 (최적화)
+cargo run -p game --bin game               # 플랫포머 데모 실행
+cargo run -p game --bin text_demo          # 텍스트 렌더 데모 실행
+cargo test -p game --lib                   # 게임 라이브러리 테스트
+cargo build -p game --bin survivor         # 서바이버 빌드
+cargo build --release                      # 릴리즈 빌드
 ```
 
-데모 조작: `A/D` 또는 `←/→` 이동 · `Space` 점프 · `ESC` 종료
+서바이버 조작: `W/A/S/D` 또는 방향키 이동 · `1/2/3` 레벨업 카드 선택 · `ESC` 일시정지
+
+플랫포머 데모 조작: `A/D` 또는 `←/→` 이동 · `Space` 점프 · `ESC` 종료
+
+엔진 단위 테스트는 이 저장소가 아니라 별도 엔진 저장소에서 실행한다:
+
+```bash
+# rust-2d-engine 저장소에서
+cargo test
+```
 
 ## 의존 크레이트
 
@@ -39,7 +62,21 @@ cargo build --release          # 릴리즈 빌드 (~28초 풀빌드, 캐시 시 
 
 ## 아키텍처
 
-### ECS (`crates/engine/src/ecs/`)
+### 엔진 의존성 (`rust-2d-engine`)
+
+게임은 별도 git dependency 로 제공되는 엔진 API를 사용한다.
+게임 코드에서 자주 쓰는 엔진 타입은 다음과 같다.
+
+- ECS: `World`, `Entity`, `System`
+- 컴포넌트: `Transform`, `Sprite`, `AnimationPlayer`, `UvRect`
+- 렌더링: `App`, `TextQueue`, `UiQueue`, `DrawText`, `DrawRect`
+- 입력/상태: `InputState`, `GameState`, `WindowConfig`, `ViewportSize`
+- 오디오/저장: `AudioManager`, `save`
+- 충돌: `Collider`, `CollisionLayer`, `SpatialGrid`
+
+엔진 내부 구현 설명은 아래에 기록으로 남겨두지만, 실제 수정은 `rust-2d-engine` 저장소에서 진행한다.
+
+### ECS (`rust-2d-engine/src/ecs/`)
 
 외부 크레이트 없이 직접 구현. `TypeId` + `Box<dyn Any>` 타입 소거로 컴포넌트 저장.
 
@@ -56,7 +93,7 @@ for (entity, sprite) in world.query::<Sprite>() { ... }
 world.resource::<InputState>()
 ```
 
-### 렌더링 (`crates/engine/src/renderer/`)
+### 렌더링 (`rust-2d-engine/src/renderer/`)
 
 - `GpuContext` (`context.rs`) — wgpu Surface/Device/Queue/Config 초기화·관리
 - `SpriteRenderer` (`sprite.rs`) — 인스턴스 렌더링. `Transform + Sprite` 엔티티를 한 draw call로 처리
@@ -64,7 +101,7 @@ world.resource::<InputState>()
 - 셰이더: `assets/shaders/sprite.wgsl` (WGSL, 런타임 파일 로드)
 - 카메라: 직교 투영 `(0,0)` = 좌상단, `(width,height)` = 우하단 (픽셀 좌표계)
 
-### 입력 (`crates/engine/src/input.rs`)
+### 입력 (`rust-2d-engine/src/input.rs`)
 
 `InputState` 리소스를 ECS World에 삽입. winit 이벤트 → `press/release/flush`.
 
@@ -73,7 +110,7 @@ input.is_pressed(KeyCode::KeyA)    // 누르고 있는 동안
 input.just_pressed(KeyCode::Space) // 누른 순간만 (1프레임)
 ```
 
-### 물리 (`crates/engine/src/physics/system.rs`)
+### 물리 (`rust-2d-engine/src/physics/system.rs`)
 
 - `PhysicsWorld` — rapier2d 래퍼. `add_dynamic_box`, `add_static_box`, `step`, `has_contact`
 - `PhysicsBody` — 엔티티에 붙이는 컴포넌트 (`RigidBodyHandle` + `ColliderHandle`)
@@ -91,7 +128,7 @@ transform.position = Vec2::new(t.x * 50.0, t.y * 50.0);
 **borrow checker 주의**: `PhysicsWorld`를 ECS 리소스로 넣으면 `&mut World`와 동시 대여 충돌.
 → `PhysicsSystem` 또는 커스텀 시스템 구조체가 직접 소유한다.
 
-### 게임 루프 (`crates/engine/src/app.rs`)
+### 게임 루프 (`rust-2d-engine/src/app.rs`)
 
 winit `ApplicationHandler` 구현.
 
@@ -133,6 +170,16 @@ RedrawRequested    → update(dt) → render()
 - 엔진 저장소: https://github.com/ChunSam/rust-2d-engine
 - 브랜치: `main`
 
+### 저장소 분리 규칙
+
+- 게임 기능, 밸런스, UI, 콘텐츠, 자산, 서바이버 시스템은 이 저장소(`rust-survivors`)에서 수정한다.
+- 엔진 API, 렌더러, ECS, 입력, 오디오, 저장, 충돌 모듈 자체는 `rust-2d-engine` 저장소에서 수정한다.
+- 이 저장소의 `crates/engine/`은 현재 workspace 멤버가 아니므로 새 작업에서 수정 대상으로 삼지 않는다.
+- 엔진 변경이 게임에도 필요하면:
+  1. `rust-2d-engine`에서 변경·테스트·push
+  2. 이 저장소에서 Cargo.lock/git dependency 갱신
+  3. `cargo test -p game --lib`와 `cargo build -p game --bin survivor`로 회귀 확인
+
 ## 사용자 정보
 
 - Rust 초급자 — borrow checker, lifetime 설명 시 이유를 한 줄 덧붙일 것
@@ -142,7 +189,7 @@ RedrawRequested    → update(dt) → render()
 ## 진행 상황 (2026-05-22)
 
 - **완료**: Phase 0(엔진 보강) + 0.5(wgpu 22 + NotoSansKR 동봉) + **Phase 1 전체 (Vertical Slice MVP)** + **Phase 2 전체 (무기 풀 확장)** + **Phase 3 전체 (PlayerStats + 패시브 16종)** + **Phase 4 전체 (적 다양화)** + **Phase 5 (보스 3종 + StageClear)** + **Phase 6 (보물상자 + 8 무기 진화 레시피)** + **Phase 7 (픽업 5종)** + **Phase 8 완료 (메인 메뉴 + 메타 진행 + 저장)** + **Phase 9 완료 (캐릭터 6종 + CharacterSelect + 해금)** + **Phase 10 완료 (다중 스테이지 3종 + StageSelect + 클리어 해금)** + **Phase 11-A~F 완료 (폴리쉬 6종)**
-- **상태**: engine 26 tests · game lib 82 tests · doc 2 tests · binary 3개(`game`/`text_demo`/`survivor`) 모두 빌드 통과
+- **상태**: 게임 lib 테스트 83개 통과 · binary 3개(`game`/`text_demo`/`survivor`) 빌드 대상. 엔진 테스트는 별도 `rust-2d-engine` 저장소에서 관리
 - **달성 (Phase 11-A~F)**:
   - 11-A: `DamageNumber` 컴포넌트 + `DamageNumberSystem` (수명 0.6s, 위로 40px/s, 알파 페이드)
   - 11-B: 히트 플래시 — 흰색 펄스 + `Transform` 스케일 1.18× 버프 (duration/original_scale 추가)
@@ -156,7 +203,7 @@ RedrawRequested    → update(dt) → render()
   - 보스 줌 미작동 → ZOOM_BOSS 0.80→0.65, ZOOM_LERP 0.015→0.05 로 조정
 - **다음**: BGM · SFX 음원 파일 추가 → 업적 시스템 → 로컬라이제이션 → macOS/Windows 빌드 → 출시 준비
 
-상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 엔진 API: [`crates/engine/README.md`](crates/engine/README.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
+상세 — 진행 로그: [`docs/PHASE_LOG.md`](docs/PHASE_LOG.md) · 서바이버 모듈: [`crates/game/src/survivor/README.md`](crates/game/src/survivor/README.md)
 
 ---
 
@@ -179,6 +226,9 @@ RedrawRequested    → update(dt) → render()
 
 ### Phase 0 — 엔진 보강 (~2주)
 서바이버 작업 시작 전 채워야 할 엔진 공백.
+
+> 현재는 엔진이 별도 `rust-2d-engine` 저장소로 분리되었으므로,
+> 아래 엔진 보강 항목은 이 저장소의 `crates/engine/`이 아니라 엔진 저장소에서 관리한다.
 
 - `World::despawn(entity)` + `free_ids` 재사용 (`crates/engine/src/ecs/world.rs`)
 - 다중 컴포넌트 query 헬퍼: `query2::<A,B>`, `query3::<A,B,C>`
@@ -270,48 +320,48 @@ RedrawRequested    → update(dt) → render()
 
 ---
 
-## 서바이버 — 변경 예정 파일
+## 현재 작업 대상 파일
 
-구현 시점에 신규/수정될 파일 목록. 모든 작업은 `/task` (sonnet) 세션에서 위 로드맵을 참조하여 점진적으로 진행.
+이 저장소에서 직접 수정하는 파일은 게임 코드와 게임 자산이다.
+엔진 API 자체 수정은 별도 `rust-2d-engine` 저장소에서 한다.
 
-### 엔진 (`crates/engine/src/`)
+### 게임 코드 (`crates/game/`)
 
-| 파일 | 종류 | 내용 |
-|---|---|---|
-| `ecs/world.rs` | 수정 | `despawn`, `query2/3`, `free_ids` |
-| `camera.rs` | **신규** | `Camera { position, zoom }` 리소스 |
-| `renderer/sprite.rs` | 수정 | 라인 230 부근 ortho 를 카메라 view-proj 로 교체 + z 정렬 |
-| `renderer/text.rs` | **신규** | `glyphon` 통합, `TextQueue` 리소스 |
-| `collision/{mod,grid,query}.rs` | **신규** | `Collider`, `CollisionLayer`, `SpatialGrid` |
-| `input.rs`, `app.rs` | 수정 | 마우스 위치·버튼·스크롤 추가 |
-| `components.rs` | 수정 | `Transform.z` 필드, `GameState` 변종 추가(`LevelUp`, `Title`, `CharacterSelect` 등) |
-| `save.rs` | **신규** | serde + ron 저장/로드 |
-| `Cargo.toml` | 수정 | `rand`, `glyphon`, `serde`, `ron`, `dirs` 추가 |
-
-### 게임 (`crates/game/`)
-
-| 파일 | 종류 |
+| 경로 | 역할 |
 |---|---|
-| `src/main.rs` | 보존 (플랫포머 데모) |
-| `src/bin/survivor.rs` | **신규** 진입점 |
-| `src/survivor/{player,enemy,weapon,projectile,xp,levelup,hud,spawn,stats,death,pickup,boss,chest,evolution}.rs` | **신규** |
-| `src/survivor/data/{weapons,passives,waves,characters,stages,evolutions}.ron` | **신규** |
-| `Cargo.toml` | 수정 — `[[bin]] name = "survivor"` 추가 |
+| `src/main.rs` | 플랫포머 데모 bin (`game`). 엔진 회귀 확인용으로 보존 |
+| `src/bin/survivor.rs` | 서바이버 게임 진입점 |
+| `src/bin/text_demo.rs` | glyphon 텍스트 렌더 데모 |
+| `src/lib.rs` | 서바이버 통합 테스트와 모듈 export |
+| `src/survivor/` | Vampire Survivors 클론의 실제 게임 로직 |
+| `Cargo.toml` | 게임 crate manifest. 엔진은 git dependency 로 참조 |
 
-### 자산 (`assets/`)
+### 서바이버 주요 모듈 (`crates/game/src/survivor/`)
 
-| 폴더 | 추가 |
+| 파일 | 내용 |
 |---|---|
-| `textures/` | Kenney/itch.io CC0 팩 (player, enemy 10+, projectile, pickup, tileset) |
-| `audio/` | SFX 20+, BGM 3~5 |
-| `fonts/` | NotoSansKR-Regular.ttf 동봉 완료 (SIL OFL 1.1). Pretendard 등 추가 weight 는 필요 시 |
+| `world_setup.rs` | 초기 리소스/플레이어 스폰 |
+| `player.rs`, `enemy.rs`, `spawn.rs` | 플레이어/적/스폰 |
+| `weapon.rs`, `projectile.rs`, `area.rs`, `bible.rs`, `lightning.rs` | 무기 시스템 |
+| `levelup.rs`, `inventory.rs`, `passive.rs`, `stats.rs` | 레벨업·무기·패시브·스탯 |
+| `hud.rs`, `meta.rs`, `powerup.rs`, `character.rs`, `stage.rs` | 메뉴/HUD/메타 진행 |
+| `boss.rs`, `chest.rs`, `pickup.rs`, `death.rs`, `xp.rs` | 보스·상자·픽업·사망·XP |
+| `bgm.rs`, `sfx.rs` | BGM/SFX 이벤트 |
+| `sprites.rs`, `particle.rs`, `damage_number.rs` | 시각 효과와 스프라이트 연결 |
 
-### 재사용할 기존 자산
+### 게임 자산 (`assets/`)
 
-- `engine::audio::AudioManager` (`crates/engine/src/audio.rs:12`) — 그대로
-- `engine::animation::AnimationSystem` + `AnimationPlayer::current_uv` (`animation.rs`, `components.rs:111`) — 그대로
-- `engine::ecs::System` trait (`ecs/system.rs`) — 그대로
-- `engine::components::{Transform, Sprite, UvRect}` — `Transform.z` 만 추가
-- `engine::renderer::SpriteRenderer` — 카메라/z-order 패치만, 인스턴싱 파이프라인 재사용
-- `engine::components::GameState` — 변종만 확장
+| 폴더 | 내용 |
+|---|---|
+| `assets/textures/` | 게임 스프라이트/아틀라스 |
+| `assets/audio/` | BGM/SFX wav |
+| `assets/fonts/` | 동봉 폰트. 한글 렌더 일관성 유지 |
+| `assets/data/` | 무기/스폰 wave RON 데이터 |
+| `assets/shaders/` | 현재 엔진 렌더러가 참조하는 WGSL 셰이더. 엔진 분리 이후 위치 정책은 별도 정리 필요 |
 
+### 엔진 API 사용 규칙
+
+- 게임에서는 `engine::{App, World, System, Transform, Sprite, ...}` 처럼 공개 API만 사용한다.
+- 게임 편의를 위해 엔진 내부 파일을 직접 import 하거나 상대 경로로 참조하지 않는다.
+- 필요한 엔진 기능이 공개 API에 없으면 먼저 `rust-2d-engine`에서 API를 추가한 뒤, 이 저장소의 dependency를 갱신한다.
+- borrow checker 충돌이 나는 시스템은 기존 패턴처럼 “query로 값 수집 → 이후 get_mut로 갱신” 순서로 작성한다.

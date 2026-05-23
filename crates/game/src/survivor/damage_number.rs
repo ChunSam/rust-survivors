@@ -18,9 +18,9 @@ use rand::Rng;
 #[derive(Debug, Clone, Copy)]
 pub struct DamageNumber {
     /// 표시할 데미지 값 (소수점 1자리까지 반올림하여 표기).
-    pub value:    f32,
+    pub value: f32,
     /// 누적 수명(초). 0 에서 시작해 매 프레임 dt 만큼 증가.
-    pub age:      f32,
+    pub age: f32,
     /// 총 수명(초). `age >= lifetime` 이면 despawn.
     pub lifetime: f32,
 }
@@ -41,18 +41,24 @@ impl DamageNumber {
 /// 가량 x 를 흔든다 (시각 노이즈).
 pub fn spawn_damage_number(world: &mut World, pos: Vec2, value: f32) -> Entity {
     let jitter_x = rand::thread_rng().gen_range(-8.0..8.0);
-    let e        = world.spawn();
-    world.add_component(e, Transform {
-        position: pos + Vec2::new(jitter_x, -16.0),
-        scale:    Vec2::new(1.0, 1.0), // 렌더용 스프라이트는 없음. 텍스트로만 그림.
-        rotation: 0.0,
-        z:        0.95, // HUD 보다 낮고 거의 모든 게임 오브젝트보다 위
-    });
-    world.add_component(e, DamageNumber {
-        value,
-        age:      0.0,
-        lifetime: 0.6, // 0.6 초간 떠오른 뒤 사라짐
-    });
+    let e = world.spawn();
+    world.add_component(
+        e,
+        Transform {
+            position: pos + Vec2::new(jitter_x, -16.0),
+            scale: Vec2::new(1.0, 1.0), // 렌더용 스프라이트는 없음. 텍스트로만 그림.
+            rotation: 0.0,
+            z: 0.95, // HUD 보다 낮고 거의 모든 게임 오브젝트보다 위
+        },
+    );
+    world.add_component(
+        e,
+        DamageNumber {
+            value,
+            age: 0.0,
+            lifetime: 0.6, // 0.6 초간 떠오른 뒤 사라짐
+        },
+    );
     e
 }
 
@@ -103,7 +109,11 @@ mod tests {
 
     #[test]
     fn fade_progresses_from_zero_to_one() {
-        let mut dn = DamageNumber { value: 10.0, age: 0.0, lifetime: 1.0 };
+        let mut dn = DamageNumber {
+            value: 10.0,
+            age: 0.0,
+            lifetime: 1.0,
+        };
         assert_eq!(dn.fade(), 0.0);
         dn.age = 0.5;
         assert_eq!(dn.fade(), 0.5);
@@ -143,6 +153,9 @@ mod tests {
 
         // 충분히 큰 dt 로 한 번에 수명 초과 → despawn
         sys.run(&mut world, 1.0);
-        assert!(world.get::<DamageNumber>(e).is_none(), "should be despawned");
+        assert!(
+            world.get::<DamageNumber>(e).is_none(),
+            "should be despawned"
+        );
     }
 }

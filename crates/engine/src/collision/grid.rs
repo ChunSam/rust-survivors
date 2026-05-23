@@ -21,10 +21,7 @@ impl Collider {
                 Vec2::new(center.x - radius, center.y - radius),
                 Vec2::new(center.x + radius, center.y + radius),
             ),
-            Collider::Aabb { half_extents } => (
-                center - *half_extents,
-                center + *half_extents,
-            ),
+            Collider::Aabb { half_extents } => (center - *half_extents, center + *half_extents),
         }
     }
 }
@@ -42,7 +39,7 @@ impl Collider {
 pub struct CollisionLayer(pub u32);
 
 impl CollisionLayer {
-    pub const ALL:  Self = Self(u32::MAX);
+    pub const ALL: Self = Self(u32::MAX);
     pub const NONE: Self = Self(0);
 
     /// 이 레이어와 mask 사이에 공통 비트가 있으면 true
@@ -56,9 +53,9 @@ impl CollisionLayer {
 /// 엔티티별 그리드 항목 — 쿼리 시 사용
 #[derive(Debug, Clone, Copy)]
 pub struct GridEntry {
-    pub center:   Vec2,
+    pub center: Vec2,
     pub collider: Collider,
-    pub layer:    CollisionLayer,
+    pub layer: CollisionLayer,
 }
 
 /// 공간 해시 그리드.
@@ -78,7 +75,7 @@ pub struct SpatialGrid {
 impl SpatialGrid {
     pub fn new(cell_size: f32) -> Self {
         Self {
-            cell:    cell_size,
+            cell: cell_size,
             buckets: HashMap::new(),
             entries: HashMap::new(),
         }
@@ -101,7 +98,7 @@ impl SpatialGrid {
             .query2::<Transform, Collider>()
             .map(|(entity, transform, collider)| {
                 let center = transform.position;
-                let layer  = world
+                let layer = world
                     .get::<CollisionLayer>(entity)
                     .copied()
                     .unwrap_or(CollisionLayer::ALL);
@@ -119,32 +116,35 @@ impl SpatialGrid {
 
             for col in col_min..=col_max {
                 for row in row_min..=row_max {
-                    self.buckets
-                        .entry((col, row))
-                        .or_default()
-                        .push(entity);
+                    self.buckets.entry((col, row)).or_default().push(entity);
                 }
             }
 
-            self.entries.insert(entity, GridEntry { center, collider, layer });
+            self.entries.insert(
+                entity,
+                GridEntry {
+                    center,
+                    collider,
+                    layer,
+                },
+            );
         }
     }
 
     /// 셀 좌표에서 해당 bucket 을 꺼낸다.
     fn cell_key(&self, x: f32, y: f32) -> (i32, i32) {
-        ((x / self.cell).floor() as i32, (y / self.cell).floor() as i32)
+        (
+            (x / self.cell).floor() as i32,
+            (y / self.cell).floor() as i32,
+        )
     }
 
     /// AABB 범위에 해당하는 모든 셀에서 중복 없는 후보 엔티티를 수집한다.
-    pub(crate) fn candidates_in_aabb(
-        &self,
-        min: Vec2,
-        max: Vec2,
-    ) -> Vec<Entity> {
+    pub(crate) fn candidates_in_aabb(&self, min: Vec2, max: Vec2) -> Vec<Entity> {
         let (col_min, row_min) = self.cell_key(min.x, min.y);
         let (col_max, row_max) = self.cell_key(max.x, max.y);
 
-        let mut seen  = std::collections::HashSet::new();
+        let mut seen = std::collections::HashSet::new();
         let mut result = Vec::new();
 
         for col in col_min..=col_max {
@@ -179,7 +179,9 @@ pub struct CollisionGridSystem {
 
 impl CollisionGridSystem {
     pub fn new(cell_size: f32) -> Self {
-        Self { grid: SpatialGrid::new(cell_size) }
+        Self {
+            grid: SpatialGrid::new(cell_size),
+        }
     }
 }
 
@@ -198,12 +200,15 @@ mod tests {
     fn make_world_with_circle(pos: Vec2, radius: f32) -> (World, Entity) {
         let mut world = World::new();
         let e = world.spawn();
-        world.add_component(e, Transform {
-            position: pos,
-            scale:    Vec2::ONE,
-            rotation: 0.0,
-            z:        0.0,
-        });
+        world.add_component(
+            e,
+            Transform {
+                position: pos,
+                scale: Vec2::ONE,
+                rotation: 0.0,
+                z: 0.0,
+            },
+        );
         world.add_component(e, Collider::Circle { radius });
         (world, e)
     }
@@ -235,19 +240,29 @@ mod tests {
 
         // LAYER_A 엔티티
         let e_a = world.spawn();
-        world.add_component(e_a, Transform {
-            position: Vec2::new(10.0, 10.0),
-            scale: Vec2::ONE, rotation: 0.0, z: 0.0,
-        });
+        world.add_component(
+            e_a,
+            Transform {
+                position: Vec2::new(10.0, 10.0),
+                scale: Vec2::ONE,
+                rotation: 0.0,
+                z: 0.0,
+            },
+        );
         world.add_component(e_a, Collider::Circle { radius: 8.0 });
         world.add_component(e_a, CollisionLayer(1 << 0)); // bit 0
 
         // LAYER_B 엔티티
         let e_b = world.spawn();
-        world.add_component(e_b, Transform {
-            position: Vec2::new(20.0, 10.0),
-            scale: Vec2::ONE, rotation: 0.0, z: 0.0,
-        });
+        world.add_component(
+            e_b,
+            Transform {
+                position: Vec2::new(20.0, 10.0),
+                scale: Vec2::ONE,
+                rotation: 0.0,
+                z: 0.0,
+            },
+        );
         world.add_component(e_b, Collider::Circle { radius: 8.0 });
         world.add_component(e_b, CollisionLayer(1 << 1)); // bit 1
 
@@ -256,7 +271,7 @@ mod tests {
 
         // bit 0 마스크 → e_a 만 검출, e_b 제외
         let result = grid.query_radius(Vec2::ZERO, 500.0, CollisionLayer(1 << 0));
-        assert!(result.contains(&e_a),  "e_a 는 마스크와 일치해야 함");
+        assert!(result.contains(&e_a), "e_a 는 마스크와 일치해야 함");
         assert!(!result.contains(&e_b), "e_b 는 마스크와 불일치해야 함");
     }
 
@@ -267,7 +282,9 @@ mod tests {
         let mut grid = SpatialGrid::new(128.0);
 
         grid.rebuild(&world);
-        assert!(!grid.query_radius(Vec2::ZERO, 500.0, CollisionLayer::ALL).is_empty());
+        assert!(!grid
+            .query_radius(Vec2::ZERO, 500.0, CollisionLayer::ALL)
+            .is_empty());
 
         // despawn 후 rebuild
         world.despawn(e);

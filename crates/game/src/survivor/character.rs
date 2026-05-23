@@ -1,12 +1,11 @@
+use engine::input::InputState;
 /// Phase 9: 캐릭터 6종 + CharacterSelect 화면 + 해금 시스템.
 ///
 /// - `CharacterKind` — 6종 캐릭터 (Antonio/Imelda/Pasqualina/Gennaro/Arca/Porta).
 /// - `SelectedCharacter` — 현재 선택된 캐릭터 리소스.
 /// - `CharacterCursor` — CharacterSelect 화면 커서 리소스.
 /// - `CharacterSelectSystem` — W/S/Enter/Esc 입력 처리.
-
 use engine::{System, World};
-use engine::input::InputState;
 use serde::{Deserialize, Serialize};
 use winit::keyboard::KeyCode;
 
@@ -29,7 +28,9 @@ pub enum CharacterKind {
 }
 
 impl Default for CharacterKind {
-    fn default() -> Self { Self::Antonio }
+    fn default() -> Self {
+        Self::Antonio
+    }
 }
 
 impl CharacterKind {
@@ -44,36 +45,42 @@ impl CharacterKind {
 
     pub fn label(self, lang: Lang) -> &'static str {
         match self {
-            CharacterKind::Antonio    => loc(lang, "안토니오 (채찍)",          "Antonio (Whip)"),
-            CharacterKind::Imelda     => loc(lang, "이멜다 (마법 지팡이)",      "Imelda (MagicWand)"),
-            CharacterKind::Pasqualina => loc(lang, "파스콸리나 (나이프)",        "Pasqualina (Knife)"),
-            CharacterKind::Gennaro    => loc(lang, "젠나로 (도끼)",             "Gennaro (Axe)"),
-            CharacterKind::Arca       => loc(lang, "아르카 (불 지팡이)",         "Arca (FireWand)"),
-            CharacterKind::Porta      => loc(lang, "포르타 (번개)",             "Porta (Lightning)"),
+            CharacterKind::Antonio => loc(lang, "안토니오 (채찍)", "Antonio (Whip)"),
+            CharacterKind::Imelda => loc(lang, "이멜다 (마법 지팡이)", "Imelda (MagicWand)"),
+            CharacterKind::Pasqualina => loc(lang, "파스콸리나 (나이프)", "Pasqualina (Knife)"),
+            CharacterKind::Gennaro => loc(lang, "젠나로 (도끼)", "Gennaro (Axe)"),
+            CharacterKind::Arca => loc(lang, "아르카 (불 지팡이)", "Arca (FireWand)"),
+            CharacterKind::Porta => loc(lang, "포르타 (번개)", "Porta (Lightning)"),
         }
     }
 
     pub fn key(self) -> &'static str {
         match self {
-            CharacterKind::Antonio    => "Antonio",
-            CharacterKind::Imelda     => "Imelda",
+            CharacterKind::Antonio => "Antonio",
+            CharacterKind::Imelda => "Imelda",
             CharacterKind::Pasqualina => "Pasqualina",
-            CharacterKind::Gennaro    => "Gennaro",
-            CharacterKind::Arca       => "Arca",
-            CharacterKind::Porta      => "Porta",
+            CharacterKind::Gennaro => "Gennaro",
+            CharacterKind::Arca => "Arca",
+            CharacterKind::Porta => "Porta",
         }
     }
 
     /// 해금 조건 — gold_total 누적치. Antonio 는 항상 해금.
     pub fn unlock_gold(self) -> u32 {
         match self {
-            CharacterKind::Antonio    => 0,
-            CharacterKind::Imelda     => 100,
+            CharacterKind::Antonio => 0,
+            CharacterKind::Imelda => 100,
             CharacterKind::Pasqualina => 300,
-            CharacterKind::Gennaro    => 600,
-            CharacterKind::Arca       => 1000,
-            CharacterKind::Porta      => 2000,
+            CharacterKind::Gennaro => 600,
+            CharacterKind::Arca => 1000,
+            CharacterKind::Porta => 2000,
         }
+    }
+
+    pub fn is_unlocked(self, meta: &MetaSave) -> bool {
+        self == CharacterKind::Antonio
+            || meta.unlocked_chars.iter().any(|c| c == self.key())
+            || meta.gold_total >= self.unlock_gold()
     }
 
     /// 캐릭터별 PlayerStats 보정 (default 위에 추가 적용).
@@ -81,90 +88,92 @@ impl CharacterKind {
     /// `StatRecalcSystem` 이 default + passive + powerup 합산 후 이 함수를 호출한다.
     pub fn apply_stats(self, stats: &mut PlayerStats) {
         match self {
-            CharacterKind::Antonio    => {}             // 기본 — 보정 없음
-            CharacterKind::Imelda     => stats.growth *= 1.10,
+            CharacterKind::Antonio => {} // 기본 — 보정 없음
+            CharacterKind::Imelda => stats.growth *= 1.10,
             CharacterKind::Pasqualina => stats.amount += 1,
-            CharacterKind::Gennaro    => stats.might += 1.0,
-            CharacterKind::Arca       => stats.might += 2.0,
-            CharacterKind::Porta      => stats.luck *= 1.20,
+            CharacterKind::Gennaro => stats.might += 1.0,
+            CharacterKind::Arca => stats.might += 2.0,
+            CharacterKind::Porta => stats.luck *= 1.20,
         }
     }
 
-    /// 캐릭터별 시작 인벤토리.
-    ///
-    /// - Antonio : 기본 캐릭터 → 전체 10종 로드아웃 (데모/테스트 호환).
-    /// - 나머지 5종 : 1 무기만 보유 → LevelUp 카드로 확장.
+    /// 캐릭터별 시작 인벤토리. 모든 캐릭터가 1개 무기로 시작한다.
     pub fn starter_inventory(self) -> WeaponInventory {
-        // Antonio 는 전체 스타터 로드아웃 (기존 데모 + 테스트 호환)
-        if self == CharacterKind::Antonio {
-            return WeaponInventory::with_starter_loadout();
-        }
-
         let mut inv = WeaponInventory { slots: Vec::new() };
         let slot = match self {
-            CharacterKind::Antonio => unreachable!("위에서 처리됨"),
+            CharacterKind::Antonio => WeaponSlot {
+                kind: WeaponKind::Whip {
+                    damage: 10.0,
+                    area_width: 120.0,
+                    area_height: 60.0,
+                },
+                level: 1,
+                cooldown: 1.0,
+                elapsed: 0.0,
+                evolved: false,
+            },
             CharacterKind::Imelda => WeaponSlot {
                 kind: WeaponKind::MagicWand {
-                    damage:           8.0,
+                    damage: 8.0,
                     projectile_speed: 300.0,
-                    lifetime:         1.5,
-                    pierce:           0,
+                    lifetime: 1.5,
+                    pierce: 0,
                 },
-                level:    1,
+                level: 1,
                 cooldown: 1.2,
-                elapsed:  0.0,
-                evolved:  false,
+                elapsed: 0.0,
+                evolved: false,
             },
             CharacterKind::Pasqualina => WeaponSlot {
                 kind: WeaponKind::Knife {
-                    damage:           6.0,
+                    damage: 6.0,
                     projectile_speed: 400.0,
-                    lifetime:         1.0,
-                    pierce:           0,
-                    amount:           1,
-                    spread_radians:   0.3,
+                    lifetime: 1.0,
+                    pierce: 0,
+                    amount: 1,
+                    spread_radians: 0.3,
                 },
-                level:    1,
+                level: 1,
                 cooldown: 0.8,
-                elapsed:  0.0,
-                evolved:  false,
+                elapsed: 0.0,
+                evolved: false,
             },
             CharacterKind::Gennaro => WeaponSlot {
                 kind: WeaponKind::Axe {
-                    damage:        12.0,
+                    damage: 12.0,
                     initial_speed: 250.0,
-                    gravity:       600.0,
-                    lifetime:      1.5,
-                    pierce:        2,
-                    amount:        1,
+                    gravity: 600.0,
+                    lifetime: 1.5,
+                    pierce: 2,
+                    amount: 1,
                 },
-                level:    1,
+                level: 1,
                 cooldown: 1.5,
-                elapsed:  0.0,
-                evolved:  false,
+                elapsed: 0.0,
+                evolved: false,
             },
             CharacterKind::Arca => WeaponSlot {
                 kind: WeaponKind::FireWand {
-                    damage:           25.0,
+                    damage: 25.0,
                     projectile_speed: 250.0,
-                    lifetime:         1.5,
-                    pierce:           0,
+                    lifetime: 1.5,
+                    pierce: 0,
                 },
-                level:    1,
+                level: 1,
                 cooldown: 2.5,
-                elapsed:  0.0,
-                evolved:  false,
+                elapsed: 0.0,
+                evolved: false,
             },
             CharacterKind::Porta => WeaponSlot {
                 kind: WeaponKind::LightningRing {
-                    damage:       30.0,
+                    damage: 30.0,
                     strike_count: 1,
-                    hit_radius:   40.0,
+                    hit_radius: 40.0,
                 },
-                level:    1,
+                level: 1,
                 cooldown: 4.0,
-                elapsed:  0.0,
-                evolved:  false,
+                elapsed: 0.0,
+                evolved: false,
             },
         };
         inv.slots.push(slot);
@@ -208,7 +217,7 @@ impl System for CharacterSelectSystem {
         let (up, down, enter, esc) = {
             let i = match world.resource::<InputState>() {
                 Some(i) => i,
-                None    => return,
+                None => return,
             };
             (
                 i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
@@ -218,10 +227,7 @@ impl System for CharacterSelectSystem {
             )
         };
 
-        let gold = world
-            .resource::<MetaSave>()
-            .map(|m| m.gold_total)
-            .unwrap_or(0);
+        let meta_snapshot = world.resource::<MetaSave>().cloned().unwrap_or_default();
 
         // 커서 이동
         if up || down {
@@ -237,12 +243,12 @@ impl System for CharacterSelectSystem {
 
         // 선택 확정
         if enter {
-            let idx  = world
+            let idx = world
                 .resource::<CharacterCursor>()
                 .map(|c| c.index)
                 .unwrap_or(0);
             let kind = CharacterKind::ALL[idx];
-            if gold >= kind.unlock_gold() {
+            if kind.is_unlocked(&meta_snapshot) {
                 if let Some(sel) = world.resource_mut::<SelectedCharacter>() {
                     sel.0 = kind;
                 }
@@ -255,7 +261,7 @@ impl System for CharacterSelectSystem {
                     "{} locked (need {} gold, have {})",
                     kind.label(Lang::En),
                     kind.unlock_gold(),
-                    gold
+                    meta_snapshot.gold_total
                 );
             }
         }
@@ -283,11 +289,10 @@ mod tests {
     #[test]
     fn antonio_starter_inventory_has_whip() {
         let inv = CharacterKind::Antonio.starter_inventory();
-        // Antonio 는 전체 스타터 로드아웃 (10종 — 데모·테스트 호환)
-        assert!(inv.slots.len() >= 1, "Antonio 는 최소 1개 이상의 무기가 있어야 함");
+        assert_eq!(inv.slots.len(), 1, "Antonio 는 시작 무기 1개만 가져야 함");
         assert!(
             matches!(inv.slots[0].kind, WeaponKind::Whip { .. }),
-            "Antonio 의 첫 번째 무기는 Whip 이어야 함"
+            "Antonio 의 시작 무기는 Whip 이어야 함"
         );
     }
 

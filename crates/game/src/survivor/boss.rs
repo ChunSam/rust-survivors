@@ -7,15 +7,16 @@
 //! - CameraShake: duration/intensity 기반 랜덤 offset 리소스
 //! - StageProgress: cleared 플래그
 
-use engine::{Collider, CollisionLayer, Sprite, System, Transform, World};
-use engine::components::GameState;
-use glam::Vec2;
 use super::enemy::{Enemy, EnemyAi, EnemyAiKind, EnemyKind};
 use super::health::Health;
 use super::hud::GameStats;
 use super::locale::{loc, Lang};
 use super::player::Player;
+use super::sprites::{add_sprite, SurvivorSprite};
 use super::LAYER_ENEMY;
+use engine::components::GameState;
+use engine::{Collider, CollisionLayer, System, Transform, World};
+use glam::Vec2;
 
 // ─── BossKind ────────────────────────────────────────────────────────────────
 
@@ -30,25 +31,25 @@ pub enum BossKind {
 impl BossKind {
     pub fn spawn_time(self) -> f32 {
         match self {
-            BossKind::GiantSlime => 600.0,  // 10분
-            BossKind::GhostKing  => 1200.0, // 20분
-            BossKind::Death      => 1800.0, // 30분
+            BossKind::GiantSlime => 600.0, // 10분
+            BossKind::GhostKing => 1200.0, // 20분
+            BossKind::Death => 1800.0,     // 30분
         }
     }
 
     pub fn max_hp(self) -> f32 {
         match self {
             BossKind::GiantSlime => 1000.0,
-            BossKind::GhostKing  => 2500.0,
-            BossKind::Death      => 6000.0,
+            BossKind::GhostKing => 2500.0,
+            BossKind::Death => 6000.0,
         }
     }
 
     pub fn color(self) -> [f32; 3] {
         match self {
             BossKind::GiantSlime => [0.2, 0.6, 0.8],
-            BossKind::GhostKing  => [0.7, 0.7, 1.0],
-            BossKind::Death      => [0.5, 0.0, 0.0],
+            BossKind::GhostKing => [0.7, 0.7, 1.0],
+            BossKind::Death => [0.5, 0.0, 0.0],
         }
     }
 
@@ -60,8 +61,8 @@ impl BossKind {
     pub fn label(self, lang: Lang) -> &'static str {
         match self {
             BossKind::GiantSlime => loc(lang, "자이언트 슬라임", "GIANT SLIME"),
-            BossKind::GhostKing  => loc(lang, "고스트 킹",       "GHOST KING"),
-            BossKind::Death      => loc(lang, "죽음",            "DEATH"),
+            BossKind::GhostKing => loc(lang, "고스트 킹", "GHOST KING"),
+            BossKind::Death => loc(lang, "죽음", "DEATH"),
         }
     }
 }
@@ -71,12 +72,12 @@ impl BossKind {
 /// 보스 컴포넌트. multi-phase 트래킹.
 #[derive(Debug, Clone)]
 pub struct Boss {
-    pub kind:       BossKind,
+    pub kind: BossKind,
     /// 현재 페이즈. 0=full HP, 1=50% 미만, 2=20% 미만.
-    pub phase:      u8,
+    pub phase: u8,
     pub move_speed: f32,
     pub spawn_time: f32,
-    pub spawned:    bool,
+    pub spawned: bool,
 }
 
 // ─── BossSpawnQueue ───────────────────────────────────────────────────────────
@@ -101,15 +102,15 @@ impl Default for BossSpawnQueue {
 /// CameraFollowSystem 이 매 프레임 elapsed 를 증가시키고, is_active() 이면 카메라에 오프셋 적용.
 #[derive(Debug, Default)]
 pub struct CameraShake {
-    pub elapsed:   f32,
-    pub duration:  f32,
+    pub elapsed: f32,
+    pub duration: f32,
     pub intensity: f32,
 }
 
 impl CameraShake {
     pub fn trigger(&mut self, duration: f32, intensity: f32) {
-        self.elapsed   = 0.0;
-        self.duration  = duration;
+        self.elapsed = 0.0;
+        self.duration = duration;
         self.intensity = intensity;
     }
 
@@ -132,33 +133,56 @@ pub struct StageProgress {
 pub fn spawn_boss(world: &mut World, pos: Vec2, kind: BossKind) {
     let e = world.spawn();
     let scale = kind.scale();
-    let color = kind.color();
-
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::new(scale, scale),
-        rotation: 0.0,
-        z:        0.6, // 일반 적(0.5) 보다 위
-    });
-    world.add_component(e, Sprite::colored(color[0], color[1], color[2]));
-    world.add_component(e, Boss {
-        kind,
-        phase:      0,
-        move_speed: 60.0,
-        spawn_time: kind.spawn_time(),
-        spawned:    true,
-    });
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::new(scale, scale),
+            rotation: 0.0,
+            z: 0.6, // 일반 적(0.5) 보다 위
+        },
+    );
+    let sprite = match kind {
+        BossKind::GiantSlime => SurvivorSprite::GiantSlime,
+        BossKind::GhostKing => SurvivorSprite::GhostKing,
+        BossKind::Death => SurvivorSprite::Death,
+    };
+    add_sprite(world, e, sprite);
+    world.add_component(
+        e,
+        Boss {
+            kind,
+            phase: 0,
+            move_speed: 60.0,
+            spawn_time: kind.spawn_time(),
+            spawned: true,
+        },
+    );
     // Enemy 컴포넌트 — apply_damage_to_enemy 호환을 위해 부착.
-    world.add_component(e, Enemy {
-        kind:            EnemyKind::Knight,
-        contact_damage:  25.0,
-        split_remaining: 0,
-        is_elite:        false,
-    });
-    world.add_component(e, EnemyAi { move_speed: 60.0, ai: EnemyAiKind::Chase });
+    world.add_component(
+        e,
+        Enemy {
+            kind: EnemyKind::Knight,
+            contact_damage: 25.0,
+            split_remaining: 0,
+            is_elite: false,
+        },
+    );
+    world.add_component(
+        e,
+        EnemyAi {
+            move_speed: 60.0,
+            ai: EnemyAiKind::Chase,
+        },
+    );
     world.add_component(e, Health::new(kind.max_hp()));
     world.add_component(e, CollisionLayer(LAYER_ENEMY));
-    world.add_component(e, Collider::Circle { radius: scale / 2.0 });
+    world.add_component(
+        e,
+        Collider::Circle {
+            radius: scale / 2.0,
+        },
+    );
 }
 
 // ─── BossSpawnSystem ──────────────────────────────────────────────────────────
@@ -172,8 +196,11 @@ impl System for BossSpawnSystem {
             return;
         }
 
-        let elapsed     = world.resource::<GameStats>().map(|s| s.elapsed).unwrap_or(0.0);
-        let player_pos  = world
+        let elapsed = world
+            .resource::<GameStats>()
+            .map(|s| s.elapsed)
+            .unwrap_or(0.0);
+        let player_pos = world
             .query2::<Player, Transform>()
             .next()
             .map(|(_, _, t)| t.position);
@@ -183,7 +210,7 @@ impl System for BossSpawnSystem {
         let to_spawn: Vec<BossKind> = {
             let queue = match world.resource_mut::<BossSpawnQueue>() {
                 Some(q) => q,
-                None    => return,
+                None => return,
             };
             let triggered: Vec<BossKind> = queue
                 .pending
@@ -236,7 +263,7 @@ impl System for BossPhaseSystem {
 
         for (entity, new_phase, kind) in updates {
             if let Some(b) = world.get_mut::<Boss>(entity) {
-                b.phase      = new_phase;
+                b.phase = new_phase;
                 b.move_speed *= 1.4;
             }
             if let Some(en) = world.get_mut::<Enemy>(entity) {

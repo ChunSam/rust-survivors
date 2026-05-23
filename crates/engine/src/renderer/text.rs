@@ -1,28 +1,24 @@
 use glam::Vec2;
 use glyphon::{
-    Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution, Shaping,
-    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer as GlyphonTextRenderer,
-    Viewport,
+    Attrs, Buffer, Cache, Color, Family, FontSystem, Metrics, Resolution, Shaping, SwashCache,
+    TextArea, TextAtlas, TextBounds, TextRenderer as GlyphonTextRenderer, Viewport,
 };
 use wgpu::{
-    CommandEncoder, Device, LoadOp, MultisampleState, Operations, Queue,
-    RenderPassColorAttachment, RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
+    CommandEncoder, Device, LoadOp, MultisampleState, Operations, Queue, RenderPassColorAttachment,
+    RenderPassDescriptor, StoreOp, TextureFormat, TextureView,
 };
 
 use crate::ecs::World;
 
-const NOTO_SANS_KR: &[u8] =
-    include_bytes!("../../../../assets/fonts/NotoSansKR-Regular.ttf");
-
 /// 한 줄 텍스트 그리기 명령. `position`은 좌상단 픽셀 좌표.
 #[derive(Debug, Clone)]
 pub struct DrawText {
-    pub text:     String,
+    pub text: String,
     pub position: Vec2,
     /// 폰트 픽셀 크기
-    pub size:     f32,
+    pub size: f32,
     /// RGBA (0~255)
-    pub color:    [u8; 4],
+    pub color: [u8; 4],
 }
 
 /// 매 프레임 텍스트 그리기 요청을 모으는 큐.
@@ -75,23 +71,27 @@ pub struct TextRenderer {
     /// `TextAtlas` が内部で `Cache` を `clone()` するため、フィールドとして
     /// 保持しなくても動くが、所有権を明示的に残す (CLAUDE.md 決定事項).
     #[allow(dead_code)]
-    cache:       Cache,
-    atlas:       TextAtlas,
-    viewport:    Viewport,
-    renderer:    GlyphonTextRenderer,
+    cache: Cache,
+    atlas: TextAtlas,
+    viewport: Viewport,
+    renderer: GlyphonTextRenderer,
 }
 
 impl TextRenderer {
-    /// GPU 리소스를 초기화하고 NotoSansKR 폰트를 fontdb 에 로드한다.
-    pub fn new(device: &Device, queue: &Queue, format: TextureFormat) -> Self {
-        // 1. FontSystem — fontdb 에 임베딩된 NotoSansKR TTF 를 직접 로드
+    /// GPU 리소스를 초기화한다.
+    ///
+    /// `font_data` 가 비어 있지 않으면 해당 TTF/OTF 바이트를 fontdb 에 로드한다.
+    /// 비어 있으면 glyphon 의 시스템 폰트 폴백을 사용한다.
+    pub fn new(device: &Device, queue: &Queue, format: TextureFormat, font_data: &[u8]) -> Self {
         let mut font_system = FontSystem::new();
-        font_system.db_mut().load_font_data(NOTO_SANS_KR.to_vec());
+        if !font_data.is_empty() {
+            font_system.db_mut().load_font_data(font_data.to_vec());
+        }
 
         let swash_cache = SwashCache::new();
 
         // 2. Cache 먼저, 그 다음 Atlas / Viewport
-        let cache    = Cache::new(device);
+        let cache = Cache::new(device);
         let viewport = Viewport::new(device, &cache);
         let mut atlas = TextAtlas::new(device, queue, &cache, format);
 
@@ -99,7 +99,14 @@ impl TextRenderer {
         let renderer =
             GlyphonTextRenderer::new(&mut atlas, device, MultisampleState::default(), None);
 
-        Self { font_system, swash_cache, cache, atlas, viewport, renderer }
+        Self {
+            font_system,
+            swash_cache,
+            cache,
+            atlas,
+            viewport,
+            renderer,
+        }
     }
 
     /// ECS `World` 에서 `TextQueue` 를 꺼내 텍스트를 렌더링한다.
@@ -109,13 +116,13 @@ impl TextRenderer {
     /// - 렌더 후 큐를 비운다.
     pub fn render(
         &mut self,
-        device:  &Device,
-        queue:   &Queue,
+        device: &Device,
+        queue: &Queue,
         encoder: &mut CommandEncoder,
-        view:    &TextureView,
-        world:   &mut World,
-        w:       u32,
-        h:       u32,
+        view: &TextureView,
+        world: &mut World,
+        w: u32,
+        h: u32,
     ) {
         // 큐에서 항목을 꺼낸다. 비어 있으면 조기 반환.
         let items: Vec<DrawText> = match world.resource_mut::<TextQueue>() {
@@ -128,7 +135,13 @@ impl TextRenderer {
         };
 
         // Viewport 갱신 (매 프레임 해상도를 GPU 유니폼에 씀)
-        self.viewport.update(queue, Resolution { width: w, height: h });
+        self.viewport.update(
+            queue,
+            Resolution {
+                width: w,
+                height: h,
+            },
+        );
 
         // 각 DrawText 를 glyphon Buffer 로 변환
         // - `Buffer::set_size` 는 cosmic-text 에서 `(font_system, Option<f32>, Option<f32>)` 를 받는다.
@@ -157,22 +170,17 @@ impl TextRenderer {
         let text_areas: Vec<TextArea<'_>> = buffers
             .iter()
             .map(|(buf, d)| TextArea {
-                buffer:        buf,
-                left:          d.position.x,
-                top:           d.position.y,
-                scale:         1.0,
-                bounds:        TextBounds {
-                    left:   0,
-                    top:    0,
-                    right:  w as i32,
+                buffer: buf,
+                left: d.position.x,
+                top: d.position.y,
+                scale: 1.0,
+                bounds: TextBounds {
+                    left: 0,
+                    top: 0,
+                    right: w as i32,
                     bottom: h as i32,
                 },
-                default_color: Color::rgba(
-                    d.color[0],
-                    d.color[1],
-                    d.color[2],
-                    d.color[3],
-                ),
+                default_color: Color::rgba(d.color[0], d.color[1], d.color[2], d.color[3]),
                 custom_glyphs: &[],
             })
             .collect();
@@ -196,13 +204,13 @@ impl TextRenderer {
                     view,
                     resolve_target: None,
                     ops: Operations {
-                        load:  LoadOp::Load,
+                        load: LoadOp::Load,
                         store: StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: None,
-                timestamp_writes:         None,
-                occlusion_query_set:      None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             let _ = self.renderer.render(&self.atlas, &self.viewport, &mut pass);
         }
@@ -220,10 +228,10 @@ mod tests {
 
     fn make_draw_text(text: &str) -> DrawText {
         DrawText {
-            text:     text.into(),
+            text: text.into(),
             position: Vec2::new(0.0, 0.0),
-            size:     24.0,
-            color:    [255, 255, 255, 255],
+            size: 24.0,
+            color: [255, 255, 255, 255],
         }
     }
 
@@ -253,10 +261,10 @@ mod tests {
     #[test]
     fn drawtext_fields_preserved() {
         let d = DrawText {
-            text:     "안녕".into(),
+            text: "안녕".into(),
             position: Vec2::new(10.0, 20.0),
-            size:     24.0,
-            color:    [255, 0, 0, 255],
+            size: 24.0,
+            color: [255, 0, 0, 255],
         };
         assert_eq!(d.text, "안녕");
         assert_eq!(d.position, Vec2::new(10.0, 20.0));

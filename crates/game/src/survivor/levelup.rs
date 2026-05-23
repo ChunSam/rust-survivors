@@ -1,22 +1,22 @@
-use engine::{System, World};
-use engine::components::GameState;
-use engine::input::InputState;
-use rand::seq::SliceRandom;
-use winit::keyboard::KeyCode;
-use super::locale::{loc, Lang};
-use super::sfx::{SfxEvent, SfxQueue};
-use super::xp::XpAccumulator;
 use super::inventory::{WeaponInventory, WeaponKind};
+use super::locale::{loc, Lang};
 use super::passive::{PassiveInventory, PassiveKind};
 use super::player::Player;
+use super::sfx::{SfxEvent, SfxQueue};
+use super::xp::XpAccumulator;
+use engine::components::GameState;
+use engine::input::InputState;
+use engine::{System, World};
+use rand::seq::SliceRandom;
+use winit::keyboard::KeyCode;
 
 /// 카드 강화 종류 — 10 무기 × 2~3 카드씩 총 28 variant.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CardKind {
     // ── Whip (3)
-    WhipDamage,      // damage += 5
-    WhipArea,        // area_width += 20, area_height += 10
-    WhipCooldown,    // cooldown *= 0.85
+    WhipDamage,   // damage += 5
+    WhipArea,     // area_width += 20, area_height += 10
+    WhipCooldown, // cooldown *= 0.85
 
     // ── MagicWand (3)
     MagicWandDamage,   // damage += 4
@@ -34,9 +34,9 @@ pub enum CardKind {
     AxeCooldown, // cooldown *= 0.85
 
     // ── Cross (3)
-    CrossDamage,    // damage += 6
-    CrossReturnAt,  // return_at += 0.1 (부메랑 더 늦게 반전 → 더 멀리 감)
-    CrossCooldown,  // cooldown *= 0.85
+    CrossDamage,   // damage += 6
+    CrossReturnAt, // return_at += 0.1 (부메랑 더 늦게 반전 → 더 멀리 감)
+    CrossCooldown, // cooldown *= 0.85
 
     // ── FireWand (2)
     FireWandDamage,   // damage += 8
@@ -132,64 +132,141 @@ const ALL_CARDS: &[CardKind] = &[
 ];
 
 impl CardKind {
+    fn weapon_matches(self, weapon: &WeaponKind) -> bool {
+        match self {
+            CardKind::WhipDamage | CardKind::WhipArea | CardKind::WhipCooldown => {
+                matches!(weapon, WeaponKind::Whip { .. })
+            }
+            CardKind::MagicWandDamage | CardKind::MagicWandSpeed | CardKind::MagicWandCooldown => {
+                matches!(weapon, WeaponKind::MagicWand { .. })
+            }
+            CardKind::KnifeDamage | CardKind::KnifeAmount | CardKind::KnifeCooldown => {
+                matches!(weapon, WeaponKind::Knife { .. })
+            }
+            CardKind::AxeDamage | CardKind::AxePierce | CardKind::AxeCooldown => {
+                matches!(weapon, WeaponKind::Axe { .. })
+            }
+            CardKind::CrossDamage | CardKind::CrossReturnAt | CardKind::CrossCooldown => {
+                matches!(weapon, WeaponKind::Cross { .. })
+            }
+            CardKind::FireWandDamage | CardKind::FireWandCooldown => {
+                matches!(weapon, WeaponKind::FireWand { .. })
+            }
+            CardKind::GarlicDamage | CardKind::GarlicRadius | CardKind::GarlicCooldown => {
+                matches!(weapon, WeaponKind::Garlic { .. })
+            }
+            CardKind::HolyWaterDamage
+            | CardKind::HolyWaterDropCount
+            | CardKind::HolyWaterCooldown => {
+                matches!(weapon, WeaponKind::HolyWater { .. })
+            }
+            CardKind::KingBibleDamage
+            | CardKind::KingBibleBookCount
+            | CardKind::KingBibleCooldown => {
+                matches!(weapon, WeaponKind::KingBible { .. })
+            }
+            CardKind::LightningDamage
+            | CardKind::LightningStrikeCount
+            | CardKind::LightningCooldown => matches!(weapon, WeaponKind::LightningRing { .. }),
+            _ => false,
+        }
+    }
+
+    fn passive_kind(self) -> Option<PassiveKind> {
+        match self {
+            CardKind::PassiveSpinach => Some(PassiveKind::Spinach),
+            CardKind::PassiveArmor => Some(PassiveKind::Armor),
+            CardKind::PassiveHollowHeart => Some(PassiveKind::HollowHeart),
+            CardKind::PassivePummarola => Some(PassiveKind::Pummarola),
+            CardKind::PassiveEmptyTome => Some(PassiveKind::EmptyTome),
+            CardKind::PassiveCandelabrador => Some(PassiveKind::Candelabrador),
+            CardKind::PassiveBracer => Some(PassiveKind::Bracer),
+            CardKind::PassiveSpellbinder => Some(PassiveKind::Spellbinder),
+            CardKind::PassiveDuplicator => Some(PassiveKind::Duplicator),
+            CardKind::PassiveWings => Some(PassiveKind::Wings),
+            CardKind::PassiveAttractorb => Some(PassiveKind::Attractorb),
+            CardKind::PassiveClover => Some(PassiveKind::Clover),
+            CardKind::PassiveCrown => Some(PassiveKind::Crown),
+            CardKind::PassiveStoneMask => Some(PassiveKind::StoneMask),
+            CardKind::PassiveSkullOManiac => Some(PassiveKind::SkullOManiac),
+            CardKind::PassiveTiragisu => Some(PassiveKind::Tiragisu),
+            _ => None,
+        }
+    }
+
+    fn is_available_for(self, weapons: &WeaponInventory, passives: &PassiveInventory) -> bool {
+        if let Some(passive) = self.passive_kind() {
+            return passives.level_of(passive) < PassiveKind::MAX_LEVEL;
+        }
+
+        weapons
+            .slots
+            .iter()
+            .any(|slot| slot.level < 8 && self.weapon_matches(&slot.kind))
+    }
+
     pub fn label(self, lang: Lang) -> &'static str {
         match self {
             // Whip
-            CardKind::WhipDamage      => loc(lang, "채찍: 공격력 +5",   "Whip: DMG +5"),
-            CardKind::WhipArea        => loc(lang, "채찍: 범위 UP",      "Whip: AREA UP"),
-            CardKind::WhipCooldown    => loc(lang, "채찍: 쿨다운 -15%",  "Whip: CD -15%"),
+            CardKind::WhipDamage => loc(lang, "채찍: 공격력 +5", "Whip: DMG +5"),
+            CardKind::WhipArea => loc(lang, "채찍: 범위 UP", "Whip: AREA UP"),
+            CardKind::WhipCooldown => loc(lang, "채찍: 쿨다운 -15%", "Whip: CD -15%"),
             // MagicWand
-            CardKind::MagicWandDamage   => loc(lang, "마법 지팡이: 공격력 +4",   "Magic Wand: DMG +4"),
-            CardKind::MagicWandSpeed    => loc(lang, "마법 지팡이: 속도 +60",    "Magic Wand: SPD +60"),
-            CardKind::MagicWandCooldown => loc(lang, "마법 지팡이: 쿨다운 -15%", "Magic Wand: CD -15%"),
+            CardKind::MagicWandDamage => loc(lang, "마법 지팡이: 공격력 +4", "Magic Wand: DMG +4"),
+            CardKind::MagicWandSpeed => loc(lang, "마법 지팡이: 속도 +60", "Magic Wand: SPD +60"),
+            CardKind::MagicWandCooldown => {
+                loc(lang, "마법 지팡이: 쿨다운 -15%", "Magic Wand: CD -15%")
+            }
             // Knife
-            CardKind::KnifeDamage   => loc(lang, "나이프: 공격력 +4",    "Knife: DMG +4"),
-            CardKind::KnifeAmount   => loc(lang, "나이프: +1개",          "Knife: +1 Knife"),
-            CardKind::KnifeCooldown => loc(lang, "나이프: 쿨다운 -15%",   "Knife: CD -15%"),
+            CardKind::KnifeDamage => loc(lang, "나이프: 공격력 +4", "Knife: DMG +4"),
+            CardKind::KnifeAmount => loc(lang, "나이프: +1개", "Knife: +1 Knife"),
+            CardKind::KnifeCooldown => loc(lang, "나이프: 쿨다운 -15%", "Knife: CD -15%"),
             // Axe
-            CardKind::AxeDamage   => loc(lang, "도끼: 공격력 +5",    "Axe: DMG +5"),
-            CardKind::AxePierce   => loc(lang, "도끼: 관통 +1",      "Axe: PIERCE +1"),
-            CardKind::AxeCooldown => loc(lang, "도끼: 쿨다운 -15%",  "Axe: CD -15%"),
+            CardKind::AxeDamage => loc(lang, "도끼: 공격력 +5", "Axe: DMG +5"),
+            CardKind::AxePierce => loc(lang, "도끼: 관통 +1", "Axe: PIERCE +1"),
+            CardKind::AxeCooldown => loc(lang, "도끼: 쿨다운 -15%", "Axe: CD -15%"),
             // Cross
-            CardKind::CrossDamage   => loc(lang, "크로스: 공격력 +6",   "Cross: DMG +6"),
-            CardKind::CrossReturnAt => loc(lang, "크로스: 범위 UP",     "Cross: RANGE UP"),
+            CardKind::CrossDamage => loc(lang, "크로스: 공격력 +6", "Cross: DMG +6"),
+            CardKind::CrossReturnAt => loc(lang, "크로스: 범위 UP", "Cross: RANGE UP"),
             CardKind::CrossCooldown => loc(lang, "크로스: 쿨다운 -15%", "Cross: CD -15%"),
             // FireWand
-            CardKind::FireWandDamage   => loc(lang, "불 지팡이: 공격력 +8",   "Fire Wand: DMG +8"),
+            CardKind::FireWandDamage => loc(lang, "불 지팡이: 공격력 +8", "Fire Wand: DMG +8"),
             CardKind::FireWandCooldown => loc(lang, "불 지팡이: 쿨다운 -15%", "Fire Wand: CD -15%"),
             // Garlic
-            CardKind::GarlicDamage   => loc(lang, "마늘: 공격력 +2",    "Garlic: DMG +2"),
-            CardKind::GarlicRadius   => loc(lang, "마늘: 범위 +15",     "Garlic: AREA +15"),
-            CardKind::GarlicCooldown => loc(lang, "마늘: 쿨다운 -15%",  "Garlic: CD -15%"),
+            CardKind::GarlicDamage => loc(lang, "마늘: 공격력 +2", "Garlic: DMG +2"),
+            CardKind::GarlicRadius => loc(lang, "마늘: 범위 +15", "Garlic: AREA +15"),
+            CardKind::GarlicCooldown => loc(lang, "마늘: 쿨다운 -15%", "Garlic: CD -15%"),
             // HolyWater
-            CardKind::HolyWaterDamage    => loc(lang, "성수: 공격력 +3",      "Holy Water: DMG +3"),
-            CardKind::HolyWaterDropCount => loc(lang, "성수: 웅덩이 +1",      "Holy Water: +1 Pool"),
-            CardKind::HolyWaterCooldown  => loc(lang, "성수: 쿨다운 -15%",    "Holy Water: CD -15%"),
+            CardKind::HolyWaterDamage => loc(lang, "성수: 공격력 +3", "Holy Water: DMG +3"),
+            CardKind::HolyWaterDropCount => loc(lang, "성수: 웅덩이 +1", "Holy Water: +1 Pool"),
+            CardKind::HolyWaterCooldown => loc(lang, "성수: 쿨다운 -15%", "Holy Water: CD -15%"),
             // KingBible
-            CardKind::KingBibleDamage    => loc(lang, "킹 바이블: 공격력 +3",   "King Bible: DMG +3"),
-            CardKind::KingBibleBookCount => loc(lang, "킹 바이블: 책 +1",       "King Bible: +1 Book"),
-            CardKind::KingBibleCooldown  => loc(lang, "킹 바이블: 쿨다운 -15%", "King Bible: CD -15%"),
+            CardKind::KingBibleDamage => loc(lang, "킹 바이블: 공격력 +3", "King Bible: DMG +3"),
+            CardKind::KingBibleBookCount => loc(lang, "킹 바이블: 책 +1", "King Bible: +1 Book"),
+            CardKind::KingBibleCooldown => {
+                loc(lang, "킹 바이블: 쿨다운 -15%", "King Bible: CD -15%")
+            }
             // LightningRing
-            CardKind::LightningDamage      => loc(lang, "번개: 공격력 +8",    "Lightning: DMG +8"),
-            CardKind::LightningStrikeCount => loc(lang, "번개: 타격 +1",      "Lightning: +1 Strike"),
-            CardKind::LightningCooldown    => loc(lang, "번개: 쿨다운 -15%",  "Lightning: CD -15%"),
+            CardKind::LightningDamage => loc(lang, "번개: 공격력 +8", "Lightning: DMG +8"),
+            CardKind::LightningStrikeCount => loc(lang, "번개: 타격 +1", "Lightning: +1 Strike"),
+            CardKind::LightningCooldown => loc(lang, "번개: 쿨다운 -15%", "Lightning: CD -15%"),
             // Passives — PassiveKind::label 로 위임
-            CardKind::PassiveSpinach       => PassiveKind::Spinach.label(lang),
-            CardKind::PassiveArmor         => PassiveKind::Armor.label(lang),
-            CardKind::PassiveHollowHeart   => PassiveKind::HollowHeart.label(lang),
-            CardKind::PassivePummarola     => PassiveKind::Pummarola.label(lang),
-            CardKind::PassiveEmptyTome     => PassiveKind::EmptyTome.label(lang),
+            CardKind::PassiveSpinach => PassiveKind::Spinach.label(lang),
+            CardKind::PassiveArmor => PassiveKind::Armor.label(lang),
+            CardKind::PassiveHollowHeart => PassiveKind::HollowHeart.label(lang),
+            CardKind::PassivePummarola => PassiveKind::Pummarola.label(lang),
+            CardKind::PassiveEmptyTome => PassiveKind::EmptyTome.label(lang),
             CardKind::PassiveCandelabrador => PassiveKind::Candelabrador.label(lang),
-            CardKind::PassiveBracer        => PassiveKind::Bracer.label(lang),
-            CardKind::PassiveSpellbinder   => PassiveKind::Spellbinder.label(lang),
-            CardKind::PassiveDuplicator    => PassiveKind::Duplicator.label(lang),
-            CardKind::PassiveWings         => PassiveKind::Wings.label(lang),
-            CardKind::PassiveAttractorb    => PassiveKind::Attractorb.label(lang),
-            CardKind::PassiveClover        => PassiveKind::Clover.label(lang),
-            CardKind::PassiveCrown         => PassiveKind::Crown.label(lang),
-            CardKind::PassiveStoneMask     => PassiveKind::StoneMask.label(lang),
-            CardKind::PassiveSkullOManiac  => PassiveKind::SkullOManiac.label(lang),
-            CardKind::PassiveTiragisu      => PassiveKind::Tiragisu.label(lang),
+            CardKind::PassiveBracer => PassiveKind::Bracer.label(lang),
+            CardKind::PassiveSpellbinder => PassiveKind::Spellbinder.label(lang),
+            CardKind::PassiveDuplicator => PassiveKind::Duplicator.label(lang),
+            CardKind::PassiveWings => PassiveKind::Wings.label(lang),
+            CardKind::PassiveAttractorb => PassiveKind::Attractorb.label(lang),
+            CardKind::PassiveClover => PassiveKind::Clover.label(lang),
+            CardKind::PassiveCrown => PassiveKind::Crown.label(lang),
+            CardKind::PassiveStoneMask => PassiveKind::StoneMask.label(lang),
+            CardKind::PassiveSkullOManiac => PassiveKind::SkullOManiac.label(lang),
+            CardKind::PassiveTiragisu => PassiveKind::Tiragisu.label(lang),
         }
     }
 }
@@ -199,7 +276,7 @@ impl CardKind {
 /// `consumed = false` → 카드 선택 대기 중.
 /// `consumed = true`  → 선택 완료 (World::remove_resource 가 없어서 sentinel 처리).
 pub struct PendingLevelUp {
-    pub offered:  [CardKind; 3],
+    pub offered: [CardKind; 3],
     pub consumed: bool,
 }
 
@@ -219,240 +296,342 @@ impl LevelUpSystem {
     /// XpAccumulator 를 갱신한다.
     ///
     /// 키 입력 없이 직접 호출 가능하므로 단위 테스트에서 재사용.
-    /// 반환: (새 XP current, 새 threshold) — println 메시지 구성용
-    pub fn apply_card(world: &mut World, player_entity: engine::Entity, card: CardKind) -> (u32, u32) {
+    /// 반환: 적용 성공 시 (새 XP current, 새 threshold) — println 메시지 구성용.
+    ///
+    /// 보유하지 않은 무기 카드나 이미 최대 레벨인 카드는 실패로 처리한다.
+    pub fn apply_card(
+        world: &mut World,
+        player_entity: engine::Entity,
+        card: CardKind,
+    ) -> Option<(u32, u32)> {
+        let mut applied = false;
         if let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) {
             match card {
                 // ── Whip ────────────────────────────────────────────────────
                 CardKind::WhipDamage => {
                     if let Some(slot) = inv.whip_slot_mut() {
-                        if let WeaponKind::Whip { damage, .. } = &mut slot.kind {
-                            *damage += 5.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::Whip { damage, .. } = &mut slot.kind {
+                                *damage += 5.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::WhipArea => {
                     if let Some(slot) = inv.whip_slot_mut() {
-                        if let WeaponKind::Whip { area_width, area_height, .. } = &mut slot.kind {
-                            *area_width  += 20.0;
-                            *area_height += 10.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::Whip {
+                                area_width,
+                                area_height,
+                                ..
+                            } = &mut slot.kind
+                            {
+                                *area_width += 20.0;
+                                *area_height += 10.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::WhipCooldown => {
                     if let Some(slot) = inv.whip_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── MagicWand ────────────────────────────────────────────────
                 CardKind::MagicWandDamage => {
                     if let Some(slot) = inv.magic_wand_slot_mut() {
-                        if let WeaponKind::MagicWand { damage, .. } = &mut slot.kind {
-                            *damage += 4.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::MagicWand { damage, .. } = &mut slot.kind {
+                                *damage += 4.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::MagicWandSpeed => {
                     if let Some(slot) = inv.magic_wand_slot_mut() {
-                        if let WeaponKind::MagicWand { projectile_speed, .. } = &mut slot.kind {
-                            *projectile_speed += 60.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::MagicWand {
+                                projectile_speed, ..
+                            } = &mut slot.kind
+                            {
+                                *projectile_speed += 60.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::MagicWandCooldown => {
                     if let Some(slot) = inv.magic_wand_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── Knife ────────────────────────────────────────────────────
                 CardKind::KnifeDamage => {
                     if let Some(slot) = inv.knife_slot_mut() {
-                        if let WeaponKind::Knife { damage, .. } = &mut slot.kind {
-                            *damage += 4.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::Knife { damage, .. } = &mut slot.kind {
+                                *damage += 4.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::KnifeAmount => {
                     if let Some(slot) = inv.knife_slot_mut() {
-                        if let WeaponKind::Knife { amount, .. } = &mut slot.kind {
-                            *amount += 1;
+                        if slot.level < 8 {
+                            if let WeaponKind::Knife { amount, .. } = &mut slot.kind {
+                                *amount += 1;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::KnifeCooldown => {
                     if let Some(slot) = inv.knife_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── Axe ──────────────────────────────────────────────────────
                 CardKind::AxeDamage => {
                     if let Some(slot) = inv.axe_slot_mut() {
-                        if let WeaponKind::Axe { damage, .. } = &mut slot.kind {
-                            *damage += 5.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::Axe { damage, .. } = &mut slot.kind {
+                                *damage += 5.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::AxePierce => {
                     if let Some(slot) = inv.axe_slot_mut() {
-                        if let WeaponKind::Axe { pierce, .. } = &mut slot.kind {
-                            *pierce += 1;
+                        if slot.level < 8 {
+                            if let WeaponKind::Axe { pierce, .. } = &mut slot.kind {
+                                *pierce += 1;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::AxeCooldown => {
                     if let Some(slot) = inv.axe_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── Cross ────────────────────────────────────────────────────
                 CardKind::CrossDamage => {
                     if let Some(slot) = inv.cross_slot_mut() {
-                        if let WeaponKind::Cross { damage, .. } = &mut slot.kind {
-                            *damage += 6.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::Cross { damage, .. } = &mut slot.kind {
+                                *damage += 6.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::CrossReturnAt => {
                     if let Some(slot) = inv.cross_slot_mut() {
-                        if let WeaponKind::Cross { return_at, .. } = &mut slot.kind {
-                            *return_at += 0.1;
+                        if slot.level < 8 {
+                            if let WeaponKind::Cross { return_at, .. } = &mut slot.kind {
+                                *return_at += 0.1;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::CrossCooldown => {
                     if let Some(slot) = inv.cross_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── FireWand ─────────────────────────────────────────────────
                 CardKind::FireWandDamage => {
                     if let Some(slot) = inv.fire_wand_slot_mut() {
-                        if let WeaponKind::FireWand { damage, .. } = &mut slot.kind {
-                            *damage += 8.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::FireWand { damage, .. } = &mut slot.kind {
+                                *damage += 8.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::FireWandCooldown => {
                     if let Some(slot) = inv.fire_wand_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── Garlic ───────────────────────────────────────────────────
                 CardKind::GarlicDamage => {
                     if let Some(slot) = inv.garlic_slot_mut() {
-                        if let WeaponKind::Garlic { damage, .. } = &mut slot.kind {
-                            *damage += 2.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::Garlic { damage, .. } = &mut slot.kind {
+                                *damage += 2.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::GarlicRadius => {
                     if let Some(slot) = inv.garlic_slot_mut() {
-                        if let WeaponKind::Garlic { radius, .. } = &mut slot.kind {
-                            *radius += 15.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::Garlic { radius, .. } = &mut slot.kind {
+                                *radius += 15.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::GarlicCooldown => {
                     if let Some(slot) = inv.garlic_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── HolyWater ────────────────────────────────────────────────
                 CardKind::HolyWaterDamage => {
                     if let Some(slot) = inv.holy_water_slot_mut() {
-                        if let WeaponKind::HolyWater { damage, .. } = &mut slot.kind {
-                            *damage += 3.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::HolyWater { damage, .. } = &mut slot.kind {
+                                *damage += 3.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::HolyWaterDropCount => {
                     if let Some(slot) = inv.holy_water_slot_mut() {
-                        if let WeaponKind::HolyWater { drop_count, .. } = &mut slot.kind {
-                            *drop_count += 1;
+                        if slot.level < 8 {
+                            if let WeaponKind::HolyWater { drop_count, .. } = &mut slot.kind {
+                                *drop_count += 1;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::HolyWaterCooldown => {
                     if let Some(slot) = inv.holy_water_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── KingBible ────────────────────────────────────────────────
                 CardKind::KingBibleDamage => {
                     if let Some(slot) = inv.king_bible_slot_mut() {
-                        if let WeaponKind::KingBible { damage, .. } = &mut slot.kind {
-                            *damage += 3.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::KingBible { damage, .. } = &mut slot.kind {
+                                *damage += 3.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::KingBibleBookCount => {
                     if let Some(slot) = inv.king_bible_slot_mut() {
-                        if let WeaponKind::KingBible { book_count, .. } = &mut slot.kind {
-                            *book_count += 1;
+                        if slot.level < 8 {
+                            if let WeaponKind::KingBible { book_count, .. } = &mut slot.kind {
+                                *book_count += 1;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::KingBibleCooldown => {
                     if let Some(slot) = inv.king_bible_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
                 // ── LightningRing ────────────────────────────────────────────
                 CardKind::LightningDamage => {
                     if let Some(slot) = inv.lightning_ring_slot_mut() {
-                        if let WeaponKind::LightningRing { damage, .. } = &mut slot.kind {
-                            *damage += 8.0;
+                        if slot.level < 8 {
+                            if let WeaponKind::LightningRing { damage, .. } = &mut slot.kind {
+                                *damage += 8.0;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::LightningStrikeCount => {
                     if let Some(slot) = inv.lightning_ring_slot_mut() {
-                        if let WeaponKind::LightningRing { strike_count, .. } = &mut slot.kind {
-                            *strike_count += 1;
+                        if slot.level < 8 {
+                            if let WeaponKind::LightningRing { strike_count, .. } = &mut slot.kind {
+                                *strike_count += 1;
+                            }
+                            slot.level += 1;
+                            applied = true;
                         }
-                        slot.level += 1;
                     }
                 }
                 CardKind::LightningCooldown => {
                     if let Some(slot) = inv.lightning_ring_slot_mut() {
-                        slot.cooldown *= 0.85;
-                        slot.level += 1;
+                        if slot.level < 8 {
+                            slot.cooldown *= 0.85;
+                            slot.level += 1;
+                            applied = true;
+                        }
                     }
                 }
 
@@ -480,41 +659,31 @@ impl LevelUpSystem {
 
         // 패시브 카드: PassiveInventory 에 add_or_levelup. WeaponInventory mut 빌림
         // 이 끝난 시점에 처리한다.
-        let passive_kind = match card {
-            CardKind::PassiveSpinach       => Some(PassiveKind::Spinach),
-            CardKind::PassiveArmor         => Some(PassiveKind::Armor),
-            CardKind::PassiveHollowHeart   => Some(PassiveKind::HollowHeart),
-            CardKind::PassivePummarola     => Some(PassiveKind::Pummarola),
-            CardKind::PassiveEmptyTome     => Some(PassiveKind::EmptyTome),
-            CardKind::PassiveCandelabrador => Some(PassiveKind::Candelabrador),
-            CardKind::PassiveBracer        => Some(PassiveKind::Bracer),
-            CardKind::PassiveSpellbinder   => Some(PassiveKind::Spellbinder),
-            CardKind::PassiveDuplicator    => Some(PassiveKind::Duplicator),
-            CardKind::PassiveWings         => Some(PassiveKind::Wings),
-            CardKind::PassiveAttractorb    => Some(PassiveKind::Attractorb),
-            CardKind::PassiveClover        => Some(PassiveKind::Clover),
-            CardKind::PassiveCrown         => Some(PassiveKind::Crown),
-            CardKind::PassiveStoneMask     => Some(PassiveKind::StoneMask),
-            CardKind::PassiveSkullOManiac  => Some(PassiveKind::SkullOManiac),
-            CardKind::PassiveTiragisu      => Some(PassiveKind::Tiragisu),
-            _ => None,
-        };
-        if let Some(kind) = passive_kind {
+        if let Some(kind) = card.passive_kind() {
             if let Some(inv) = world.get_mut::<PassiveInventory>(player_entity) {
-                inv.add_or_levelup(kind);
+                let before = inv.level_of(kind);
+                if before < PassiveKind::MAX_LEVEL {
+                    inv.add_or_levelup(kind);
+                    applied = true;
+                }
             }
         }
 
-        // XpAccumulator: 현재 XP 유지, 레벨 +1, 다음 임계치 갱신
-        let (new_current, new_threshold) = if let Some(acc) = world.get_mut::<XpAccumulator>(player_entity) {
-            acc.level += 1;
-            acc.next_threshold = Self::next_threshold(acc.level);
-            (acc.current, acc.next_threshold)
-        } else {
-            (0, 0)
-        };
+        if !applied {
+            return None;
+        }
 
-        (new_current, new_threshold)
+        // XpAccumulator: 현재 XP 유지, 레벨 +1, 다음 임계치 갱신
+        let (new_current, new_threshold) =
+            if let Some(acc) = world.get_mut::<XpAccumulator>(player_entity) {
+                acc.level += 1;
+                acc.next_threshold = Self::next_threshold(acc.level);
+                (acc.current, acc.next_threshold)
+            } else {
+                (0, 0)
+            };
+
+        Some((new_current, new_threshold))
     }
 }
 
@@ -536,20 +705,46 @@ impl System for LevelUpSystem {
                     .query2::<Player, XpAccumulator>()
                     .next()
                     .map(|(e, _, acc)| (e, acc.current, acc.level, acc.next_threshold));
-                let Some((_player_entity, current, level, threshold)) = player_data else { return };
+                let Some((_player_entity, current, level, threshold)) = player_data else {
+                    return;
+                };
 
                 if current >= threshold {
-                    // 레벨업: 카드 풀에서 3장 랜덤 추출
+                    let (weapon_inv, passive_inv) = world
+                        .get::<WeaponInventory>(_player_entity)
+                        .zip(world.get::<PassiveInventory>(_player_entity))
+                        .expect("Player 는 WeaponInventory/PassiveInventory 를 함께 가져야 함");
+                    let available_cards: Vec<CardKind> = ALL_CARDS
+                        .iter()
+                        .copied()
+                        .filter(|card| card.is_available_for(weapon_inv, passive_inv))
+                        .collect();
+                    if available_cards.len() < 3 {
+                        eprintln!(
+                            "LEVEL UP skipped: available card count is {}",
+                            available_cards.len()
+                        );
+                        return;
+                    }
+
+                    // 레벨업: 현재 보유 무기/성장 가능한 패시브에서 3장 랜덤 추출
                     let mut rng = rand::thread_rng();
-                    let chosen: Vec<CardKind> = ALL_CARDS
+                    let chosen: Vec<CardKind> = available_cards
                         .choose_multiple(&mut rng, 3)
                         .copied()
                         .collect();
                     let offered = [chosen[0], chosen[1], chosen[2]];
 
-                    world.insert_resource(PendingLevelUp { offered, consumed: false });
-                    if let Some(gs) = world.resource_mut::<GameState>() { *gs = GameState::Paused; }
-                    if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::LevelUp); }
+                    world.insert_resource(PendingLevelUp {
+                        offered,
+                        consumed: false,
+                    });
+                    if let Some(gs) = world.resource_mut::<GameState>() {
+                        *gs = GameState::Paused;
+                    }
+                    if let Some(q) = world.resource_mut::<SfxQueue>() {
+                        q.push(SfxEvent::LevelUp);
+                    }
 
                     println!(
                         "LEVEL UP! (Level {}) — Press: 1={} 2={} 3={}",
@@ -565,11 +760,18 @@ impl System for LevelUpSystem {
             (Some(GameState::Paused), true) => {
                 // 키 입력 확인 — InputState borrow 를 블록 안에서 끝냄
                 let chosen: Option<usize> = {
-                    let Some(input) = world.resource::<InputState>() else { return };
-                    if      input.just_pressed(KeyCode::Digit1) { Some(0) }
-                    else if input.just_pressed(KeyCode::Digit2) { Some(1) }
-                    else if input.just_pressed(KeyCode::Digit3) { Some(2) }
-                    else { None }
+                    let Some(input) = world.resource::<InputState>() else {
+                        return;
+                    };
+                    if input.just_pressed(KeyCode::Digit1) {
+                        Some(0)
+                    } else if input.just_pressed(KeyCode::Digit2) {
+                        Some(1)
+                    } else if input.just_pressed(KeyCode::Digit3) {
+                        Some(2)
+                    } else {
+                        None
+                    }
                 };
                 let Some(idx) = chosen else { return };
 
@@ -583,8 +785,15 @@ impl System for LevelUpSystem {
                     .map(|(e, _, _)| e);
 
                 if let Some(pe) = player_entity {
-                    let (new_current, new_threshold) = Self::apply_card(world, pe, card);
-                    println!("Resumed (XP={}, next threshold={})", new_current, new_threshold);
+                    if let Some((new_current, new_threshold)) = Self::apply_card(world, pe, card) {
+                        println!(
+                            "Resumed (XP={}, next threshold={})",
+                            new_current, new_threshold
+                        );
+                    } else {
+                        eprintln!("Ignored invalid LevelUp card: {:?}", card);
+                        return;
+                    }
                 }
 
                 // 소비 완료 sentinel 설정 (remove_resource 대체)
@@ -593,7 +802,9 @@ impl System for LevelUpSystem {
                 }
 
                 // Playing 으로 복귀
-                if let Some(gs) = world.resource_mut::<GameState>() { *gs = GameState::Playing; }
+                if let Some(gs) = world.resource_mut::<GameState>() {
+                    *gs = GameState::Playing;
+                }
             }
 
             _ => {}
@@ -604,17 +815,45 @@ impl System for LevelUpSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine::World;
-    use crate::survivor::world_setup::spawn_player;
-    use crate::survivor::inventory::{WeaponInventory, WeaponKind};
+    use crate::survivor::inventory::{WeaponInventory, WeaponKind, WeaponSlot};
     use crate::survivor::player::Player;
+    use crate::survivor::world_setup::spawn_player;
+    use engine::World;
 
     fn make_world_with_player() -> (World, engine::Entity) {
         let mut world = World::new();
         spawn_player(&mut world);
-        // spawn_player 는 Entity 를 반환하지 않으므로 Player 컴포넌트로 쿼리
-        let player_entity = world.query::<Player>().next().map(|(e, _)| e)
+        let player_entity = world
+            .query::<Player>()
+            .next()
+            .map(|(e, _)| e)
             .expect("Player 엔티티가 없음");
+        // levelup 테스트는 여러 무기 슬롯을 필요로 하므로 전체 로드아웃 사용
+        if let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::MagicWand {
+                    damage: 8.0,
+                    projectile_speed: 300.0,
+                    lifetime: 1.5,
+                    pierce: 0,
+                },
+                level: 1,
+                cooldown: 1.2,
+                elapsed: 0.0,
+                evolved: false,
+            });
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::LightningRing {
+                    damage: 30.0,
+                    strike_count: 1,
+                    hit_radius: 40.0,
+                },
+                level: 1,
+                cooldown: 4.0,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
         (world, player_entity)
     }
 
@@ -626,11 +865,16 @@ mod tests {
         {
             let inv = world.get_mut::<WeaponInventory>(player_entity).unwrap();
             let slot = inv.magic_wand_slot().unwrap();
-            assert!(matches!(slot.kind, WeaponKind::MagicWand { damage, .. } if (damage - 8.0).abs() < 0.001));
+            assert!(
+                matches!(slot.kind, WeaponKind::MagicWand { damage, .. } if (damage - 8.0).abs() < 0.001)
+            );
             assert_eq!(slot.level, 1);
         }
 
-        LevelUpSystem::apply_card(&mut world, player_entity, CardKind::MagicWandDamage);
+        assert!(
+            LevelUpSystem::apply_card(&mut world, player_entity, CardKind::MagicWandDamage)
+                .is_some()
+        );
 
         let inv = world.get_mut::<WeaponInventory>(player_entity).unwrap();
         let slot = inv.magic_wand_slot().unwrap();
@@ -638,7 +882,10 @@ mod tests {
             matches!(slot.kind, WeaponKind::MagicWand { damage, .. } if (damage - 12.0).abs() < 0.001),
             "MagicWandDamage 적용 후 damage 가 12.0 이어야 함"
         );
-        assert_eq!(slot.level, 2, "MagicWandDamage 적용 후 level 이 2 이어야 함");
+        assert_eq!(
+            slot.level, 2,
+            "MagicWandDamage 적용 후 level 이 2 이어야 함"
+        );
     }
 
     #[test]
@@ -649,11 +896,18 @@ mod tests {
         {
             let inv = world.get_mut::<WeaponInventory>(player_entity).unwrap();
             let slot = inv.lightning_ring_slot().unwrap();
-            assert!(matches!(slot.kind, WeaponKind::LightningRing { strike_count, .. } if strike_count == 1));
+            assert!(
+                matches!(slot.kind, WeaponKind::LightningRing { strike_count, .. } if strike_count == 1)
+            );
             assert_eq!(slot.level, 1);
         }
 
-        LevelUpSystem::apply_card(&mut world, player_entity, CardKind::LightningStrikeCount);
+        assert!(LevelUpSystem::apply_card(
+            &mut world,
+            player_entity,
+            CardKind::LightningStrikeCount
+        )
+        .is_some());
 
         let inv = world.get_mut::<WeaponInventory>(player_entity).unwrap();
         let slot = inv.lightning_ring_slot().unwrap();
@@ -661,6 +915,38 @@ mod tests {
             matches!(slot.kind, WeaponKind::LightningRing { strike_count, .. } if strike_count == 2),
             "LightningStrikeCount 적용 후 strike_count 가 2 이어야 함"
         );
-        assert_eq!(slot.level, 2, "LightningStrikeCount 적용 후 level 이 2 이어야 함");
+        assert_eq!(
+            slot.level, 2,
+            "LightningStrikeCount 적용 후 level 이 2 이어야 함"
+        );
+    }
+
+    #[test]
+    fn apply_card_rejects_unowned_weapon_without_leveling() {
+        let mut world = World::new();
+        spawn_player(&mut world);
+        let player_entity = world
+            .query::<Player>()
+            .next()
+            .map(|(e, _)| e)
+            .expect("Player 엔티티가 없음");
+
+        let before_level = world
+            .get::<XpAccumulator>(player_entity)
+            .map(|acc| acc.level)
+            .unwrap();
+
+        let result =
+            LevelUpSystem::apply_card(&mut world, player_entity, CardKind::MagicWandDamage);
+
+        assert!(result.is_none(), "없는 MagicWand 카드는 적용 실패해야 함");
+        let after_level = world
+            .get::<XpAccumulator>(player_entity)
+            .map(|acc| acc.level)
+            .unwrap();
+        assert_eq!(
+            after_level, before_level,
+            "없는 무기 카드 선택은 레벨을 소비하면 안 됨"
+        );
     }
 }

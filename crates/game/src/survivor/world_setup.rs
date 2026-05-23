@@ -1,30 +1,33 @@
-use engine::{Sprite, Transform, World};
-use glam::Vec2;
 use super::boss::{BossSpawnQueue, CameraShake, StageProgress};
-use super::sfx::SfxQueue;
 use super::character::SelectedCharacter;
 use super::director::SpawnDirector;
 use super::health::Health;
 use super::hud::GameStats;
 use super::meta::{MetaSave, SurvivorMode};
-use super::powerup::ShopCursor;
 use super::passive::PassiveInventory;
 use super::pickup::GoldWallet;
 use super::player::{Player, PlayerStats, Velocity};
+use super::powerup::ShopCursor;
+use super::sfx::SfxQueue;
+use super::sprites::{add_sprite, SurvivorSprite};
 use super::stage::{SelectedStage, StageCursor};
 use super::xp::XpAccumulator;
+use engine::{AudioManager, Transform, World};
+use glam::Vec2;
 
 /// 플레이어 엔티티를 World 에 스폰. 좌표는 월드 (0,0) — 카메라 follow 가 화면 중앙에 둠.
 pub fn spawn_player(world: &mut World) {
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: Vec2::new(0.0, 0.0),
-        scale:    Vec2::new(48.0, 48.0),
-        rotation: 0.0,
-        z:        1.0, // 적보다 위에 그려지도록 z=1
-    });
-    // 임시 노란 사각형 (Phase 1-B 에서 텍스처로 교체)
-    world.add_component(e, Sprite::colored(0.95, 0.85, 0.20));
+    world.add_component(
+        e,
+        Transform {
+            position: Vec2::new(0.0, 0.0),
+            scale: Vec2::new(48.0, 48.0),
+            rotation: 0.0,
+            z: 1.0, // 적보다 위에 그려지도록 z=1
+        },
+    );
+    add_sprite(world, e, SurvivorSprite::Hero);
     world.add_component(e, Player);
     // 캐릭터 선택 기반 PlayerStats 보정 (Phase 9)
     // StatRecalcSystem 이 매 프레임 재계산하지만, 초기값도 캐릭터 보정 반영.
@@ -100,6 +103,9 @@ pub fn setup_survivor_world(world: &mut World) {
         if meta.unlocked_stages.is_empty() {
             meta.unlocked_stages.push("MadForest".to_string());
         }
+        if meta.unlocked_chars.is_empty() {
+            meta.unlocked_chars.push("Antonio".to_string());
+        }
     }
     // Phase 10: SpawnDirector waves 를 SelectedStage 기반으로 교체 (borrow 분리 패턴).
     let stage = world
@@ -112,7 +118,12 @@ pub fn setup_survivor_world(world: &mut World) {
         d.waves = waves;
         d.spawn_elapsed = 0.0;
     }
-    // Phase 11-D: SfxQueue — 매 프레임 SfxSystem 이 drain 하므로 한 번만 삽입
+    // Phase 11-D: AudioManager + SfxQueue — 최초 init 시 삽입
+    if world.resource::<AudioManager>().is_none() {
+        if let Some(audio) = AudioManager::new() {
+            world.insert_resource(audio);
+        }
+    }
     if world.resource::<SfxQueue>().is_none() {
         world.insert_resource(SfxQueue::default());
     }

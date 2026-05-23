@@ -1,32 +1,32 @@
-use engine::{CollisionLayer, SpatialGrid, System, Transform, World};
-use engine::components::GameState;
-use engine::input::InputState;
-use winit::keyboard::KeyCode;
 use super::boss::{BossSpawnQueue, CameraShake, StageProgress};
-use super::sfx::{SfxEvent, SfxQueue};
 use super::enemy::Enemy;
-use super::player::{Player, PlayerStats};
 use super::health::Health;
 use super::hud::GameStats;
-use super::{LAYER_ENEMY, world_setup};
+use super::player::{Player, PlayerStats};
+use super::sfx::{SfxEvent, SfxQueue};
+use super::{world_setup, LAYER_ENEMY};
+use engine::components::GameState;
+use engine::input::InputState;
+use engine::{CollisionLayer, SpatialGrid, System, Transform, World};
+use winit::keyboard::KeyCode;
 
 /// 매 프레임 Player 주변의 적과 접촉 시 데미지 누적.
 /// 1초 cooldown 으로 Player Health -= 10 (적 1마리 이상 접촉 시).
 pub struct EnemyContactDamageSystem {
-    pub grid:           SpatialGrid,
-    pub elapsed:        f32,
-    pub cooldown:       f32,
-    pub damage:         f32,
+    pub grid: SpatialGrid,
+    pub elapsed: f32,
+    pub cooldown: f32,
+    pub damage: f32,
     pub contact_radius: f32,
 }
 
 impl Default for EnemyContactDamageSystem {
     fn default() -> Self {
         Self {
-            grid:           SpatialGrid::new(128.0),
-            elapsed:        0.0,
-            cooldown:       1.0,
-            damage:         10.0,
+            grid: SpatialGrid::new(128.0),
+            elapsed: 0.0,
+            cooldown: 1.0,
+            damage: 10.0,
             contact_radius: 25.0,
         }
     }
@@ -49,10 +49,14 @@ impl System for EnemyContactDamageSystem {
             .query2::<Player, Transform>()
             .next()
             .map(|(e, _, t)| (e, t.position));
-        let Some((player_entity, player_pos)) = player else { return };
+        let Some((player_entity, player_pos)) = player else {
+            return;
+        };
 
         self.grid.rebuild(world);
-        let hits = self.grid.query_radius(player_pos, self.contact_radius, CollisionLayer(LAYER_ENEMY));
+        let hits =
+            self.grid
+                .query_radius(player_pos, self.contact_radius, CollisionLayer(LAYER_ENEMY));
         if hits.is_empty() {
             return;
         }
@@ -83,8 +87,12 @@ impl System for EnemyContactDamageSystem {
             }
         }
         if effective_damage > 0.0 {
-            if let Some(s) = world.resource_mut::<CameraShake>() { s.trigger(0.15, 4.0); }
-            if let Some(q) = world.resource_mut::<SfxQueue>() { q.push(SfxEvent::PlayerHit); }
+            if let Some(s) = world.resource_mut::<CameraShake>() {
+                s.trigger(0.15, 4.0);
+            }
+            if let Some(q) = world.resource_mut::<SfxQueue>() {
+                q.push(SfxEvent::PlayerHit);
+            }
         }
     }
 }
@@ -119,10 +127,7 @@ impl System for DeathSystem {
 /// - GameState 를 Playing 으로 전환.
 pub fn restart_world(world: &mut World) {
     // 모든 게임 엔티티 정리 (Player/Zombie/XpGem 은 모두 Transform 보유)
-    let to_despawn: Vec<engine::Entity> = world
-        .query::<Transform>()
-        .map(|(e, _)| e)
-        .collect();
+    let to_despawn: Vec<engine::Entity> = world.query::<Transform>().map(|(e, _)| e).collect();
     for e in to_despawn {
         world.despawn(e);
     }

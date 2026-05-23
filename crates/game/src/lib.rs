@@ -8,21 +8,20 @@ pub mod survivor;
 #[cfg(test)]
 mod tests {
     use super::survivor::{
-        apply_damage_to_enemy, restart_world, setup_survivor_world, spawn_book,
-        spawn_boss, spawn_enemy, spawn_holy_water_pool, spawn_player, spawn_projectile,
-        spawn_projectile_ex, spawn_xp_gem, spawn_zombie, Boss, BossDeathSystem,
-        BossKind, BossPhaseSystem, BossSpawnQueue, BossSpawnSystem, CameraFollowSystem,
-        CardKind, CrossSystem, DeathSystem, Enemy, EnemyAiSystem, EnemyContactDamageSystem,
-        EnemyKind, FireWandSystem, GameStats, GarlicSystem, Health, HitFlash,
-        HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem, KingBibleSystem, KnifeSystem,
-        LevelUpSystem, LightningFlash, LightningRingSystem, MagicWandSystem, MagnetSystem,
-        MetaSave, ModeTransitionSystem, OrbitingBook, OrbitingBookSystem, PendingLevelUp,
-        Player, PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem,
-        SpawnDirector, SpawnDirectorSystem, StageProgress, SurvivorMode,
-        WeaponInventory, WeaponKind, WhipSystem, XpAccumulator, XpGem, Zombie,
+        apply_damage_to_enemy, restart_world, setup_survivor_world, spawn_book, spawn_boss,
+        spawn_enemy, spawn_holy_water_pool, spawn_player, spawn_projectile, spawn_projectile_ex,
+        spawn_xp_gem, spawn_zombie, Boss, BossDeathSystem, BossKind, BossPhaseSystem,
+        BossSpawnQueue, BossSpawnSystem, CameraFollowSystem, CardKind, CrossSystem, DeathSystem,
+        Enemy, EnemyAiSystem, EnemyContactDamageSystem, EnemyKind, FireWandSystem, GameStats,
+        GarlicSystem, Health, HitFlash, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem,
+        KingBibleSystem, KnifeSystem, LevelUpSystem, LightningFlash, LightningRingSystem,
+        MagicWandSystem, MagnetSystem, MetaSave, ModeTransitionSystem, OrbitingBook,
+        OrbitingBookSystem, PendingLevelUp, Player, PlayerStats, Projectile, ProjectileBehavior,
+        ProjectileSystem, SpawnDirector, SpawnDirectorSystem, StageProgress, SurvivorMode,
+        WeaponInventory, WeaponKind, WeaponSlot, WhipSystem, XpAccumulator, XpGem, Zombie,
     };
-    use engine::{Camera, System, Transform, World};
     use engine::components::GameState;
+    use engine::{Camera, System, Transform, World};
     use glam::Vec2;
 
     #[test]
@@ -36,22 +35,22 @@ mod tests {
     #[test]
     fn player_stats_default_values() {
         let s = PlayerStats::default();
-        assert_eq!(s.might, 0.0,           "might 기본값은 0.0");
-        assert_eq!(s.area, 1.0,            "area 기본값은 1.0");
+        assert_eq!(s.might, 0.0, "might 기본값은 0.0");
+        assert_eq!(s.area, 1.0, "area 기본값은 1.0");
         assert_eq!(s.projectile_speed, 1.0, "projectile_speed 기본값은 1.0");
-        assert_eq!(s.duration, 1.0,        "duration 기본값은 1.0");
-        assert_eq!(s.amount, 0,            "amount 기본값은 0");
-        assert_eq!(s.cooldown, 1.0,        "cooldown 기본값은 1.0");
-        assert_eq!(s.max_health, 100.0,    "max_health 기본값은 100.0");
-        assert_eq!(s.recovery, 0.0,        "recovery 기본값은 0.0");
-        assert_eq!(s.armor, 0.0,           "armor 기본값은 0.0");
-        assert_eq!(s.move_speed, 200.0,    "move_speed 기본값은 200.0");
-        assert_eq!(s.magnet, 1.0,          "magnet 기본값은 1.0");
-        assert_eq!(s.luck, 1.0,            "luck 기본값은 1.0");
-        assert_eq!(s.growth, 1.0,          "growth 기본값은 1.0");
-        assert_eq!(s.greed, 1.0,           "greed 기본값은 1.0");
-        assert_eq!(s.curse, 1.0,           "curse 기본값은 1.0");
-        assert_eq!(s.revival, 0,           "revival 기본값은 0");
+        assert_eq!(s.duration, 1.0, "duration 기본값은 1.0");
+        assert_eq!(s.amount, 0, "amount 기본값은 0");
+        assert_eq!(s.cooldown, 1.0, "cooldown 기본값은 1.0");
+        assert_eq!(s.max_health, 100.0, "max_health 기본값은 100.0");
+        assert_eq!(s.recovery, 0.0, "recovery 기본값은 0.0");
+        assert_eq!(s.armor, 0.0, "armor 기본값은 0.0");
+        assert_eq!(s.move_speed, 200.0, "move_speed 기본값은 200.0");
+        assert_eq!(s.magnet, 1.0, "magnet 기본값은 1.0");
+        assert_eq!(s.luck, 1.0, "luck 기본값은 1.0");
+        assert_eq!(s.growth, 1.0, "growth 기본값은 1.0");
+        assert_eq!(s.greed, 1.0, "greed 기본값은 1.0");
+        assert_eq!(s.curse, 1.0, "curse 기본값은 1.0");
+        assert_eq!(s.revival, 0, "revival 기본값은 0");
     }
 
     /// armor stat 이 적 접촉 데미지를 감쇄하는지 검증
@@ -62,7 +61,11 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, PlayerStats>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, PlayerStats>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -97,7 +100,11 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, PlayerStats>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, PlayerStats>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -113,8 +120,15 @@ mod tests {
         MagnetSystem::default().run(&mut world, 0.1);
 
         // gem 이 플레이어 방향(x 감소)으로 이동했어야 함
-        let gem_entity = world.query2::<XpGem, Transform>().next().map(|(e, _, _)| e).unwrap();
-        let gem_x = world.get::<Transform>(gem_entity).map(|t| t.position.x).unwrap();
+        let gem_entity = world
+            .query2::<XpGem, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        let gem_x = world
+            .get::<Transform>(gem_entity)
+            .map(|t| t.position.x)
+            .unwrap();
         assert!(
             gem_x < 150.0,
             "magnet=2.0 으로 확장된 반경 안의 gem 이 플레이어 방향으로 이동해야 함 (x={gem_x} < 150.0)"
@@ -136,7 +150,10 @@ mod tests {
         world.insert_resource(Camera::default());
         spawn_player(&mut world);
         // 플레이어를 멀리 이동 — query 임시값이 drop 된 뒤 get_mut 호출해야 borrow checker 통과
-        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        let player_entity = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         if let Some(entity) = player_entity {
             if let Some(t) = world.get_mut::<Transform>(entity) {
                 t.position = Vec2::new(1000.0, 1000.0);
@@ -147,7 +164,10 @@ mod tests {
         sys.run(&mut world, 0.016);
         let cam_after = world.resource::<Camera>().map(|c| c.position).unwrap();
         // 카메라가 (0,0) 에서 (1000-400, 1000-300)=(600,700) 방향으로 lerp 0.15 만큼 움직였어야 함
-        assert!(cam_after.x > cam_before.x, "camera should move toward player");
+        assert!(
+            cam_after.x > cam_before.x,
+            "camera should move toward player"
+        );
         assert!(cam_after.y > cam_before.y);
     }
 
@@ -159,7 +179,10 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점에 고정
-        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        let player_entity = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         if let Some(entity) = player_entity {
             if let Some(t) = world.get_mut::<Transform>(entity) {
                 t.position = Vec2::new(0.0, 0.0);
@@ -169,7 +192,10 @@ mod tests {
         // 좀비를 왼쪽(-100, 0)에 스폰
         spawn_zombie(&mut world, Vec2::new(-100.0, 0.0));
 
-        let zombie_entity = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e);
+        let zombie_entity = world
+            .query2::<Zombie, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         let before_x = zombie_entity
             .and_then(|e| world.get::<Transform>(e))
             .map(|t| t.position.x)
@@ -182,7 +208,10 @@ mod tests {
             .map(|t| t.position.x)
             .unwrap();
 
-        assert!(after_x > before_x, "zombie should move toward player (+x direction)");
+        assert!(
+            after_x > before_x,
+            "zombie should move toward player (+x direction)"
+        );
     }
 
     // ── Phase 4-B: SpawnDirector 테스트 ─────────────────────────────────────
@@ -190,7 +219,10 @@ mod tests {
     #[test]
     fn waves_ron_loads_at_least_one_wave() {
         let director = SpawnDirector::default();
-        assert!(!director.waves.is_empty(), "waves.ron 은 최소 1개 wave 를 포함해야 함");
+        assert!(
+            !director.waves.is_empty(),
+            "waves.ron 은 최소 1개 wave 를 포함해야 함"
+        );
     }
 
     #[test]
@@ -205,7 +237,11 @@ mod tests {
                 zombie_count += 1;
             }
         }
-        assert!(zombie_count >= 10, "wave 0 에서 50회 중 Zombie 가 10회 이상 선택되어야 함 (weight 6/8), 실제: {}", zombie_count);
+        assert!(
+            zombie_count >= 10,
+            "wave 0 에서 50회 중 Zombie 가 10회 이상 선택되어야 함 (weight 6/8), 실제: {}",
+            zombie_count
+        );
     }
 
     #[test]
@@ -220,7 +256,11 @@ mod tests {
         SpawnDirectorSystem::default().run(&mut world, 2.0);
 
         let count = world.query::<Enemy>().count();
-        assert!(count >= 1, "SpawnDirectorSystem 이 dt=2.0 후 적 1마리 이상 스폰해야 함, 실제: {}", count);
+        assert!(
+            count >= 1,
+            "SpawnDirectorSystem 이 dt=2.0 후 적 1마리 이상 스폰해야 함, 실제: {}",
+            count
+        );
     }
 
     #[test]
@@ -238,7 +278,11 @@ mod tests {
         // dt=0 → cooldown 미달이므로 추가 스폰 없음, despawn 만 동작
         SpawnDirectorSystem::default().run(&mut world, 0.0);
 
-        assert_eq!(world.query::<Zombie>().count(), 0, "far zombie should be despawned");
+        assert_eq!(
+            world.query::<Zombie>().count(),
+            0,
+            "far zombie should be despawned"
+        );
     }
 
     // ── Phase 1-C: Whip + DamageSystem 테스트 ────────────────────────────────
@@ -249,7 +293,10 @@ mod tests {
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
         spawn_player(&mut world);
         // 플레이어를 원점으로 고정
-        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        let player_entity = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         if let Some(e) = player_entity {
             if let Some(t) = world.get_mut::<Transform>(e) {
                 t.position = Vec2::ZERO;
@@ -257,7 +304,11 @@ mod tests {
         }
         // 좀비를 우측 AABB(0..120, -30..30) 안에 배치
         spawn_zombie(&mut world, Vec2::new(80.0, 0.0));
-        let zombie_entity = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let zombie_entity = world
+            .query2::<Zombie, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         (world, zombie_entity)
     }
 
@@ -287,7 +338,11 @@ mod tests {
             *h = Health::new(5.0);
         }
         WhipSystem::default().run(&mut world, 1.0);
-        assert_eq!(world.query::<Zombie>().count(), 0, "즉사한 좀비는 despawn 돼야 함");
+        assert_eq!(
+            world.query::<Zombie>().count(),
+            0,
+            "즉사한 좀비는 despawn 돼야 함"
+        );
     }
 
     #[test]
@@ -305,7 +360,11 @@ mod tests {
         // sprite 색이 흰색 플래시로 변경됐는지 확인 (Phase 11-B: 빨강→흰색으로 개선)
         use engine::Sprite;
         let color = world.get::<Sprite>(zombie).map(|s| s.color).unwrap();
-        assert_eq!(color, [1.0, 1.0, 1.0, 1.0], "hit 된 좀비의 sprite 색이 흰색 플래시여야 함");
+        assert_eq!(
+            color,
+            [1.0, 1.0, 1.0, 1.0],
+            "hit 된 좀비의 sprite 색이 흰색 플래시여야 함"
+        );
     }
 
     // ── Phase 1-D: XpGem 드롭 + 자석 흡수 테스트 ────────────────────────────
@@ -318,7 +377,10 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점으로 고정
-        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        let player_entity = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         if let Some(e) = player_entity {
             if let Some(t) = world.get_mut::<Transform>(e) {
                 t.position = Vec2::ZERO;
@@ -327,7 +389,11 @@ mod tests {
 
         // 좀비를 Whip AABB(우측 0..120, -30..30) 안에 배치하고 HP 를 5 로 낮춰 즉사
         spawn_zombie(&mut world, Vec2::new(80.0, 0.0));
-        let zombie_entity = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let zombie_entity = world
+            .query2::<Zombie, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(h) = world.get_mut::<Health>(zombie_entity) {
             *h = Health::new(5.0);
         }
@@ -354,7 +420,10 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점으로 고정
-        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        let player_entity = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         if let Some(e) = player_entity {
             if let Some(t) = world.get_mut::<Transform>(e) {
                 t.position = Vec2::ZERO;
@@ -367,8 +436,15 @@ mod tests {
         MagnetSystem::default().run(&mut world, 0.1);
 
         // gem 이 플레이어 쪽으로(x 감소 방향) 이동했어야 함
-        let gem_entity = world.query2::<XpGem, Transform>().next().map(|(e, _, _)| e).unwrap();
-        let gem_x = world.get::<Transform>(gem_entity).map(|t| t.position.x).unwrap();
+        let gem_entity = world
+            .query2::<XpGem, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        let gem_x = world
+            .get::<Transform>(gem_entity)
+            .map(|t| t.position.x)
+            .unwrap();
         assert!(
             gem_x < 50.0,
             "자석 반경 안의 gem 이 플레이어 방향으로 이동해야 함 (x={gem_x} < 50.0)"
@@ -382,7 +458,10 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점으로 고정
-        let player_entity = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        let player_entity = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         if let Some(e) = player_entity {
             if let Some(t) = world.get_mut::<Transform>(e) {
                 t.position = Vec2::ZERO;
@@ -393,7 +472,11 @@ mod tests {
         spawn_xp_gem(&mut world, Vec2::new(10.0, 0.0), 1);
 
         // XpAccumulator 초기값 확인
-        let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, XpAccumulator>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         let before = world.get::<XpAccumulator>(pe).map(|a| a.current).unwrap();
         assert_eq!(before, 0, "픽업 전 XP 는 0 이어야 함");
 
@@ -421,7 +504,11 @@ mod tests {
         spawn_player(&mut world);
 
         // XpAccumulator.current 를 임계치(5) 로 강제 설정
-        let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, XpAccumulator>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(acc) = world.get_mut::<XpAccumulator>(pe) {
             acc.current = 5;
         }
@@ -430,7 +517,11 @@ mod tests {
 
         // GameState 가 Paused 로 전환됐는지
         let state = world.resource::<GameState>().cloned();
-        assert_eq!(state, Some(GameState::Paused), "XP 임계치 도달 시 GameState::Paused 여야 함");
+        assert_eq!(
+            state,
+            Some(GameState::Paused),
+            "XP 임계치 도달 시 GameState::Paused 여야 함"
+        );
 
         // PendingLevelUp 리소스가 삽입됐는지
         let pending = world.resource::<PendingLevelUp>();
@@ -446,32 +537,55 @@ mod tests {
         spawn_player(&mut world);
 
         // 초기 값 확인 — WeaponInventory 경로로 접근
-        let pe = world.query2::<Player, XpAccumulator>().next().map(|(e, _, _)| e).unwrap();
-        let before_damage = world.get::<WeaponInventory>(pe)
+        let pe = world
+            .query2::<Player, XpAccumulator>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        let before_damage = world
+            .get::<WeaponInventory>(pe)
             .and_then(|inv| inv.whip_slot())
             .and_then(|s| {
-                if let WeaponKind::Whip { damage, .. } = s.kind { Some(damage) } else { None }
+                if let WeaponKind::Whip { damage, .. } = s.kind {
+                    Some(damage)
+                } else {
+                    None
+                }
             })
             .unwrap();
         assert_eq!(before_damage, 10.0);
 
         // apply_card 직접 호출 (키 입력 우회 — InputState::press 가 pub(crate))
-        LevelUpSystem::apply_card(&mut world, pe, CardKind::WhipDamage);
+        assert!(
+            LevelUpSystem::apply_card(&mut world, pe, CardKind::WhipDamage).is_some(),
+            "보유 중인 Whip 카드는 적용돼야 함"
+        );
 
         // WeaponInventory Whip 슬롯 damage +5 확인
-        let after_damage = world.get::<WeaponInventory>(pe)
+        let after_damage = world
+            .get::<WeaponInventory>(pe)
             .and_then(|inv| inv.whip_slot())
             .and_then(|s| {
-                if let WeaponKind::Whip { damage, .. } = s.kind { Some(damage) } else { None }
+                if let WeaponKind::Whip { damage, .. } = s.kind {
+                    Some(damage)
+                } else {
+                    None
+                }
             })
             .unwrap();
-        assert_eq!(after_damage, 15.0, "WhipDamage 카드 적용 후 damage 가 15.0 이어야 함");
+        assert_eq!(
+            after_damage, 15.0,
+            "WhipDamage 카드 적용 후 damage 가 15.0 이어야 함"
+        );
 
         // XpAccumulator.level +1, next_threshold 갱신 확인
         // next_threshold(2) = 5 + 5*2 = 15
         let acc = world.get::<XpAccumulator>(pe).unwrap();
         assert_eq!(acc.level, 2, "레벨이 2 가 돼야 함");
-        assert_eq!(acc.next_threshold, 15, "L2 임계치는 next_threshold(2)=15 이어야 함");
+        assert_eq!(
+            acc.next_threshold, 15,
+            "L2 임계치는 next_threshold(2)=15 이어야 함"
+        );
     }
 
     /// GameState::Paused 상태에서 EnemyAiSystem 이 좀비를 이동시키지 않아야 함
@@ -483,7 +597,10 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e);
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e);
         if let Some(e) = pe {
             if let Some(t) = world.get_mut::<Transform>(e) {
                 t.position = Vec2::ZERO;
@@ -492,7 +609,11 @@ mod tests {
 
         spawn_zombie(&mut world, Vec2::new(100.0, 0.0));
 
-        let ze = world.query2::<Zombie, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let ze = world
+            .query2::<Zombie, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         let before_x = world.get::<Transform>(ze).map(|t| t.position.x).unwrap();
 
         EnemyAiSystem.run(&mut world, 1.0);
@@ -514,7 +635,11 @@ mod tests {
         spawn_player(&mut world);
 
         // Player Health 를 0 으로 강제 설정
-        let pe = world.query2::<Player, Health>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Health>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(h) = world.get_mut::<Health>(pe) {
             *h = Health::new(0.0);
         }
@@ -646,11 +771,33 @@ mod tests {
         world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
 
-        // with_starter_loadout 으로 MagicWand 포함 플레이어 스폰
         spawn_player(&mut world);
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::MagicWand {
+                    damage: 8.0,
+                    projectile_speed: 300.0,
+                    lifetime: 1.5,
+                    pierce: 0,
+                },
+                level: 1,
+                cooldown: 1.2,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -677,7 +824,11 @@ mod tests {
         world.insert_resource(GameStats::default());
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -692,10 +843,7 @@ mod tests {
         EnemyContactDamageSystem::default().run(&mut world, 1.0);
 
         let after_hp = world.get::<Health>(pe).map(|h| h.current).unwrap();
-        assert_eq!(
-            after_hp, 90.0,
-            "적 접촉 후 HP 가 90.0 이어야 함 (100 - 10)"
-        );
+        assert_eq!(after_hp, 90.0, "적 접촉 후 HP 가 90.0 이어야 함 (100 - 10)");
     }
 
     // ── Phase 2-C: ProjectileBehavior + Knife + Axe 테스트 ──────────────────
@@ -707,11 +855,35 @@ mod tests {
         world.insert_resource(GameState::Playing);
         world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
 
-        // Knife 포함 스타터 로드아웃으로 플레이어 스폰
         spawn_player(&mut world);
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::Knife {
+                    damage: 6.0,
+                    projectile_speed: 400.0,
+                    lifetime: 1.0,
+                    pierce: 0,
+                    amount: 1,
+                    spread_radians: 0.3,
+                },
+                level: 1,
+                cooldown: 0.8,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -759,7 +931,10 @@ mod tests {
 
         // velocity.y 가 중력 적용 후 증가했어야 함 (-200 + 500 = 300)
         let proj_e = world.query::<Projectile>().next().map(|(e, _)| e).unwrap();
-        let vel_y = world.get::<Projectile>(proj_e).map(|p| p.velocity.y).unwrap();
+        let vel_y = world
+            .get::<Projectile>(proj_e)
+            .map(|p| p.velocity.y)
+            .unwrap();
         assert!(
             vel_y > 0.0,
             "중력 적용 후 velocity.y 가 양수(아래 방향)여야 함 (현재 {vel_y})"
@@ -831,11 +1006,35 @@ mod tests {
         world.insert_resource(GameState::Playing);
         world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
 
-        // Cross 포함 스타터 로드아웃으로 플레이어 스폰
         spawn_player(&mut world);
+        let pe = world
+            .query2::<Player, engine::Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::Cross {
+                    damage: 14.0,
+                    projectile_speed: 280.0,
+                    lifetime: 3.0,
+                    pierce: 3,
+                    amount: 1,
+                    return_at: 0.7,
+                },
+                level: 1,
+                cooldown: 1.8,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, engine::Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, engine::Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<engine::Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -868,11 +1067,33 @@ mod tests {
         world.insert_resource(GameState::Playing);
         world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
 
-        // FireWand 포함 스타터 로드아웃으로 플레이어 스폰
         spawn_player(&mut world);
+        let pe = world
+            .query2::<Player, engine::Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::FireWand {
+                    damage: 25.0,
+                    projectile_speed: 250.0,
+                    lifetime: 1.5,
+                    pierce: 0,
+                },
+                level: 1,
+                cooldown: 2.5,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, engine::Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, engine::Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<engine::Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -899,11 +1120,31 @@ mod tests {
         world.insert_resource(GameState::Playing);
         world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
 
-        // Garlic 포함 스타터 로드아웃으로 플레이어 스폰
         spawn_player(&mut world);
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::Garlic {
+                    damage: 4.0,
+                    radius: 70.0,
+                },
+                level: 1,
+                cooldown: 0.5,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -913,7 +1154,10 @@ mod tests {
         let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
 
         // 초기 HP 확인 (30)
-        let before_hp = world.get::<Health>(zombie_entity).map(|h| h.current).unwrap();
+        let before_hp = world
+            .get::<Health>(zombie_entity)
+            .map(|h| h.current)
+            .unwrap();
         assert_eq!(before_hp, 30.0);
 
         // dt = 1.0 → cooldown 0.5 초과 → 발화
@@ -935,11 +1179,34 @@ mod tests {
         world.insert_resource(GameState::Playing);
         world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
 
-        // HolyWater 포함 스타터 로드아웃으로 플레이어 스폰
         spawn_player(&mut world);
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::HolyWater {
+                    damage: 5.0,
+                    radius: 50.0,
+                    pool_lifetime: 3.0,
+                    tick_cooldown: 0.5,
+                    drop_count: 1,
+                },
+                level: 1,
+                cooldown: 3.0,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -994,7 +1261,11 @@ mod tests {
             0,
             5.0,
             [1.0, 1.0, 0.0],
-            ProjectileBehavior::Boomerang { return_at: 0.5, elapsed: 0.0, returned: false },
+            ProjectileBehavior::Boomerang {
+                return_at: 0.5,
+                elapsed: 0.0,
+                returned: false,
+            },
         );
 
         // dt = 0.6 → elapsed = 0.6 >= return_at(0.5) → 반전 발생
@@ -1019,7 +1290,10 @@ mod tests {
 
         // behavior.returned 가 true 여야 함
         assert!(
-            matches!(proj.behavior, ProjectileBehavior::Boomerang { returned: true, .. }),
+            matches!(
+                proj.behavior,
+                ProjectileBehavior::Boomerang { returned: true, .. }
+            ),
             "반전 후 behavior.returned 가 true 여야 함"
         );
     }
@@ -1033,11 +1307,36 @@ mod tests {
         world.insert_resource(GameState::Playing);
         world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
 
-        // KingBible 포함 스타터 로드아웃으로 플레이어 스폰
         spawn_player(&mut world);
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::KingBible {
+                    damage: 6.0,
+                    book_count: 2,
+                    radius: 60.0,
+                    angular_speed: 3.0,
+                    lifetime: 5.0,
+                    tick_cooldown: 0.3,
+                    hit_radius: 16.0,
+                },
+                level: 1,
+                cooldown: 8.0,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -1061,7 +1360,11 @@ mod tests {
 
         // 플레이어를 원점에 스폰 (KingBibleSystem 이 Player 위치를 참조하므로 필요)
         spawn_player(&mut world);
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -1076,7 +1379,10 @@ mod tests {
         spawn_zombie(&mut world, Vec2::new(60.0, 0.0));
         let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
 
-        let before_hp = world.get::<Health>(zombie_entity).map(|h| h.current).unwrap();
+        let before_hp = world
+            .get::<Health>(zombie_entity)
+            .map(|h| h.current)
+            .unwrap();
         assert_eq!(before_hp, 30.0);
 
         // dt=0.4 → tick_cooldown(0.3) 초과 → 1회 tick 발화, 책도 약간 회전
@@ -1086,7 +1392,10 @@ mod tests {
         let zombie_alive = world.query::<Zombie>().next().map(|(e, _)| e);
         if let Some(ze) = zombie_alive {
             let hp = world.get::<Health>(ze).map(|h| h.current).unwrap();
-            assert!(hp < 30.0, "OrbitingBook tick 후 좀비 HP 가 줄어야 함 (현재 {hp})");
+            assert!(
+                hp < 30.0,
+                "OrbitingBook tick 후 좀비 HP 가 줄어야 함 (현재 {hp})"
+            );
         }
         // despawn 됐으면(즉사) 테스트도 통과
 
@@ -1109,9 +1418,25 @@ mod tests {
         world.insert_resource(engine::Camera::new(Vec2::ZERO, 1.0));
         world.insert_resource(GameStats::default());
 
-        // LightningRing 포함 스타터 로드아웃으로 플레이어 스폰
         spawn_player(&mut world);
-        let pe = world.query2::<Player, Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
+        if let Some(inv) = world.get_mut::<WeaponInventory>(pe) {
+            inv.slots.push(WeaponSlot {
+                kind: WeaponKind::LightningRing {
+                    damage: 30.0,
+                    strike_count: 1,
+                    hit_radius: 40.0,
+                },
+                level: 1,
+                cooldown: 4.0,
+                elapsed: 0.0,
+                evolved: false,
+            });
+        }
         if let Some(t) = world.get_mut::<Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -1119,7 +1444,10 @@ mod tests {
         // 적 1마리 스폰 (target_radius=600 안에 배치)
         spawn_zombie(&mut world, Vec2::new(200.0, 0.0));
         let zombie_entity = world.query::<Zombie>().next().map(|(e, _)| e).unwrap();
-        let before_hp = world.get::<Health>(zombie_entity).map(|h| h.current).unwrap();
+        let before_hp = world
+            .get::<Health>(zombie_entity)
+            .map(|h| h.current)
+            .unwrap();
 
         // dt = 5.0 → cooldown 4.0 초과 → 발화 (strike_count=1)
         LightningRingSystem::default().run(&mut world, 5.0);
@@ -1149,15 +1477,25 @@ mod tests {
     fn enemy_kind_stats_for_all_ten() {
         use super::survivor::EnemyStats;
         let kinds = [
-            EnemyKind::Zombie, EnemyKind::Bat, EnemyKind::Ghost, EnemyKind::Skeleton,
-            EnemyKind::Mage, EnemyKind::Mantis, EnemyKind::Plant, EnemyKind::Slime,
-            EnemyKind::Mummy, EnemyKind::Knight,
+            EnemyKind::Zombie,
+            EnemyKind::Bat,
+            EnemyKind::Ghost,
+            EnemyKind::Skeleton,
+            EnemyKind::Mage,
+            EnemyKind::Mantis,
+            EnemyKind::Plant,
+            EnemyKind::Slime,
+            EnemyKind::Mummy,
+            EnemyKind::Knight,
         ];
         for kind in &kinds {
             let s: EnemyStats = kind.stats();
             assert!(s.hp > 0.0, "{kind:?} 의 hp 가 0 보다 커야 함");
             assert!(s.scale > 0.0, "{kind:?} 의 scale 이 0 보다 커야 함");
-            assert!(s.contact_damage > 0.0, "{kind:?} 의 contact_damage 가 0 보다 커야 함");
+            assert!(
+                s.contact_damage > 0.0,
+                "{kind:?} 의 contact_damage 가 0 보다 커야 함"
+            );
         }
     }
 
@@ -1169,7 +1507,11 @@ mod tests {
         spawn_player(&mut world);
 
         // 플레이어를 원점에 고정
-        let pe = world.query2::<Player, engine::Transform>().next().map(|(e, _, _)| e).unwrap();
+        let pe = world
+            .query2::<Player, engine::Transform>()
+            .next()
+            .map(|(e, _, _)| e)
+            .unwrap();
         if let Some(t) = world.get_mut::<engine::Transform>(pe) {
             t.position = Vec2::ZERO;
         }
@@ -1183,7 +1525,8 @@ mod tests {
         EnemyAiSystem.run(&mut world, 5.0);
 
         // Ghost 위치 x < 100 (플레이어 방향으로 이동했어야 함)
-        let pos_x = world.get::<engine::Transform>(ghost_e)
+        let pos_x = world
+            .get::<engine::Transform>(ghost_e)
             .map(|t| t.position.x)
             .unwrap();
         // Ghost 가 stop_at(80) 근처나 그 안에 있어야 함
@@ -1237,20 +1580,38 @@ mod tests {
         let pe = world.query::<Player>().next().map(|(e, _)| e).unwrap();
 
         // 첫 번째 카드 적용 → Spinach level 1
-        LevelUpSystem::apply_card(&mut world, pe, CardKind::PassiveSpinach);
-        let lv1 = world.get::<PassiveInventory>(pe).map(|i| i.level_of(PassiveKind::Spinach)).unwrap();
-        assert_eq!(lv1, 1, "첫 번째 PassiveSpinach 카드 적용 후 level 1 이어야 함");
+        assert!(
+            LevelUpSystem::apply_card(&mut world, pe, CardKind::PassiveSpinach).is_some(),
+            "PassiveSpinach 첫 적용은 성공해야 함"
+        );
+        let lv1 = world
+            .get::<PassiveInventory>(pe)
+            .map(|i| i.level_of(PassiveKind::Spinach))
+            .unwrap();
+        assert_eq!(
+            lv1, 1,
+            "첫 번째 PassiveSpinach 카드 적용 후 level 1 이어야 함"
+        );
 
         // 두 번째 카드 적용 → Spinach level 2
-        LevelUpSystem::apply_card(&mut world, pe, CardKind::PassiveSpinach);
-        let lv2 = world.get::<PassiveInventory>(pe).map(|i| i.level_of(PassiveKind::Spinach)).unwrap();
-        assert_eq!(lv2, 2, "두 번째 PassiveSpinach 카드 적용 후 level 2 이어야 함");
+        assert!(
+            LevelUpSystem::apply_card(&mut world, pe, CardKind::PassiveSpinach).is_some(),
+            "PassiveSpinach 두 번째 적용은 성공해야 함"
+        );
+        let lv2 = world
+            .get::<PassiveInventory>(pe)
+            .map(|i| i.level_of(PassiveKind::Spinach))
+            .unwrap();
+        assert_eq!(
+            lv2, 2,
+            "두 번째 PassiveSpinach 카드 적용 후 level 2 이어야 함"
+        );
     }
 
     /// SpawnPattern::Circle 로 count=4 마리 스폰 시 적이 4마리 등간격 원형 배치.
     #[test]
     fn spawn_pattern_circle_creates_equal_count_around_center() {
-        use super::survivor::{spawn_pattern, EnemyEntry, SpawnPattern, WaveDef, Enemy};
+        use super::survivor::{spawn_pattern, Enemy, EnemyEntry, SpawnPattern, WaveDef};
         let mut world = World::new();
         world.insert_resource(GameState::Playing);
 
@@ -1258,7 +1619,10 @@ mod tests {
             start_time: 0.0,
             end_time: 60.0,
             spawn_interval: 1.0,
-            enemies: vec![EnemyEntry { kind: "Zombie".to_string(), weight: 1 }],
+            enemies: vec![EnemyEntry {
+                kind: "Zombie".to_string(),
+                weight: 1,
+            }],
             pattern: SpawnPattern::Circle,
             count_per_burst: 4,
             elite_chance: 0.0,
@@ -1267,7 +1631,11 @@ mod tests {
         let mut rng = rand::thread_rng();
         spawn_pattern(&mut world, &wave, Vec2::ZERO, 100.0, &mut rng);
 
-        assert_eq!(world.query::<Enemy>().count(), 4, "Circle 패턴 count=4 → 4마리 스폰");
+        assert_eq!(
+            world.query::<Enemy>().count(),
+            4,
+            "Circle 패턴 count=4 → 4마리 스폰"
+        );
     }
 
     /// 엘리트 사망 시 큰 XpGem + 추가 작은 gem 다수 → 총 2개 이상.
@@ -1283,7 +1651,10 @@ mod tests {
         apply_damage_to_enemy(&mut world, enemy, 1000.0);
 
         let gem_count = world.query::<XpGem>().count();
-        assert!(gem_count >= 2, "엘리트 사망 → XpGem 2개 이상 (실제 {gem_count})");
+        assert!(
+            gem_count >= 2,
+            "엘리트 사망 → XpGem 2개 이상 (실제 {gem_count})"
+        );
     }
 
     /// 비엘리트 사망 시 XpGem 1개.
@@ -1322,7 +1693,10 @@ mod tests {
 
         // Boss 엔티티가 1개 스폰됐어야 함
         let boss_count = world.query::<Boss>().count();
-        assert_eq!(boss_count, 1, "10분 경과 후 GiantSlime 보스 1마리가 스폰돼야 함 (현재 {boss_count})");
+        assert_eq!(
+            boss_count, 1,
+            "10분 경과 후 GiantSlime 보스 1마리가 스폰돼야 함 (현재 {boss_count})"
+        );
 
         // BossSpawnQueue 에서 GiantSlime 이 제거됐어야 함
         let queue = world.resource::<BossSpawnQueue>().unwrap();
@@ -1389,10 +1763,19 @@ mod tests {
 
         // 보스 엔티티가 사라져야 함
         let remaining = world.query::<Boss>().count();
-        assert_eq!(remaining, 0, "Death 보스가 despawn 돼야 함 (현재 {remaining})");
+        assert_eq!(
+            remaining, 0,
+            "Death 보스가 despawn 돼야 함 (현재 {remaining})"
+        );
 
         // StageProgress.cleared 가 true 여야 함
-        let cleared = world.resource::<StageProgress>().map(|p| p.cleared).unwrap_or(false);
-        assert!(cleared, "Death 보스 처치 후 StageProgress.cleared 가 true 여야 함");
+        let cleared = world
+            .resource::<StageProgress>()
+            .map(|p| p.cleared)
+            .unwrap_or(false);
+        assert!(
+            cleared,
+            "Death 보스 처치 후 StageProgress.cleared 가 true 여야 함"
+        );
     }
 }

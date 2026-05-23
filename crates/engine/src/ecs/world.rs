@@ -11,23 +11,23 @@ pub struct Entity(pub u32);
 /// - 컴포넌트: TypeId 기준으로 구분되는 Vec<Option<Box<dyn Any>>>
 /// - 리소스: 전역 싱글턴 데이터 (입력 상태, 물리 세계 등)
 pub struct World {
-    next_id:    u32,
-    entities:   Vec<Entity>,
+    next_id: u32,
+    entities: Vec<Entity>,
     // 서바이버처럼 수천 개 생성/소멸이 반복될 때 ID 누수를 막기 위한 재사용 큐
-    free_ids:   VecDeque<u32>,
+    free_ids: VecDeque<u32>,
     // TypeId -> Vec indexed by entity id (없으면 None)
     components: HashMap<TypeId, Vec<Option<Box<dyn Any>>>>,
-    resources:  HashMap<TypeId, Box<dyn Any>>,
+    resources: HashMap<TypeId, Box<dyn Any>>,
 }
 
 impl World {
     pub fn new() -> Self {
         Self {
-            next_id:    0,
-            entities:   Vec::new(),
-            free_ids:   VecDeque::new(),
+            next_id: 0,
+            entities: Vec::new(),
+            free_ids: VecDeque::new(),
             components: HashMap::new(),
-            resources:  HashMap::new(),
+            resources: HashMap::new(),
         }
     }
 
@@ -106,8 +106,8 @@ impl World {
 
     /// 특정 컴포넌트 T를 가진 모든 (Entity, &T) 쌍을 순회한다.
     pub fn query<T: 'static>(&self) -> impl Iterator<Item = (Entity, &T)> {
-        let type_id   = TypeId::of::<T>();
-        let entities  = &self.entities;
+        let type_id = TypeId::of::<T>();
+        let entities = &self.entities;
         let components = self.components.get(&type_id);
         entities.iter().filter_map(move |&entity| {
             let comp = components?
@@ -182,11 +182,17 @@ mod tests {
     use super::*;
 
     #[allow(dead_code)]
-    struct Position { x: f32, y: f32 }
+    struct Position {
+        x: f32,
+        y: f32,
+    }
     #[allow(dead_code)]
     struct Health(u32);
     #[allow(dead_code)]
-    struct Velocity { vx: f32, vy: f32 }
+    struct Velocity {
+        vx: f32,
+        vy: f32,
+    }
 
     #[test]
     fn spawn_and_query() {

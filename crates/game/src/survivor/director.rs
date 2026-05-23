@@ -5,52 +5,58 @@
 //! wave 의 `spawn_interval` 마다 weight 기반 random 으로 적 1마리를 스폰한다.
 //! despawn_radius 밖 적 정리도 이 시스템이 담당한다 (기존 EnemySpawnSystem 역할 이전).
 
-use engine::{Camera, System, World};
-use engine::components::GameState;
-use glam::Vec2;
-use rand::Rng;
-use serde::Deserialize;
 use super::enemy::EnemyKind;
 use super::hud::GameStats;
 use super::spawn::spawn_enemy_elite;
+use engine::components::GameState;
 use engine::Transform;
+use engine::{Camera, System, ViewportSize, World};
+use glam::Vec2;
+use rand::Rng;
+use serde::Deserialize;
 
 const WAVES_RON: &str = include_str!("../../../../assets/data/waves.ron");
 
 /// waves.ron 의 개별 적 항목 (kind 문자열 + weight).
 #[derive(Debug, Deserialize, Clone)]
 pub struct EnemyEntry {
-    pub kind:   String,
+    pub kind: String,
     pub weight: u32,
 }
 
 /// 스폰 패턴 (Phase 4-C).
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 pub enum SpawnPattern {
-    Random,    // 외곽 random angle (각자 random)
-    Line,      // 한 방향에서 일렬 (perp 60px 간격)
-    Circle,    // 등간격 원형
-    Surround,  // 등간격 원형 (count >= 4 권장)
-    Swarm,     // 한 점 cluster ±20px
+    Random,   // 외곽 random angle (각자 random)
+    Line,     // 한 방향에서 일렬 (perp 60px 간격)
+    Circle,   // 등간격 원형
+    Surround, // 등간격 원형 (count >= 4 권장)
+    Swarm,    // 한 점 cluster ±20px
 }
 
-fn default_pattern() -> SpawnPattern { SpawnPattern::Random }
-fn default_count_per_burst() -> u8 { 1 }
-fn default_elite_chance() -> f32 { 0.0 }
+fn default_pattern() -> SpawnPattern {
+    SpawnPattern::Random
+}
+fn default_count_per_burst() -> u8 {
+    1
+}
+fn default_elite_chance() -> f32 {
+    0.0
+}
 
 /// 하나의 wave 정의. start_time ~ end_time 구간 동안 spawn_interval 마다 적 스폰.
 #[derive(Debug, Deserialize, Clone)]
 pub struct WaveDef {
-    pub start_time:     f32,
-    pub end_time:       f32,
+    pub start_time: f32,
+    pub end_time: f32,
     pub spawn_interval: f32,
-    pub enemies:        Vec<EnemyEntry>,
+    pub enemies: Vec<EnemyEntry>,
     #[serde(default = "default_pattern")]
-    pub pattern:         SpawnPattern,
+    pub pattern: SpawnPattern,
     #[serde(default = "default_count_per_burst")]
     pub count_per_burst: u8,
     #[serde(default = "default_elite_chance")]
-    pub elite_chance:    f32,
+    pub elite_chance: f32,
 }
 
 /// waves.ron 최상위 구조체.
@@ -64,16 +70,15 @@ pub struct WavesFile {
 /// `waves` 는 컴파일 타임에 `waves.ron` 에서 파싱.
 /// `spawn_elapsed` 는 현재 wave 의 `spawn_interval` 기준 내부 cooldown.
 pub struct SpawnDirector {
-    pub waves:         Vec<WaveDef>,
+    pub waves: Vec<WaveDef>,
     pub spawn_elapsed: f32,
 }
 
 impl Default for SpawnDirector {
     fn default() -> Self {
-        let parsed: WavesFile = ron::from_str(WAVES_RON)
-            .expect("assets/data/waves.ron 파싱 실패");
+        let parsed: WavesFile = ron::from_str(WAVES_RON).expect("assets/data/waves.ron 파싱 실패");
         Self {
-            waves:         parsed.waves,
+            waves: parsed.waves,
             spawn_elapsed: 0.0,
         }
     }
@@ -111,16 +116,16 @@ impl SpawnDirector {
 
 fn enemy_kind_from_str(s: &str) -> Option<EnemyKind> {
     match s {
-        "Zombie"   => Some(EnemyKind::Zombie),
-        "Bat"      => Some(EnemyKind::Bat),
-        "Ghost"    => Some(EnemyKind::Ghost),
+        "Zombie" => Some(EnemyKind::Zombie),
+        "Bat" => Some(EnemyKind::Bat),
+        "Ghost" => Some(EnemyKind::Ghost),
         "Skeleton" => Some(EnemyKind::Skeleton),
-        "Mage"     => Some(EnemyKind::Mage),
-        "Mantis"   => Some(EnemyKind::Mantis),
-        "Plant"    => Some(EnemyKind::Plant),
-        "Slime"    => Some(EnemyKind::Slime),
-        "Mummy"    => Some(EnemyKind::Mummy),
-        "Knight"   => Some(EnemyKind::Knight),
+        "Mage" => Some(EnemyKind::Mage),
+        "Mantis" => Some(EnemyKind::Mantis),
+        "Plant" => Some(EnemyKind::Plant),
+        "Slime" => Some(EnemyKind::Slime),
+        "Mummy" => Some(EnemyKind::Mummy),
+        "Knight" => Some(EnemyKind::Knight),
         _ => None,
     }
 }
@@ -130,17 +135,15 @@ fn enemy_kind_from_str(s: &str) -> Option<EnemyKind> {
 /// 2. wave 의 `spawn_interval` cooldown 마다 weight random 적 1마리 스폰.
 /// 3. `despawn_radius` 밖 적 정리.
 pub struct SpawnDirectorSystem {
-    pub spawn_radius:   f32,
+    pub spawn_radius: f32,
     pub despawn_radius: f32,
-    pub viewport:       Vec2,
 }
 
 impl Default for SpawnDirectorSystem {
     fn default() -> Self {
         Self {
-            spawn_radius:   500.0,
+            spawn_radius: 500.0,
             despawn_radius: 900.0,
-            viewport:       Vec2::new(800.0, 600.0),
         }
     }
 }
@@ -152,22 +155,32 @@ impl System for SpawnDirectorSystem {
         }
 
         // 1) 게임 진행 시간 (GameStats.elapsed 단일 진실원)
-        let game_elapsed = world.resource::<GameStats>().map(|s| s.elapsed).unwrap_or(0.0);
+        let game_elapsed = world
+            .resource::<GameStats>()
+            .map(|s| s.elapsed)
+            .unwrap_or(0.0);
 
-        // 2) 화면 중심 계산
-        let camera_pos = world.resource::<Camera>().map(|c| c.position).unwrap_or(Vec2::ZERO);
-        let center = camera_pos + self.viewport * 0.5;
+        // 2) 화면 중심 계산 (ViewportSize 리소스로 실시간 반영)
+        let camera_pos = world
+            .resource::<Camera>()
+            .map(|c| c.position)
+            .unwrap_or(Vec2::ZERO);
+        let viewport = world
+            .resource::<ViewportSize>()
+            .map(|v| Vec2::new(v.width, v.height))
+            .unwrap_or(Vec2::new(1280.0, 720.0));
+        let center = camera_pos + viewport * 0.5;
 
         // 3) 현재 wave 의 spawn_interval 추출 + wave 클론 (borrow 종료용)
         //    — 이후 resource_mut::<SpawnDirector> 로 cooldown 진행이 필요하므로 미리 클론
         let wave_clone = {
             let director = match world.resource::<SpawnDirector>() {
                 Some(d) => d,
-                None    => return,
+                None => return,
             };
             match director.current_wave(game_elapsed) {
                 Some(w) => w.clone(),
-                None    => return,
+                None => return,
             }
         };
         let interval = wave_clone.spawn_interval;
@@ -191,8 +204,8 @@ impl System for SpawnDirectorSystem {
         }
 
         // 6) despawn_radius 밖 적 정리
-        use engine::Entity;
         use super::enemy::Enemy;
+        use engine::Entity;
         let to_despawn: Vec<Entity> = world
             .query2::<Enemy, Transform>()
             .filter(|(_, _, t)| (t.position - center).length() > self.despawn_radius)
@@ -214,39 +227,43 @@ pub fn spawn_pattern(
 ) {
     let count = wave.count_per_burst.max(1) as usize;
     let positions: Vec<Vec2> = match wave.pattern {
-        SpawnPattern::Random => (0..count).map(|_| {
-            let a = rng.gen_range(0.0..std::f32::consts::TAU);
-            center + Vec2::new(a.cos(), a.sin()) * spawn_radius
-        }).collect(),
+        SpawnPattern::Random => (0..count)
+            .map(|_| {
+                let a = rng.gen_range(0.0..std::f32::consts::TAU);
+                center + Vec2::new(a.cos(), a.sin()) * spawn_radius
+            })
+            .collect(),
         SpawnPattern::Line => {
             let a = rng.gen_range(0.0..std::f32::consts::TAU);
             let dir = Vec2::new(a.cos(), a.sin());
             let perp = Vec2::new(-dir.y, dir.x);
             let base = center + dir * spawn_radius;
-            (0..count).map(|i| {
-                let offset = (i as f32 - (count as f32 - 1.0) * 0.5) * 60.0;
-                base + perp * offset
-            }).collect()
+            (0..count)
+                .map(|i| {
+                    let offset = (i as f32 - (count as f32 - 1.0) * 0.5) * 60.0;
+                    base + perp * offset
+                })
+                .collect()
         }
-        SpawnPattern::Circle | SpawnPattern::Surround => {
-            (0..count).map(|i| {
+        SpawnPattern::Circle | SpawnPattern::Surround => (0..count)
+            .map(|i| {
                 let a = (i as f32 / count as f32) * std::f32::consts::TAU;
                 center + Vec2::new(a.cos(), a.sin()) * spawn_radius
-            }).collect()
-        }
+            })
+            .collect(),
         SpawnPattern::Swarm => {
             let a = rng.gen_range(0.0..std::f32::consts::TAU);
             let anchor = center + Vec2::new(a.cos(), a.sin()) * spawn_radius;
-            (0..count).map(|_| {
-                anchor + Vec2::new(rng.gen_range(-20.0..20.0), rng.gen_range(-20.0..20.0))
-            }).collect()
+            (0..count)
+                .map(|_| anchor + Vec2::new(rng.gen_range(-20.0..20.0), rng.gen_range(-20.0..20.0)))
+                .collect()
         }
     };
 
     for pos in positions {
         if let Some(kind) = SpawnDirector::pick_enemy_from(wave, rng) {
-            let is_elite = wave.elite_chance > 0.0
-                && rng.gen_bool(wave.elite_chance.clamp(0.0, 1.0) as f64);
+            let is_elite =
+                wave.elite_chance > 0.0 && rng.gen_bool(wave.elite_chance.clamp(0.0, 1.0) as f64);
             spawn_enemy_elite(world, pos, kind, is_elite);
         }
     }

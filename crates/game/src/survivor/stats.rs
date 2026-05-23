@@ -39,22 +39,22 @@ impl System for StatRecalcSystem {
         for slot in &inv.passives {
             let lv = slot.level as f32;
             match slot.kind {
-                PassiveKind::Spinach       => s.might += lv,
-                PassiveKind::Armor         => s.armor += lv,
-                PassiveKind::HollowHeart   => s.max_health += 20.0 * lv,
-                PassiveKind::Pummarola     => s.recovery += 0.5 * lv,
-                PassiveKind::EmptyTome     => s.cooldown *= 0.92_f32.powf(lv),
+                PassiveKind::Spinach => s.might += lv,
+                PassiveKind::Armor => s.armor += lv,
+                PassiveKind::HollowHeart => s.max_health += 20.0 * lv,
+                PassiveKind::Pummarola => s.recovery += 0.5 * lv,
+                PassiveKind::EmptyTome => s.cooldown *= 0.92_f32.powf(lv),
                 PassiveKind::Candelabrador => s.area *= 1.10_f32.powf(lv),
-                PassiveKind::Bracer        => s.projectile_speed *= 1.10_f32.powf(lv),
-                PassiveKind::Spellbinder   => s.duration *= 1.10_f32.powf(lv),
-                PassiveKind::Duplicator    => s.amount += lv as i32,
-                PassiveKind::Wings         => s.move_speed *= 1.10_f32.powf(lv),
-                PassiveKind::Attractorb    => s.magnet *= 1.25_f32.powf(lv),
-                PassiveKind::Clover        => s.luck *= 1.10_f32.powf(lv),
-                PassiveKind::Crown         => s.growth *= 1.08_f32.powf(lv),
-                PassiveKind::StoneMask     => s.greed *= 1.10_f32.powf(lv),
-                PassiveKind::SkullOManiac  => s.curse *= 1.10_f32.powf(lv),
-                PassiveKind::Tiragisu      => s.revival += lv as u32,
+                PassiveKind::Bracer => s.projectile_speed *= 1.10_f32.powf(lv),
+                PassiveKind::Spellbinder => s.duration *= 1.10_f32.powf(lv),
+                PassiveKind::Duplicator => s.amount += lv as i32,
+                PassiveKind::Wings => s.move_speed *= 1.10_f32.powf(lv),
+                PassiveKind::Attractorb => s.magnet *= 1.25_f32.powf(lv),
+                PassiveKind::Clover => s.luck *= 1.10_f32.powf(lv),
+                PassiveKind::Crown => s.growth *= 1.08_f32.powf(lv),
+                PassiveKind::StoneMask => s.greed *= 1.10_f32.powf(lv),
+                PassiveKind::SkullOManiac => s.curse *= 1.10_f32.powf(lv),
+                PassiveKind::Tiragisu => s.revival += lv as u32,
             }
         }
 
@@ -66,7 +66,10 @@ impl System for StatRecalcSystem {
         }
 
         // 4) 캐릭터 스탯 보정 (Phase 9) — 패시브/파워업 합산 위에 추가 적용.
-        let selected = world.resource::<SelectedCharacter>().copied().unwrap_or_default();
+        let selected = world
+            .resource::<SelectedCharacter>()
+            .copied()
+            .unwrap_or_default();
         selected.0.apply_stats(&mut s);
 
         // 5) PlayerStats 컴포넌트에 write
@@ -91,10 +94,10 @@ pub fn read_player_stats(world: &World) -> PlayerStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine::World;
     use crate::survivor::passive::PassiveKind;
-    use crate::survivor::world_setup::spawn_player;
     use crate::survivor::player::Player;
+    use crate::survivor::world_setup::spawn_player;
+    use engine::World;
 
     #[test]
     fn stat_recalc_applies_spinach_might() {
@@ -102,7 +105,10 @@ mod tests {
         world.insert_resource(engine::components::GameState::Playing);
         spawn_player(&mut world);
 
-        let player_entity = world.query::<Player>().next().map(|(e, _)| e)
+        let player_entity = world
+            .query::<Player>()
+            .next()
+            .map(|(e, _)| e)
             .expect("Player 엔티티가 없음");
 
         // Spinach 3레벨

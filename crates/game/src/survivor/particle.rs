@@ -16,15 +16,18 @@ use rand::Rng;
 /// 파티클 동작 컴포넌트. `Transform` + `Sprite` 와 함께 동작.
 #[derive(Debug, Clone, Copy)]
 pub struct Particle {
-    pub velocity:    Vec2,     // px/s
-    pub age:         f32,      // 현재 경과 시간
-    pub lifetime:    f32,      // 총 수명 (초)
+    pub velocity: Vec2,        // px/s
+    pub age: f32,              // 현재 경과 시간
+    pub lifetime: f32,         // 총 수명 (초)
+    pub size: f32,             // 초기 크기(px) — 스케일 계산 기준
     pub color_start: [f32; 4], // 생성 직후 색
-    pub color_end:   [f32; 4], // 수명 만료 직전 색 (보통 투명)
+    pub color_end: [f32; 4],   // 수명 만료 직전 색 (보통 투명)
 }
 
 impl Particle {
-    fn t_norm(&self) -> f32 { (self.age / self.lifetime).clamp(0.0, 1.0) }
+    fn t_norm(&self) -> f32 {
+        (self.age / self.lifetime).clamp(0.0, 1.0)
+    }
     fn lerp_color(&self) -> [f32; 4] {
         let t = self.t_norm();
         [
@@ -43,27 +46,27 @@ pub struct ParticleSystem;
 impl System for ParticleSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
         // 읽기 패스
-        let snapshot: Vec<(Entity, f32)> = world
-            .query::<Particle>()
-            .map(|(e, p)| (e, p.age))
-            .collect();
+        let snapshot: Vec<(Entity, f32)> =
+            world.query::<Particle>().map(|(e, p)| (e, p.age)).collect();
 
         let mut expired = Vec::new();
         for (e, age) in snapshot {
             let new_age = age + dt;
-            let (lifetime, vel, color) = if let Some(p) = world.get_mut::<Particle>(e) {
+            let (lifetime, vel, size, color) = if let Some(p) = world.get_mut::<Particle>(e) {
                 p.age = new_age;
-                (p.lifetime, p.velocity, p.lerp_color())
-            } else { continue; };
+                (p.lifetime, p.velocity, p.size, p.lerp_color())
+            } else {
+                continue;
+            };
 
             if new_age >= lifetime {
                 expired.push(e);
             } else {
                 if let Some(t) = world.get_mut::<Transform>(e) {
                     t.position += vel * dt;
-                    // 스케일 서서히 축소 — 파티클이 점점 사라지는 느낌 강화
+                    // size 기준으로 스케일 축소 — 원본 크기에서 0까지 줄어드는 느낌
                     let s = 1.0 - (new_age / lifetime).clamp(0.0, 1.0);
-                    t.scale = Vec2::splat(s.max(0.05));
+                    t.scale = Vec2::splat((s * size).max(1.0));
                 }
                 if let Some(sp) = world.get_mut::<Sprite>(e) {
                     sp.color = color;
@@ -71,7 +74,9 @@ impl System for ParticleSystem {
             }
         }
 
-        for e in expired { world.despawn(e); }
+        for e in expired {
+            world.despawn(e);
+        }
     }
 }
 
@@ -83,12 +88,20 @@ impl System for ParticleSystem {
 pub fn spawn_death_burst(world: &mut World, pos: Vec2, color: [f32; 4]) {
     let mut rng = rand::thread_rng();
     for _ in 0..8 {
-        let angle  = rng.gen_range(0.0f32..std::f32::consts::TAU);
-        let speed  = rng.gen_range(60.0..150.0);
-        let vel    = Vec2::new(angle.cos(), angle.sin()) * speed;
-        let life   = rng.gen_range(0.25..0.55);
-        let size   = rng.gen_range(4.0..9.0);
-        spawn_particle(world, pos, vel, life, size, color, [color[0], color[1], color[2], 0.0]);
+        let angle = rng.gen_range(0.0f32..std::f32::consts::TAU);
+        let speed = rng.gen_range(60.0..150.0);
+        let vel = Vec2::new(angle.cos(), angle.sin()) * speed;
+        let life = rng.gen_range(0.6..1.0);
+        let size = rng.gen_range(10.0..18.0);
+        spawn_particle(
+            world,
+            pos,
+            vel,
+            life,
+            size,
+            color,
+            [color[0], color[1], color[2], 0.0],
+        );
     }
 }
 
@@ -98,11 +111,15 @@ pub fn spawn_collect_burst(world: &mut World, pos: Vec2) {
     for _ in 0..4 {
         let angle = rng.gen_range(0.0f32..std::f32::consts::TAU);
         let speed = rng.gen_range(40.0..90.0);
-        let vel   = Vec2::new(angle.cos(), angle.sin()) * speed;
-        let life  = rng.gen_range(0.15..0.30);
+        let vel = Vec2::new(angle.cos(), angle.sin()) * speed;
+        let life = rng.gen_range(0.4..0.7);
         spawn_particle(
-            world, pos, vel, life, 4.0,
-            [1.0, 0.9, 0.2, 1.0],  // 황금빛
+            world,
+            pos,
+            vel,
+            life,
+            8.0,
+            [1.0, 0.9, 0.2, 1.0], // 황금빛
             [1.0, 0.9, 0.2, 0.0],
         );
     }
@@ -110,23 +127,42 @@ pub fn spawn_collect_burst(world: &mut World, pos: Vec2) {
 
 /// 파티클 엔티티 1개 스폰. 내부 공통 헬퍼.
 fn spawn_particle(
-    world:       &mut World,
-    pos:         Vec2,
-    velocity:    Vec2,
-    lifetime:    f32,
-    size:        f32,
+    world: &mut World,
+    pos: Vec2,
+    velocity: Vec2,
+    lifetime: f32,
+    size: f32,
     color_start: [f32; 4],
-    color_end:   [f32; 4],
+    color_end: [f32; 4],
 ) {
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::splat(size),
-        rotation: 0.0,
-        z:        0.90,
-    });
-    world.add_component(e, Sprite { texture: None, color: color_start });
-    world.add_component(e, Particle { velocity, age: 0.0, lifetime, color_start, color_end });
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::splat(size),
+            rotation: 0.0,
+            z: 2.0, // 플레이어(1.0) 위에 그려지도록
+        },
+    );
+    world.add_component(
+        e,
+        Sprite {
+            texture: None,
+            color: color_start,
+        },
+    );
+    world.add_component(
+        e,
+        Particle {
+            velocity,
+            age: 0.0,
+            lifetime,
+            size,
+            color_start,
+            color_end,
+        },
+    );
 }
 
 // ─── 단위 테스트 ──────────────────────────────────────────────────────────────
@@ -141,8 +177,9 @@ mod tests {
             velocity: Vec2::ZERO,
             age: 0.0,
             lifetime: 1.0,
+            size: 10.0,
             color_start: [1.0, 0.0, 0.0, 1.0],
-            color_end:   [0.0, 0.0, 0.0, 0.0],
+            color_end: [0.0, 0.0, 0.0, 0.0],
         };
         let c = p.lerp_color();
         assert_eq!(c, [1.0, 0.0, 0.0, 1.0]); // age=0 → start
@@ -156,15 +193,33 @@ mod tests {
     fn particle_system_moves_and_despawns() {
         let mut world = World::new();
         let e = world.spawn();
-        world.add_component(e, Transform { position: Vec2::ZERO, scale: Vec2::ONE, rotation: 0.0, z: 0.0 });
-        world.add_component(e, Sprite { texture: None, color: [1.0; 4] });
-        world.add_component(e, Particle {
-            velocity:    Vec2::new(100.0, 0.0),
-            age:         0.0,
-            lifetime:    0.2,
-            color_start: [1.0; 4],
-            color_end:   [0.0; 4],
-        });
+        world.add_component(
+            e,
+            Transform {
+                position: Vec2::ZERO,
+                scale: Vec2::ONE,
+                rotation: 0.0,
+                z: 0.0,
+            },
+        );
+        world.add_component(
+            e,
+            Sprite {
+                texture: None,
+                color: [1.0; 4],
+            },
+        );
+        world.add_component(
+            e,
+            Particle {
+                velocity: Vec2::new(100.0, 0.0),
+                age: 0.0,
+                lifetime: 0.2,
+                size: 10.0,
+                color_start: [1.0; 4],
+                color_end: [0.0; 4],
+            },
+        );
 
         let mut sys = ParticleSystem;
         sys.run(&mut world, 0.1); // age=0.1, 10px 이동

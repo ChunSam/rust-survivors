@@ -16,8 +16,11 @@ pub use app::App;
 pub use audio::AudioManager;
 pub use camera::Camera;
 pub use collision::{Collider, CollisionGridSystem, CollisionLayer, SpatialGrid};
-pub use components::{AnimationClip, AnimationPlayer, GameState, Sprite, Transform, UvRect};
+pub use components::{
+    AnimationClip, AnimationPlayer, FontData, GameState, PendingResize, ShouldQuit, Sprite,
+    Transform, UvRect, ViewportSize, WindowConfig,
+};
 pub use ecs::{Entity, System, World};
 pub use input::InputState;
 pub use physics::{PhysicsBody, PhysicsSystem, PhysicsWorld};
-pub use renderer::{DrawText, TextQueue, TextRenderer};
+pub use renderer::{DrawRect, DrawText, TextQueue, TextRenderer, UiQueue};

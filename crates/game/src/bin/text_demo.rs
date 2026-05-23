@@ -15,28 +15,28 @@ impl System for TextDemoSystem {
 
         if let Some(q) = world.resource_mut::<TextQueue>() {
             q.push(DrawText {
-                text:     "Rust 2D Game Engine".into(),
+                text: "Rust 2D Game Engine".into(),
                 position: Vec2::new(40.0, 40.0),
-                size:     32.0,
-                color:    [255, 255, 255, 255],
+                size: 32.0,
+                color: [255, 255, 255, 255],
             });
             q.push(DrawText {
-                text:     "안녕하세요! 한글이 보입니다.".into(),
+                text: "안녕하세요! 한글이 보입니다.".into(),
                 position: Vec2::new(40.0, 90.0),
-                size:     28.0,
-                color:    [255, 220, 120, 255],
+                size: 28.0,
+                color: [255, 220, 120, 255],
             });
             q.push(DrawText {
-                text:     format!("Elapsed: {:.1}s   FPS: {:.0}", self.elapsed, fps),
+                text: format!("Elapsed: {:.1}s   FPS: {:.0}", self.elapsed, fps),
                 position: Vec2::new(40.0, 140.0),
-                size:     20.0,
-                color:    [180, 220, 255, 255],
+                size: 20.0,
+                color: [180, 220, 255, 255],
             });
             q.push(DrawText {
-                text:     "ESC 키로 종료".into(),
+                text: "ESC 키로 종료".into(),
                 position: Vec2::new(40.0, 540.0),
-                size:     18.0,
-                color:    [200, 200, 200, 255],
+                size: 18.0,
+                color: [200, 200, 200, 255],
             });
         }
     }

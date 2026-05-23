@@ -10,19 +10,43 @@
 //! 피격 등 동일 이벤트가 프레임당 수십 번 발생할 수 있으므로
 //! 같은 카테고리 이벤트는 프레임당 최대 횟수를 제한한다.
 
-use engine::{System, World};
 use engine::audio::AudioManager;
+use engine::{System, World};
+
+use super::meta::MetaSave;
+
+const AUDIO_DIR: &str = "assets/audio";
+const EXTENSIONS: &[&str] = &["ogg", "wav"];
+
+fn find_audio_file(key: &str) -> Option<String> {
+    for ext in EXTENSIONS {
+        let path = format!("{AUDIO_DIR}/{key}.{ext}");
+        if std::path::Path::new(&path).exists() {
+            return Some(path);
+        }
+    }
+    None
+}
+
+fn play_file(audio: &mut AudioManager, channel: &str, key: &str, volume: f32) -> bool {
+    let Some(path) = find_audio_file(key) else {
+        return false;
+    };
+    audio.play(channel, &path, false);
+    audio.set_volume(channel, volume);
+    true
+}
 
 /// SFX 이벤트 종류.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SfxEvent {
-    EnemyHit,    // 적 피격 (단발 틱음)
-    EnemyDie,    // 적 사망 (짧은 저음)
-    PlayerHit,   // 플레이어 피격 (중간 충격음)
-    LevelUp,     // 레벨업 (상승 화음)
-    XpGem,       // 경험치 젬 수집 (고음 핑)
-    Pickup,      // 일반 픽업 (밝은 핑)
-    Bomb,        // 폭탄 폭발 (저주파 굉음)
+    EnemyHit,  // 적 피격 (단발 틱음)
+    EnemyDie,  // 적 사망 (짧은 저음)
+    PlayerHit, // 플레이어 피격 (중간 충격음)
+    LevelUp,   // 레벨업 (상승 화음)
+    XpGem,     // 경험치 젬 수집 (고음 핑)
+    Pickup,    // 일반 픽업 (밝은 핑)
+    Bomb,      // 폭탄 폭발 (저주파 굉음)
 }
 
 /// 프레임 단위 SFX 이벤트 버퍼. ECS 리소스로 삽입.
@@ -49,14 +73,22 @@ impl System for SfxSystem {
         } else {
             return;
         };
-        if events.is_empty() { return; }
+        if events.is_empty() {
+            return;
+        }
 
-        let Some(audio) = world.resource_mut::<AudioManager>() else { return };
+        let volume = world
+            .resource::<MetaSave>()
+            .map(|m| m.sfx_volume)
+            .unwrap_or(1.0);
+        let Some(audio) = world.resource_mut::<AudioManager>() else {
+            return;
+        };
 
         // 2) 카테고리별 프레임 상한으로 스팸 방지
-        let mut hit_n  = 0u8;
-        let mut die_n  = 0u8;
-        let mut xp_n   = 0u8;
+        let mut hit_n = 0u8;
+        let mut die_n = 0u8;
+        let mut xp_n = 0u8;
 
         for event in events {
             match event {
@@ -64,40 +96,54 @@ impl System for SfxSystem {
                     if hit_n < 2 {
                         // 짧은 고음 틱 — 여러 무기가 동시에 때려도 2회로 제한
                         let ch = format!("sfx_hit_{hit_n}");
-                        audio.play_tone(&ch, 420.0, 0.045, 0.22);
+                        if !play_file(audio, &ch, "sfx_enemy_hit", volume) {
+                            audio.play_tone(&ch, 420.0, 0.045, 0.22 * volume);
+                        }
                         hit_n += 1;
                     }
                 }
                 SfxEvent::EnemyDie => {
                     if die_n < 2 {
                         let ch = format!("sfx_die_{die_n}");
-                        audio.play_tone(&ch, 160.0, 0.13, 0.35);
+                        if !play_file(audio, &ch, "sfx_enemy_die", volume) {
+                            audio.play_tone(&ch, 160.0, 0.13, 0.35 * volume);
+                        }
                         die_n += 1;
                     }
                 }
                 SfxEvent::PlayerHit => {
                     // 플레이어 피격은 게임당 cooldown 이 있어 많아야 1회/초
-                    audio.play_tone("sfx_player_hit", 200.0, 0.12, 0.50);
+                    if !play_file(audio, "sfx_player_hit", "sfx_player_hit", volume) {
+                        audio.play_tone("sfx_player_hit", 200.0, 0.12, 0.50 * volume);
+                    }
                 }
                 SfxEvent::LevelUp => {
                     // 상승하는 두 음 — 두 번째 톤으로 즉시 덮어쓰지 않도록 다른 채널
-                    audio.play_tone("sfx_lvl_lo", 440.0, 0.18, 0.55);
-                    audio.play_tone("sfx_lvl_hi", 660.0, 0.25, 0.55);
+                    if !play_file(audio, "sfx_levelup", "sfx_levelup", volume) {
+                        audio.play_tone("sfx_lvl_lo", 440.0, 0.18, 0.55 * volume);
+                        audio.play_tone("sfx_lvl_hi", 660.0, 0.25, 0.55 * volume);
+                    }
                 }
                 SfxEvent::XpGem => {
                     if xp_n < 3 {
                         let ch = format!("sfx_xp_{xp_n}");
-                        audio.play_tone(&ch, 880.0, 0.04, 0.12);
+                        if !play_file(audio, &ch, "sfx_xp", volume) {
+                            audio.play_tone(&ch, 880.0, 0.04, 0.12 * volume);
+                        }
                         xp_n += 1;
                     }
                 }
                 SfxEvent::Pickup => {
-                    audio.play_tone("sfx_pickup", 1040.0, 0.09, 0.40);
+                    if !play_file(audio, "sfx_pickup", "sfx_pickup", volume) {
+                        audio.play_tone("sfx_pickup", 1040.0, 0.09, 0.40 * volume);
+                    }
                 }
                 SfxEvent::Bomb => {
                     // 저주파 굉음 + 하모닉
-                    audio.play_tone("sfx_bomb_lo", 60.0,  0.45, 0.70);
-                    audio.play_tone("sfx_bomb_hi", 120.0, 0.30, 0.45);
+                    if !play_file(audio, "sfx_bomb", "sfx_bomb", volume) {
+                        audio.play_tone("sfx_bomb_lo", 60.0, 0.45, 0.70 * volume);
+                        audio.play_tone("sfx_bomb_hi", 120.0, 0.30, 0.45 * volume);
+                    }
                 }
             }
         }

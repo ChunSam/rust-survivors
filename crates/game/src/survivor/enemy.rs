@@ -1,7 +1,7 @@
-use engine::{Entity, System, Transform, World};
-use engine::components::GameState;
-use glam::Vec2;
 use super::player::Player;
+use engine::components::GameState;
+use engine::{Entity, System, Transform, World};
+use glam::Vec2;
 
 /// 적 종류. 시각화 + AI variant + 기본 스탯의 키.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -22,16 +22,76 @@ impl EnemyKind {
     /// 기본 HP / 이동속도 / sprite color / scale / 접촉 데미지.
     pub fn stats(self) -> EnemyStats {
         match self {
-            EnemyKind::Zombie   => EnemyStats { hp: 30.0,  move_speed: 80.0,  color: [0.4, 0.7, 0.4],  scale: 40.0, contact_damage: 10.0 },
-            EnemyKind::Bat      => EnemyStats { hp: 15.0,  move_speed: 140.0, color: [0.3, 0.2, 0.4],  scale: 30.0, contact_damage: 6.0  },
-            EnemyKind::Ghost    => EnemyStats { hp: 25.0,  move_speed: 100.0, color: [0.8, 0.8, 1.0],  scale: 36.0, contact_damage: 8.0  },
-            EnemyKind::Skeleton => EnemyStats { hp: 35.0,  move_speed: 110.0, color: [0.9, 0.9, 0.85], scale: 38.0, contact_damage: 9.0  },
-            EnemyKind::Mage     => EnemyStats { hp: 40.0,  move_speed: 90.0,  color: [0.7, 0.3, 0.9],  scale: 38.0, contact_damage: 7.0  },
-            EnemyKind::Mantis   => EnemyStats { hp: 45.0,  move_speed: 80.0,  color: [0.5, 0.9, 0.3],  scale: 42.0, contact_damage: 12.0 },
-            EnemyKind::Plant    => EnemyStats { hp: 60.0,  move_speed: 0.0,   color: [0.3, 0.6, 0.2],  scale: 44.0, contact_damage: 8.0  },
-            EnemyKind::Slime    => EnemyStats { hp: 30.0,  move_speed: 70.0,  color: [0.4, 0.8, 0.8],  scale: 36.0, contact_damage: 7.0  },
-            EnemyKind::Mummy    => EnemyStats { hp: 120.0, move_speed: 40.0,  color: [0.8, 0.7, 0.5],  scale: 48.0, contact_damage: 15.0 },
-            EnemyKind::Knight   => EnemyStats { hp: 80.0,  move_speed: 90.0,  color: [0.6, 0.6, 0.7],  scale: 44.0, contact_damage: 14.0 },
+            EnemyKind::Zombie => EnemyStats {
+                hp: 30.0,
+                move_speed: 80.0,
+                color: [0.4, 0.7, 0.4],
+                scale: 40.0,
+                contact_damage: 10.0,
+            },
+            EnemyKind::Bat => EnemyStats {
+                hp: 15.0,
+                move_speed: 140.0,
+                color: [0.3, 0.2, 0.4],
+                scale: 30.0,
+                contact_damage: 6.0,
+            },
+            EnemyKind::Ghost => EnemyStats {
+                hp: 25.0,
+                move_speed: 100.0,
+                color: [0.8, 0.8, 1.0],
+                scale: 36.0,
+                contact_damage: 8.0,
+            },
+            EnemyKind::Skeleton => EnemyStats {
+                hp: 35.0,
+                move_speed: 110.0,
+                color: [0.9, 0.9, 0.85],
+                scale: 38.0,
+                contact_damage: 9.0,
+            },
+            EnemyKind::Mage => EnemyStats {
+                hp: 40.0,
+                move_speed: 90.0,
+                color: [0.7, 0.3, 0.9],
+                scale: 38.0,
+                contact_damage: 7.0,
+            },
+            EnemyKind::Mantis => EnemyStats {
+                hp: 45.0,
+                move_speed: 80.0,
+                color: [0.5, 0.9, 0.3],
+                scale: 42.0,
+                contact_damage: 12.0,
+            },
+            EnemyKind::Plant => EnemyStats {
+                hp: 60.0,
+                move_speed: 0.0,
+                color: [0.3, 0.6, 0.2],
+                scale: 44.0,
+                contact_damage: 8.0,
+            },
+            EnemyKind::Slime => EnemyStats {
+                hp: 30.0,
+                move_speed: 70.0,
+                color: [0.4, 0.8, 0.8],
+                scale: 36.0,
+                contact_damage: 7.0,
+            },
+            EnemyKind::Mummy => EnemyStats {
+                hp: 120.0,
+                move_speed: 40.0,
+                color: [0.8, 0.7, 0.5],
+                scale: 48.0,
+                contact_damage: 15.0,
+            },
+            EnemyKind::Knight => EnemyStats {
+                hp: 80.0,
+                move_speed: 90.0,
+                color: [0.6, 0.6, 0.7],
+                scale: 44.0,
+                contact_damage: 14.0,
+            },
         }
     }
 }
@@ -39,10 +99,10 @@ impl EnemyKind {
 /// 각 EnemyKind 의 기본 스탯 묶음.
 #[derive(Debug, Clone, Copy)]
 pub struct EnemyStats {
-    pub hp:             f32,
-    pub move_speed:     f32,
-    pub color:          [f32; 3],
-    pub scale:          f32,
+    pub hp: f32,
+    pub move_speed: f32,
+    pub color: [f32; 3],
+    pub scale: f32,
     pub contact_damage: f32,
 }
 
@@ -57,11 +117,11 @@ pub enum EnemyAiKind {
     Kite { min_dist: f32 },
     /// 짧은 dash 후 일반 이동 반복 (Mantis)
     Dash {
-        cooldown:      f32,
-        elapsed:       f32,
-        dash_speed:    f32,
+        cooldown: f32,
+        elapsed: f32,
+        dash_speed: f32,
         dash_lifetime: f32,
-        dashing:       f32,
+        dashing: f32,
     },
     /// 정지 (Plant)
     Stay,
@@ -72,24 +132,27 @@ pub enum EnemyAiKind {
 /// 적 컴포넌트 — 종류·접촉 데미지·슬라임 split 카운터·엘리트 여부.
 #[derive(Debug, Clone)]
 pub struct Enemy {
-    pub kind:            EnemyKind,
-    pub contact_damage:  f32,
+    pub kind: EnemyKind,
+    pub contact_damage: f32,
     /// Slime 만 사용. 남은 split 횟수(2 → 1회 split 후 0 → 더 이상 split 안 함).
     pub split_remaining: u8,
     /// true 이면 엘리트 (HP×5, scale×1.5, 사망 시 추가 드롭).
-    pub is_elite:        bool,
+    pub is_elite: bool,
 }
 
 /// 적 AI 파라미터 컴포넌트.
 #[derive(Debug, Clone)]
 pub struct EnemyAi {
     pub move_speed: f32,
-    pub ai:         EnemyAiKind,
+    pub ai: EnemyAiKind,
 }
 
 impl Default for EnemyAi {
     fn default() -> Self {
-        Self { move_speed: 80.0, ai: EnemyAiKind::Chase }
+        Self {
+            move_speed: 80.0,
+            ai: EnemyAiKind::Chase,
+        }
     }
 }
 
@@ -133,12 +196,14 @@ impl System for EnemyAiSystem {
         for (e, pos, move_speed, ai_kind) in enemies {
             let to_player = player_pos - pos;
             let dist = to_player.length();
-            let dir = if dist > 0.0 { to_player / dist } else { Vec2::ZERO };
+            let dir = if dist > 0.0 {
+                to_player / dist
+            } else {
+                Vec2::ZERO
+            };
 
             let (new_pos, new_ai) = match ai_kind {
-                EnemyAiKind::Chase | EnemyAiKind::Split => {
-                    (pos + dir * move_speed * dt, None)
-                }
+                EnemyAiKind::Chase | EnemyAiKind::Split => (pos + dir * move_speed * dt, None),
                 EnemyAiKind::Hover { stop_at } => {
                     if dist > stop_at {
                         (pos + dir * move_speed * dt, None)
@@ -179,10 +244,10 @@ impl System for EnemyAiSystem {
 
                     let new_ai = EnemyAiKind::Dash {
                         cooldown,
-                        elapsed:       new_elapsed,
+                        elapsed: new_elapsed,
                         dash_speed,
                         dash_lifetime,
-                        dashing:       new_dashing,
+                        dashing: new_dashing,
                     };
                     (new_pos, Some(new_ai))
                 }

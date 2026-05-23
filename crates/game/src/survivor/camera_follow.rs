@@ -1,30 +1,25 @@
-use engine::{Camera, System, Transform, World};
-use glam::Vec2;
-use rand::Rng;
 use super::boss::{Boss, CameraShake};
 use super::player::Player;
+use engine::{Camera, System, Transform, ViewportSize, World};
+use glam::Vec2;
+use rand::Rng;
 
 /// 보스 활성 여부에 따른 줌 목표값.
 const ZOOM_NORMAL: f32 = 1.0;
 /// 보스가 살아있을 때 줌아웃 → 전투 공간 확보.
-const ZOOM_BOSS:   f32 = 0.80;
+const ZOOM_BOSS: f32 = 0.65;
 /// zoom 보간 속도 (1.0 = 즉시, 0.01 = 매우 느림).
-const ZOOM_LERP:   f32 = 0.015;
+const ZOOM_LERP: f32 = 0.05;
 
 /// 카메라를 플레이어 위치로 lerp 따라가게 한다.
 pub struct CameraFollowSystem {
     /// 0.0 = 정지, 1.0 = 즉시 따라감. 기본 0.15.
     pub lerp: f32,
-    /// 카메라 뷰포트 크기(픽셀). 매 프레임 갱신 안 해도 됨 — App 윈도우 크기에 맞춰 setup 에서 설정.
-    pub viewport: Vec2,
 }
 
 impl Default for CameraFollowSystem {
     fn default() -> Self {
-        Self {
-            lerp: 0.15,
-            viewport: Vec2::new(800.0, 600.0),
-        }
+        Self { lerp: 0.15 }
     }
 }
 
@@ -37,9 +32,12 @@ impl System for CameraFollowSystem {
             .map(|(_, _, t)| t.position);
         let Some(target) = player_pos else { return };
 
-        // 2. Camera 리소스를 lerp 로 갱신
-        // 카메라 좌상단 = 플레이어 - 뷰포트/2 가 되어야 화면 중앙에 플레이어가 위치
-        let desired_top_left = target - self.viewport * 0.5;
+        // 2. ViewportSize 리소스에서 현재 뷰포트 크기를 읽어 카메라 중앙 계산
+        let viewport = world
+            .resource::<ViewportSize>()
+            .map(|v| Vec2::new(v.width, v.height))
+            .unwrap_or(Vec2::new(1280.0, 720.0));
+        let desired_top_left = target - viewport * 0.5;
         if let Some(cam) = world.resource_mut::<Camera>() {
             cam.position = cam.position.lerp(desired_top_left, self.lerp);
         }
@@ -52,7 +50,7 @@ impl System for CameraFollowSystem {
                 s.elapsed += dt;
                 if s.is_active() {
                     let intensity = s.intensity * (1.0 - s.elapsed / s.duration);
-                    let mut rng   = rand::thread_rng();
+                    let mut rng = rand::thread_rng();
                     Some(Vec2::new(
                         rng.gen_range(-intensity..intensity),
                         rng.gen_range(-intensity..intensity),

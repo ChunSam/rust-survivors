@@ -1,5 +1,5 @@
-use engine::{Sprite, Transform, World};
 use engine::Entity;
+use engine::{Sprite, Transform, World};
 
 use super::damage_number::spawn_damage_number;
 use super::enemy::{Enemy, EnemyKind};
@@ -15,19 +15,21 @@ use super::xp::spawn_xp_gem;
 /// 반환값은 *사망 여부*. 호출자는 반환값으로 killed 카운트 누적.
 pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> bool {
     // 읽기 패스 — 불변 borrow 를 값으로 복사한 뒤 해제 (가변 borrow 충돌 방지)
-    let maybe_flash  = world.get::<HitFlash>(enemy).map(|f| (f.original, f.original_scale));
+    let maybe_flash = world
+        .get::<HitFlash>(enemy)
+        .map(|f| (f.original, f.original_scale));
     let sprite_color = world.get::<Sprite>(enemy).map(|s| s.color);
-    let orig_scale   = world.get::<Transform>(enemy).map(|t| t.scale);
+    let orig_scale = world.get::<Transform>(enemy).map(|t| t.scale);
 
     // Sprite 없으면 유효하지 않은 엔티티
     let current_color = match sprite_color {
         Some(c) => c,
-        None    => return false,
+        None => return false,
     };
 
     // 재피격 시 원본 색·스케일 누적 방지: 이미 플래시 중이면 원본 값 보존
-    let (original, original_scale) = maybe_flash
-        .unwrap_or((current_color, orig_scale.unwrap_or(Vec2::ONE)));
+    let (original, original_scale) =
+        maybe_flash.unwrap_or((current_color, orig_scale.unwrap_or(Vec2::ONE)));
 
     // 쓰기 패스 — 흰색 순간 플래시 + 스케일 bump
     if let Some(s) = world.get_mut::<Sprite>(enemy) {
@@ -53,21 +55,35 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
 
     // SFX 이벤트 push
     if let Some(q) = world.resource_mut::<SfxQueue>() {
-        q.push(if died { SfxEvent::EnemyDie } else { SfxEvent::EnemyHit });
+        q.push(if died {
+            SfxEvent::EnemyDie
+        } else {
+            SfxEvent::EnemyHit
+        });
     }
 
     if died {
-        let drop_pos    = world.get::<Transform>(enemy).map(|t| t.position);
+        let drop_pos = world.get::<Transform>(enemy).map(|t| t.position);
         let enemy_color = original; // 피격 전 원래 색 = 적 고유 색
-        let kind        = world.get::<Enemy>(enemy).map(|e| e.kind);
-        let splits      = world.get::<Enemy>(enemy).map(|e| e.split_remaining).unwrap_or(0);
-        let is_elite    = world.get::<Enemy>(enemy).map(|e| e.is_elite).unwrap_or(false);
+        let kind = world.get::<Enemy>(enemy).map(|e| e.kind);
+        let splits = world
+            .get::<Enemy>(enemy)
+            .map(|e| e.split_remaining)
+            .unwrap_or(0);
+        let is_elite = world
+            .get::<Enemy>(enemy)
+            .map(|e| e.is_elite)
+            .unwrap_or(false);
 
         world.despawn(enemy);
 
         // 사망 파티클 (despawn 후 스폰)
         if let Some(p) = drop_pos {
-            spawn_death_burst(world, p, [enemy_color[0], enemy_color[1], enemy_color[2], 1.0]);
+            spawn_death_burst(
+                world,
+                p,
+                [enemy_color[0], enemy_color[1], enemy_color[2], 1.0],
+            );
         }
 
         if let Some(p) = drop_pos {
@@ -107,12 +123,15 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
             }
         }
     } else {
-        world.add_component(enemy, HitFlash {
-            remaining:      FLASH_DURATION,
-            duration:       FLASH_DURATION,
-            original,
-            original_scale,
-        });
+        world.add_component(
+            enemy,
+            HitFlash {
+                remaining: FLASH_DURATION,
+                duration: FLASH_DURATION,
+                original,
+                original_scale,
+            },
+        );
     }
     died
 }

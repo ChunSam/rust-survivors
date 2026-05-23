@@ -66,10 +66,7 @@ mod tests {
     }
 
     fn unique_test_dir() -> PathBuf {
-        std::env::temp_dir().join(format!(
-            "rust-gameengine-save-test-{}",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("rust-gameengine-save-test-{}", std::process::id()))
     }
 
     #[test]
@@ -93,8 +90,7 @@ mod tests {
 
     #[test]
     fn load_missing_file_returns_io_error() {
-        let result: Result<Settings, SaveError> =
-            load(Path::new("/nonexistent/path/foo.ron"));
+        let result: Result<Settings, SaveError> = load(Path::new("/nonexistent/path/foo.ron"));
 
         assert!(
             matches!(result, Err(SaveError::Io(_))),

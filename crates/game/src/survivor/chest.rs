@@ -1,15 +1,15 @@
+use engine::components::GameState;
 /// Phase 6: 보물상자 컴포넌트 + 픽업 시스템 + 진화 로직.
 ///
 /// 엘리트 적 사망 시 spawn_chest() 로 스폰. 플레이어 pickup_radius 안에 들어오면
 /// ChestPickupSystem 이 자동 픽업 후 try_evolve() 를 호출한다.
-
-use engine::{Entity, Sprite, System, Transform, World};
-use engine::components::GameState;
+use engine::{Entity, System, Transform, World};
 use glam::Vec2;
 
-use super::player::Player;
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::passive::{PassiveInventory, PassiveKind};
+use super::player::Player;
+use super::sprites::{add_sprite, SurvivorSprite};
 
 /// 보물상자 태그 컴포넌트.
 #[derive(Debug, Clone, Copy)]
@@ -23,7 +23,9 @@ pub struct ChestPickupSystem {
 
 impl Default for ChestPickupSystem {
     fn default() -> Self {
-        Self { pickup_radius: 40.0 }
+        Self {
+            pickup_radius: 40.0,
+        }
     }
 }
 
@@ -67,22 +69,62 @@ impl System for ChestPickupSystem {
 /// 진화 레시피 — 무기 종류 식별자 ↔ 페어 패시브.
 #[derive(Debug, Clone, Copy)]
 pub struct EvolutionRule {
-    pub weapon:            &'static str, // WeaponKind 식별자 문자열
-    pub passive:           PassiveKind,
-    pub min_weapon_level:  u8,           // 보통 8
-    pub min_passive_level: u8,           // 보통 5
+    pub weapon: &'static str, // WeaponKind 식별자 문자열
+    pub passive: PassiveKind,
+    pub min_weapon_level: u8,  // 보통 8
+    pub min_passive_level: u8, // 보통 5
 }
 
 /// 8가지 진화 레시피 테이블.
 pub const EVOLUTION_RULES: &[EvolutionRule] = &[
-    EvolutionRule { weapon: "Whip",      passive: PassiveKind::HollowHeart,   min_weapon_level: 8, min_passive_level: 5 },
-    EvolutionRule { weapon: "MagicWand", passive: PassiveKind::EmptyTome,     min_weapon_level: 8, min_passive_level: 5 },
-    EvolutionRule { weapon: "Knife",     passive: PassiveKind::Bracer,        min_weapon_level: 8, min_passive_level: 5 },
-    EvolutionRule { weapon: "Axe",       passive: PassiveKind::Candelabrador, min_weapon_level: 8, min_passive_level: 5 },
-    EvolutionRule { weapon: "Cross",     passive: PassiveKind::Clover,        min_weapon_level: 8, min_passive_level: 5 },
-    EvolutionRule { weapon: "FireWand",  passive: PassiveKind::Spinach,       min_weapon_level: 8, min_passive_level: 5 },
-    EvolutionRule { weapon: "Garlic",    passive: PassiveKind::Pummarola,     min_weapon_level: 8, min_passive_level: 5 },
-    EvolutionRule { weapon: "HolyWater", passive: PassiveKind::Duplicator,    min_weapon_level: 8, min_passive_level: 5 },
+    EvolutionRule {
+        weapon: "Whip",
+        passive: PassiveKind::HollowHeart,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
+    EvolutionRule {
+        weapon: "MagicWand",
+        passive: PassiveKind::EmptyTome,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
+    EvolutionRule {
+        weapon: "Knife",
+        passive: PassiveKind::Bracer,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
+    EvolutionRule {
+        weapon: "Axe",
+        passive: PassiveKind::Candelabrador,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
+    EvolutionRule {
+        weapon: "Cross",
+        passive: PassiveKind::Clover,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
+    EvolutionRule {
+        weapon: "FireWand",
+        passive: PassiveKind::Spinach,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
+    EvolutionRule {
+        weapon: "Garlic",
+        passive: PassiveKind::Pummarola,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
+    EvolutionRule {
+        weapon: "HolyWater",
+        passive: PassiveKind::Duplicator,
+        min_weapon_level: 8,
+        min_passive_level: 5,
+    },
 ];
 
 /// 진화 가능한 첫 무기 슬롯을 찾아 evolved=true 표시 + 스탯 강화.
@@ -106,11 +148,17 @@ pub fn try_evolve(world: &mut World, player: Entity) -> Option<&'static str> {
             }
 
             for slot in inv.slots.iter_mut() {
-                if slot.evolved { continue; }
-                if slot.level < rule.min_weapon_level { continue; }
+                if slot.evolved {
+                    continue;
+                }
+                if slot.level < rule.min_weapon_level {
+                    continue;
+                }
 
                 let matches_kind = matches_weapon_kind(rule.weapon, &slot.kind);
-                if !matches_kind { continue; }
+                if !matches_kind {
+                    continue;
+                }
 
                 // 진화! cooldown 가속
                 slot.evolved = true;
@@ -138,13 +186,13 @@ pub fn try_evolve(world: &mut World, player: Entity) -> Option<&'static str> {
 /// rule.weapon 문자열과 WeaponKind variant 매칭.
 fn matches_weapon_kind(weapon_name: &str, kind: &WeaponKind) -> bool {
     match (weapon_name, kind) {
-        ("Whip",      WeaponKind::Whip { .. })      => true,
+        ("Whip", WeaponKind::Whip { .. }) => true,
         ("MagicWand", WeaponKind::MagicWand { .. }) => true,
-        ("Knife",     WeaponKind::Knife { .. })     => true,
-        ("Axe",       WeaponKind::Axe { .. })       => true,
-        ("Cross",     WeaponKind::Cross { .. })     => true,
-        ("FireWand",  WeaponKind::FireWand { .. })  => true,
-        ("Garlic",    WeaponKind::Garlic { .. })    => true,
+        ("Knife", WeaponKind::Knife { .. }) => true,
+        ("Axe", WeaponKind::Axe { .. }) => true,
+        ("Cross", WeaponKind::Cross { .. }) => true,
+        ("FireWand", WeaponKind::FireWand { .. }) => true,
+        ("Garlic", WeaponKind::Garlic { .. }) => true,
         ("HolyWater", WeaponKind::HolyWater { .. }) => true,
         _ => false,
     }
@@ -153,28 +201,52 @@ fn matches_weapon_kind(weapon_name: &str, kind: &WeaponKind) -> bool {
 /// 진화 스탯 강화 — 각 variant 별 수치 적용.
 fn apply_evolution_stats(kind: &mut WeaponKind) {
     match kind {
-        WeaponKind::Whip { damage, area_width, area_height } => {
-            *damage      *= 2.0;
-            *area_width  *= 1.5;
+        WeaponKind::Whip {
+            damage,
+            area_width,
+            area_height,
+        } => {
+            *damage *= 2.0;
+            *area_width *= 1.5;
             *area_height *= 1.5;
         }
-        WeaponKind::MagicWand { damage, projectile_speed, lifetime, pierce } => {
-            *damage           *= 2.0;
+        WeaponKind::MagicWand {
+            damage,
+            projectile_speed,
+            lifetime,
+            pierce,
+        } => {
+            *damage *= 2.0;
             *projectile_speed *= 1.3;
-            *lifetime         *= 1.5;
-            *pierce           += 2;
+            *lifetime *= 1.5;
+            *pierce += 2;
         }
-        WeaponKind::Knife { damage, amount, pierce, .. } => {
+        WeaponKind::Knife {
+            damage,
+            amount,
+            pierce,
+            ..
+        } => {
             *damage *= 2.0;
             *amount += 2;
             *pierce += 1;
         }
-        WeaponKind::Axe { damage, pierce, amount, .. } => {
+        WeaponKind::Axe {
+            damage,
+            pierce,
+            amount,
+            ..
+        } => {
             *damage *= 2.0;
             *pierce += 3;
             *amount += 1;
         }
-        WeaponKind::Cross { damage, pierce, amount, .. } => {
+        WeaponKind::Cross {
+            damage,
+            pierce,
+            amount,
+            ..
+        } => {
             *damage *= 2.0;
             *pierce += 2;
             *amount += 1;
@@ -186,10 +258,16 @@ fn apply_evolution_stats(kind: &mut WeaponKind) {
             *damage *= 2.5;
             *radius *= 1.5;
         }
-        WeaponKind::HolyWater { damage, radius, pool_lifetime, drop_count, .. } => {
-            *damage       *= 2.0;
-            *radius       *= 1.4;
-            *drop_count   += 1;
+        WeaponKind::HolyWater {
+            damage,
+            radius,
+            pool_lifetime,
+            drop_count,
+            ..
+        } => {
+            *damage *= 2.0;
+            *radius *= 1.4;
+            *drop_count += 1;
             *pool_lifetime *= 1.5;
         }
         // KingBible, LightningRing — 진화 레시피 미정의. 스킵.
@@ -200,26 +278,29 @@ fn apply_evolution_stats(kind: &mut WeaponKind) {
 /// 보물상자 엔티티를 월드에 스폰. 황금색 사각형으로 렌더.
 pub fn spawn_chest(world: &mut World, pos: Vec2) {
     let e = world.spawn();
-    world.add_component(e, Transform {
-        position: pos,
-        scale:    Vec2::new(28.0, 24.0),
-        rotation: 0.0,
-        z:        0.4,
-    });
-    world.add_component(e, Sprite::colored(0.9, 0.7, 0.2)); // 황금 상자
+    world.add_component(
+        e,
+        Transform {
+            position: pos,
+            scale: Vec2::new(28.0, 24.0),
+            rotation: 0.0,
+            z: 0.4,
+        },
+    );
+    add_sprite(world, e, SurvivorSprite::Chest);
     world.add_component(e, Chest);
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine::World;
-    use engine::components::GameState;
-    use crate::survivor::world_setup::spawn_player;
-    use crate::survivor::player::Player;
     use crate::survivor::inventory::{WeaponInventory, WeaponKind};
-    use crate::survivor::passive::PassiveInventory;
     use crate::survivor::levelup::{CardKind, LevelUpSystem};
+    use crate::survivor::passive::PassiveInventory;
+    use crate::survivor::player::Player;
+    use crate::survivor::world_setup::spawn_player;
+    use engine::components::GameState;
+    use engine::World;
 
     fn make_playing_world_with_player() -> (World, Entity) {
         let mut world = World::new();

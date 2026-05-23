@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rust Survivors Beta Test Checklist</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111318;
+      --panel: #1a1f29;
+      --panel-2: #202838;
+      --text: #edf1f7;
+      --muted: #aab3c2;
+      --accent: #f3c653;
+      --ok: #59d68d;
+      --warn: #ffb15c;
+      --bad: #ff6b6b;
+      --line: #343d4d;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    h1, h2 {
+      line-height: 1.2;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 32px;
+      color: var(--accent);
+    }
+
+    h2 {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+
+    p {
+      color: var(--muted);
+      margin: 8px 0 0;
+    }
+
+    code {
+      background: #0c0f14;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 2px 6px;
+      color: #dce6ff;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-top: 20px;
+      padding: 18px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 22px;
+      color: var(--text);
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 8px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      color: var(--accent);
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .tag {
+      display: inline-block;
+      min-width: 62px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .fixed { background: rgba(89, 214, 141, 0.16); color: var(--ok); }
+    .manual { background: rgba(255, 177, 92, 0.16); color: var(--warn); }
+    .risk { background: rgba(255, 107, 107, 0.16); color: var(--bad); }
+
+    .checklist {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0;
+    }
+
+    .checklist li {
+      display: grid;
+      grid-template-columns: 24px 1fr;
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .checklist li:last-child {
+      border-bottom: 0;
+    }
+
+    .box {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--muted);
+      border-radius: 4px;
+      margin-top: 3px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Rust Survivors 베타 테스트 체크리스트</h1>
+    <p>작성일: 2026-05-23 · 대상: <code>cargo run -p game --bin survivor</code></p>
+
+    <div class="summary">
+      <div class="stat"><strong>4</strong><span>자동 검증 명령 통과</span></div>
+      <div class="stat"><strong>1</strong><span>레벨업 카드 버그 수정</span></div>
+      <div class="stat"><strong>13</strong><span>직접 확인 권장 항목</span></div>
+    </div>
+
+    <section>
+      <h2>수정 완료</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>상태</th>
+            <th>항목</th>
+            <th>확인 방법</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag fixed">FIXED</span></td>
+            <td>레벨업 카드 후보가 현재 보유하지 않은 무기 강화를 제안하던 문제를 수정했습니다.</td>
+            <td>Antonio 시작 직후 레벨업 시 Whip 강화 또는 패시브만 나오는지 확인합니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag fixed">FIXED</span></td>
+            <td>무효 카드가 선택되어도 레벨과 XP 임계치가 소비되던 방어 로직을 수정했습니다.</td>
+            <td>자동 테스트 <code>apply_card_rejects_unowned_weapon_without_leveling</code>로 검증됩니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>실행 전 준비</h2>
+      <ul class="checklist">
+        <li><span class="box"></span><span><code>cargo run -p game --bin survivor</code>로 실행합니다.</span></li>
+        <li><span class="box"></span><span>타이틀 화면에서 <code>Enter</code>를 눌러 게임을 시작합니다.</span></li>
+        <li><span class="box"></span><span><code>W/A/S/D</code> 또는 방향키로 이동합니다.</span></li>
+        <li><span class="box"></span><span>문제가 보이면 증상, 화면, 누른 키, 대략 시간을 기록합니다.</span></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>직접 테스트 필요</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>상태</th>
+            <th>테스트</th>
+            <th>기대 결과</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>타이틀 → 게임 시작 → 1분 이상 생존</td>
+            <td>플레이어/적/XP/픽업/투사체가 네모가 아닌 스프라이트로 보입니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>첫 레벨업 카드 3장 확인</td>
+            <td>시작 무기 Antonio 기준, 보유하지 않은 Magic Wand/Knife/Axe 등의 강화 카드가 나오지 않습니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>레벨업 카드 선택 후 전투 재개</td>
+            <td>1/2/3 키 선택 뒤 게임이 멈춰 있지 않고, 선택한 강화가 반영됩니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>오디오 출력 확인</td>
+            <td><code>assets/audio</code>에 파일이 있으면 BGM/SFX가 재생됩니다. SFX 파일이 없으면 절차적 톤 fallback이 들립니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>화면/HUD 가독성 확인</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>상태</th>
+            <th>테스트</th>
+            <th>기대 결과</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>타이틀 화면 배경과 메뉴 확인</td>
+            <td>배경 이미지가 첫 화면에 노출되고, 제목/메뉴 텍스트와 대비가 충분합니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>800x600 해상도에서 InGame HUD 확인</td>
+            <td>HP/XP/Level/Time/Kills와 하단 무기/패시브 슬롯 텍스트가 서로 겹치지 않습니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>무기/패시브 슬롯 이름과 레벨 확인</td>
+            <td>장비 약어 또는 이름, 레벨, 빈 슬롯 상태가 전투 중 빠르게 구분됩니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>레벨업 카드 화면 텍스트 확인</td>
+            <td>카드 3장의 이름/설명/레벨 정보가 카드 영역 안에 들어가고 서로 겹치지 않습니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>캐릭터 선택, 스테이지 선택, 상점 화면 확인</td>
+            <td>커서, 해금 상태, 설명 텍스트, 보유 골드가 작은 창에서도 읽을 수 있게 배치됩니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Settings / 업적 확인</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>상태</th>
+            <th>테스트</th>
+            <th>기대 결과</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>타이틀에서 <code>O</code>를 눌러 Settings 진입</td>
+            <td>언어, HUD 정보량, BGM 볼륨, SFX 볼륨, 해상도 항목이 표시됩니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>Settings에서 <code>A/D</code> 또는 좌우 방향키로 값 변경</td>
+            <td>언어와 HUD 정보량이 즉시 화면에 반영되고, 볼륨 값은 0~100% 범위에 머뭅니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>상점 화면의 업적 요약 확인</td>
+            <td>업적 달성 수와 업적 목록 일부가 표시되고, 달성 항목과 미달성 항목이 구분됩니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag manual">MANUAL</span></td>
+            <td>첫 런 시작 후 저장 파일 확인</td>
+            <td><code>FirstRun</code> 업적이 중복 없이 저장되고 보상 파워업이 1회만 적용됩니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>남은 개선 후보</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>우선순위</th>
+            <th>내용</th>
+            <th>메모</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag risk">P2</span></td>
+            <td>하단 무기/패시브 슬롯은 아직 색상 사각형 UI입니다.</td>
+            <td>현재 UI 렌더러가 텍스처 없는 <code>DrawRect</code> 전용이라, 별도 텍스처 UI 패스가 필요합니다.</td>
+          </tr>
+          <tr>
+            <td><span class="tag risk">P2</span></td>
+            <td>외부 음원 라이선스 문서 정리가 필요합니다.</td>
+            <td>필요 파일명은 <code>docs/audio_assets.md</code>에 정리되어 있습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>자동 검증 결과</h2>
+      <ul class="checklist">
+        <li><span class="box"></span><span><code>cargo fmt</code> 통과</span></li>
+        <li><span class="box"></span><span><code>cargo test -p game --lib</code> 통과: 89 passed</span></li>
+        <li><span class="box"></span><span><code>cargo build -p game --bin survivor</code> 통과</span></li>
+        <li><span class="box"></span><span><code>cargo build -p game --bin survivor --release</code> 통과</span></li>
+        <li><span class="box"></span><span><code>scripts/package_macos.sh</code> 통과: <code>dist/macos/RustSurvivors</code> 생성</span></li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

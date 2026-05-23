@@ -10,9 +10,10 @@
 //! 플레이스홀더 파일을 교체하면 즉시 반영된다.
 
 use engine::audio::AudioManager;
-use engine::{System, World};
 use engine::components::GameState;
+use engine::{System, World};
 
+use super::meta::MetaSave;
 use super::meta::SurvivorMode;
 
 /// 모드 → BGM 파일명 매핑.
@@ -21,7 +22,7 @@ fn bgm_key(mode: SurvivorMode, state: &GameState) -> &'static str {
         (_, GameState::GameOver) => "bgm_gameover",
         (SurvivorMode::InGame, _) => "bgm_ingame",
         (SurvivorMode::StageClear, _) => "bgm_stageclear",
-        _ => "bgm_title",  // Title / CharacterSelect / StageSelect / Shop
+        _ => "bgm_title", // Title / CharacterSelect / StageSelect / Shop
     }
 }
 
@@ -50,23 +51,38 @@ pub struct BgmSystem {
 }
 
 impl Default for BgmSystem {
-    fn default() -> Self { Self { current: None } }
+    fn default() -> Self {
+        Self { current: None }
+    }
 }
 
 impl System for BgmSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
-        let mode  = world.resource::<SurvivorMode>().copied().unwrap_or(SurvivorMode::Title);
-        let state = world.resource::<GameState>().cloned().unwrap_or(GameState::Playing);
+        let mode = world
+            .resource::<SurvivorMode>()
+            .copied()
+            .unwrap_or(SurvivorMode::Title);
+        let state = world
+            .resource::<GameState>()
+            .cloned()
+            .unwrap_or(GameState::Playing);
 
         let target = bgm_key(mode, &state);
 
         if self.current == Some(target) {
+            let volume = world
+                .resource::<MetaSave>()
+                .map(|m| m.bgm_volume)
+                .unwrap_or(1.0);
+            if let Some(audio) = world.resource_mut::<AudioManager>() {
+                audio.set_volume("bgm", volume);
+            }
             return; // 이미 재생 중인 트랙 — 아무것도 하지 않음
         }
 
         let path = match find_audio_file(target) {
             Some(p) => p,
-            None    => {
+            None => {
                 // 파일이 없으면 BGM 정지하고 키는 갱신
                 if let Some(audio) = world.resource_mut::<AudioManager>() {
                     audio.stop("bgm");
@@ -79,8 +95,13 @@ impl System for BgmSystem {
         // gameover / stageclear 트랙은 한 번만 재생, 나머지는 루프
         let repeat = !matches!(target, "bgm_gameover" | "bgm_stageclear");
 
+        let volume = world
+            .resource::<MetaSave>()
+            .map(|m| m.bgm_volume)
+            .unwrap_or(1.0);
         if let Some(audio) = world.resource_mut::<AudioManager>() {
             audio.play("bgm", &path, repeat);
+            audio.set_volume("bgm", volume);
         }
         self.current = Some(target);
     }
