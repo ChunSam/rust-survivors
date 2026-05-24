@@ -3,9 +3,12 @@ use engine::{AnimationClip, AnimationPlayer, Entity, Sprite, UvRect, World};
 /// Shared generated sprite atlas for the survivor mode.
 pub const ATLAS_PATH: &str = "assets/textures/survivor/survivor_atlas.png";
 pub const TITLE_BACKDROP_PATH: &str = "assets/textures/survivor/title_backdrop.png";
+pub const PLAYER_VISUAL_SIZE: f32 = 96.0;
+pub const ENEMY_VISUAL_SCALE: f32 = 1.8;
+pub const BOSS_VISUAL_SCALE: f32 = 1.3;
 
 const ATLAS_COLS: u32 = 6;
-const ATLAS_ROWS: u32 = 4;
+const ATLAS_ROWS: u32 = 6;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SurvivorSprite {
@@ -77,13 +80,16 @@ pub fn add_tinted_sprite(
     sprite: SurvivorSprite,
     color: [f32; 4],
 ) {
+    let uv = sprite.uv();
     world.add_component(
         entity,
         Sprite {
             texture: Some(ATLAS_PATH.to_string()),
             color,
+            image_handle: None,
         },
     );
+    world.add_component(entity, uv);
     world.add_component(entity, single_frame(sprite));
 }
 

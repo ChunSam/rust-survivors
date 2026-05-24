@@ -41,16 +41,20 @@ impl Particle {
 
 /// 파티클 업데이트 시스템. DamageNumberSystem 과 함께 HudSystem 직전에 등록.
 #[derive(Default)]
-pub struct ParticleSystem;
+pub struct ParticleSystem {
+    snapshot: Vec<(Entity, f32)>,
+    expired: Vec<Entity>,
+}
 
 impl System for ParticleSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
         // 읽기 패스
-        let snapshot: Vec<(Entity, f32)> =
-            world.query::<Particle>().map(|(e, p)| (e, p.age)).collect();
+        self.snapshot.clear();
+        self.expired.clear();
+        self.snapshot
+            .extend(world.query::<Particle>().map(|(e, p)| (e, p.age)));
 
-        let mut expired = Vec::new();
-        for (e, age) in snapshot {
+        for (e, age) in self.snapshot.drain(..) {
             let new_age = age + dt;
             let (lifetime, vel, size, color) = if let Some(p) = world.get_mut::<Particle>(e) {
                 p.age = new_age;
@@ -60,7 +64,7 @@ impl System for ParticleSystem {
             };
 
             if new_age >= lifetime {
-                expired.push(e);
+                self.expired.push(e);
             } else {
                 if let Some(t) = world.get_mut::<Transform>(e) {
                     t.position += vel * dt;
@@ -74,7 +78,7 @@ impl System for ParticleSystem {
             }
         }
 
-        for e in expired {
+        for e in self.expired.drain(..) {
             world.despawn(e);
         }
     }
@@ -150,6 +154,7 @@ fn spawn_particle(
         Sprite {
             texture: None,
             color: color_start,
+            image_handle: None,
         },
     );
     world.add_component(
@@ -207,6 +212,7 @@ mod tests {
             Sprite {
                 texture: None,
                 color: [1.0; 4],
+                image_handle: None,
             },
         );
         world.add_component(
@@ -221,7 +227,7 @@ mod tests {
             },
         );
 
-        let mut sys = ParticleSystem;
+        let mut sys = ParticleSystem::default();
         sys.run(&mut world, 0.1); // age=0.1, 10px 이동
         let x = world.get::<Transform>(e).unwrap().position.x;
         assert!((x - 10.0).abs() < 0.01, "should move 10px in 0.1s");

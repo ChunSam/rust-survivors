@@ -167,7 +167,10 @@ pub struct Zombie;
 /// - Kite          : 너무 가까우면 달아남
 /// - Dash          : 짧은 burst 추격 + 일반 이동 반복
 /// - Stay          : 정지
-pub struct EnemyAiSystem;
+#[derive(Default)]
+pub struct EnemyAiSystem {
+    updates: Vec<(Entity, Vec2, Option<EnemyAiKind>)>,
+}
 
 impl System for EnemyAiSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
@@ -184,39 +187,32 @@ impl System for EnemyAiSystem {
             return;
         };
 
-        // 2) 모든 적 엔티티 상태 수집 (불변 query 종료)
-        let enemies: Vec<(Entity, Vec2, f32, EnemyAiKind)> = world
-            .query3::<Enemy, Transform, EnemyAi>()
-            .map(|(e, _, t, ai)| (e, t.position, ai.move_speed, ai.ai))
-            .collect();
-
-        // 3) 새 위치 + 갱신된 ai_kind 계산
-        let mut updates: Vec<(Entity, Vec2, Option<EnemyAiKind>)> = Vec::new();
-
-        for (e, pos, move_speed, ai_kind) in enemies {
+        // 2+3) 병렬로 새 위치 계산 (rayon via par_query2_map: Transform + EnemyAi)
+        //      EnemyAi 를 가진 엔티티는 적뿐이므로 Enemy 마커 필터 없이도 동일 결과.
+        self.updates = world.par_query2_map::<Transform, EnemyAi, _, _>(|e, t, ai| {
+            let pos = t.position;
+            let move_speed = ai.move_speed;
             let to_player = player_pos - pos;
-            let dist = to_player.length();
-            let dir = if dist > 0.0 {
-                to_player / dist
+            let dist_sq = to_player.length_squared();
+            let dir = if dist_sq > 0.0 {
+                to_player / dist_sq.sqrt()
             } else {
                 Vec2::ZERO
             };
 
-            let (new_pos, new_ai) = match ai_kind {
+            let (new_pos, new_ai) = match ai.ai.clone() {
                 EnemyAiKind::Chase | EnemyAiKind::Split => (pos + dir * move_speed * dt, None),
                 EnemyAiKind::Hover { stop_at } => {
-                    if dist > stop_at {
+                    if dist_sq > stop_at * stop_at {
                         (pos + dir * move_speed * dt, None)
                     } else {
                         (pos, None)
                     }
                 }
                 EnemyAiKind::Kite { min_dist } => {
-                    if dist < min_dist {
-                        // 너무 가까움 — 반대 방향으로 이동
+                    if dist_sq < min_dist * min_dist {
                         (pos - dir * move_speed * dt, None)
                     } else {
-                        // 멀면 추격
                         (pos + dir * move_speed * dt, None)
                     }
                 }
@@ -254,11 +250,11 @@ impl System for EnemyAiSystem {
                 EnemyAiKind::Stay => (pos, None),
             };
 
-            updates.push((e, new_pos, new_ai));
-        }
+            (e, new_pos, new_ai)
+        });
 
         // 4) Transform + EnemyAi 갱신 (query 끝난 뒤 get_mut — borrow checker 회피)
-        for (e, new_pos, new_ai) in updates {
+        for (e, new_pos, new_ai) in self.updates.drain(..) {
             if let Some(t) = world.get_mut::<Transform>(e) {
                 t.position = new_pos;
             }
