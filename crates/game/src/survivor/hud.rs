@@ -182,38 +182,38 @@ impl System for HudSystem {
                     );
                 }
                 if let Some(q) = world.resource_mut::<TextQueue>() {
-                    q.push(DrawText {
-                        text: text(lang, UiText::GameTitle).to_string(),
-                        position: Vec2::new(cx - 227.0, cy - 127.0),
-                        size: 56.0,
-                        color: [20, 12, 8, 230],
-                    });
-                    q.push(DrawText {
-                        text: text(lang, UiText::GameTitle).to_string(),
-                        position: Vec2::new(cx - 230.0, cy - 130.0),
-                        size: 56.0,
-                        color: [255, 220, 80, 255],
-                    });
-                    q.push(DrawText {
-                        text: text(lang, UiText::PressEnterStart).to_string(),
-                        position: Vec2::new(cx - 130.0, cy - 20.0),
-                        size: 22.0,
-                        color: [255, 255, 255, 255],
-                    });
-                    q.push(DrawText {
-                        text: text(lang, UiText::TitleMenuHelp).to_string(),
-                        position: Vec2::new(cx - 240.0, cy + 40.0),
-                        size: 18.0,
-                        color: [200, 200, 255, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::GameTitle).to_string(),
+                        Vec2::new(cx - 227.0, cy - 127.0),
+                        56.0,
+                        [20, 12, 8, 230],
+                    ));
+                    q.push(DrawText::new(
+                        text(lang, UiText::GameTitle).to_string(),
+                        Vec2::new(cx - 230.0, cy - 130.0),
+                        56.0,
+                        [255, 220, 80, 255],
+                    ));
+                    q.push(DrawText::new(
+                        text(lang, UiText::PressEnterStart).to_string(),
+                        Vec2::new(cx - 130.0, cy - 20.0),
+                        22.0,
+                        [255, 255, 255, 255],
+                    ));
+                    q.push(DrawText::new(
+                        text(lang, UiText::TitleMenuHelp).to_string(),
+                        Vec2::new(cx - 240.0, cy + 40.0),
+                        18.0,
+                        [200, 200, 255, 255],
+                    ));
                 }
                 let meta_info = world
                     .resource::<MetaSave>()
                     .map(|m| (m.gold_total, m.best_time, m.kills_total));
                 if let Some((gold, best, kills)) = meta_info {
                     if let Some(q) = world.resource_mut::<TextQueue>() {
-                        q.push(DrawText {
-                            text: format!(
+                        q.push(DrawText::new(
+                            format!(
                                 "{} {}  {} {:02}:{:02}  {} {}",
                                 text(lang, UiText::Gold),
                                 gold,
@@ -223,10 +223,10 @@ impl System for HudSystem {
                                 text(lang, UiText::Kills),
                                 kills
                             ),
-                            position: Vec2::new(cx - 230.0, cy + 130.0),
-                            size: 16.0,
-                            color: [200, 200, 200, 255],
-                        });
+                            Vec2::new(cx - 230.0, cy + 130.0),
+                            16.0,
+                            [200, 200, 200, 255],
+                        ));
                     }
                 }
                 return;
@@ -247,18 +247,18 @@ impl System for HudSystem {
                     );
                 }
                 if let Some(q) = world.resource_mut::<TextQueue>() {
-                    q.push(DrawText {
-                        text: text(lang, UiText::CharacterSelect).to_string(),
-                        position: Vec2::new(cx - 150.0, 30.0),
-                        size: 32.0,
-                        color: [255, 220, 80, 255],
-                    });
-                    q.push(DrawText {
-                        text: format!("{} {}", text(lang, UiText::Gold), gold),
-                        position: Vec2::new(cx + 150.0, 30.0),
-                        size: 20.0,
-                        color: [255, 255, 100, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::CharacterSelect).to_string(),
+                        Vec2::new(cx - 150.0, 30.0),
+                        32.0,
+                        [255, 220, 80, 255],
+                    ));
+                    q.push(DrawText::new(
+                        format!("{} {}", text(lang, UiText::Gold), gold),
+                        Vec2::new(cx + 150.0, 30.0),
+                        20.0,
+                        [255, 255, 100, 255],
+                    ));
                     for (i, kind) in CharacterKind::ALL.iter().enumerate() {
                         let need = kind.unlock_gold();
                         let unlocked = kind.is_unlocked(&meta_snapshot);
@@ -275,19 +275,19 @@ impl System for HudSystem {
                         } else {
                             [120, 120, 120, 255]
                         };
-                        q.push(DrawText {
-                            text: format!("{} {} {}", prefix, kind.label(lang), lock_str),
-                            position: Vec2::new(cx - 280.0, 96.0 + i as f32 * 32.0),
-                            size: 18.0,
+                        q.push(DrawText::new(
+                            format!("{} {} {}", prefix, kind.label(lang), lock_str),
+                            Vec2::new(cx - 280.0, 96.0 + i as f32 * 32.0),
+                            18.0,
                             color,
-                        });
+                        ));
                     }
-                    q.push(DrawText {
-                        text: text(lang, UiText::NavigateSelectBack).to_string(),
-                        position: Vec2::new(cx - 250.0, vh * 0.70),
-                        size: 14.0,
-                        color: [180, 180, 180, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::NavigateSelectBack).to_string(),
+                        Vec2::new(cx - 250.0, vh * 0.70),
+                        14.0,
+                        [180, 180, 180, 255],
+                    ));
                 }
                 return;
             }
@@ -309,12 +309,12 @@ impl System for HudSystem {
                     );
                 }
                 if let Some(q) = world.resource_mut::<TextQueue>() {
-                    q.push(DrawText {
-                        text: text(lang, UiText::StageSelect).to_string(),
-                        position: Vec2::new(cx - 120.0, 30.0),
-                        size: 32.0,
-                        color: [255, 220, 80, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::StageSelect).to_string(),
+                        Vec2::new(cx - 120.0, 30.0),
+                        32.0,
+                        [255, 220, 80, 255],
+                    ));
                     for (i, stage) in StageKind::ALL.iter().enumerate() {
                         let is_unlocked = stage.prerequisite().is_none()
                             || stage
@@ -334,19 +334,19 @@ impl System for HudSystem {
                         } else {
                             [120, 120, 120, 255]
                         };
-                        q.push(DrawText {
-                            text: format!("{} {} {}", prefix, stage.label(lang), lock_str),
-                            position: Vec2::new(cx - 280.0, 96.0 + i as f32 * 40.0),
-                            size: 22.0,
+                        q.push(DrawText::new(
+                            format!("{} {} {}", prefix, stage.label(lang), lock_str),
+                            Vec2::new(cx - 280.0, 96.0 + i as f32 * 40.0),
+                            22.0,
                             color,
-                        });
+                        ));
                     }
-                    q.push(DrawText {
-                        text: text(lang, UiText::NavigateSelectBack).to_string(),
-                        position: Vec2::new(cx - 250.0, vh * 0.70),
-                        size: 14.0,
-                        color: [180, 180, 180, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::NavigateSelectBack).to_string(),
+                        Vec2::new(cx - 250.0, vh * 0.70),
+                        14.0,
+                        [180, 180, 180, 255],
+                    ));
                 }
                 return;
             }
@@ -387,14 +387,14 @@ impl System for HudSystem {
                     );
                 }
                 if let Some(q) = world.resource_mut::<TextQueue>() {
-                    q.push(DrawText {
-                        text: text(lang, UiText::StageClear).to_string(),
-                        position: Vec2::new(cx - 160.0, cy - 138.0),
-                        size: 44.0,
-                        color: [255, 220, 80, 255],
-                    });
-                    q.push(DrawText {
-                        text: format!(
+                    q.push(DrawText::new(
+                        text(lang, UiText::StageClear).to_string(),
+                        Vec2::new(cx - 160.0, cy - 138.0),
+                        44.0,
+                        [255, 220, 80, 255],
+                    ));
+                    q.push(DrawText::new(
+                        format!(
                             "{} {:02}:{:02}  {} {}  {} {}  {} {}",
                             text(lang, UiText::Time),
                             mm,
@@ -406,16 +406,16 @@ impl System for HudSystem {
                             text(lang, UiText::Gold),
                             gold_stat
                         ),
-                        position: Vec2::new(cx - 185.0, cy - 10.0),
-                        size: 18.0,
-                        color: [200, 230, 200, 255],
-                    });
-                    q.push(DrawText {
-                        text: text(lang, UiText::PressEnterReturn).to_string(),
-                        position: Vec2::new(cx - 100.0, cy + 100.0),
-                        size: 22.0,
-                        color: [255, 255, 255, 255],
-                    });
+                        Vec2::new(cx - 185.0, cy - 10.0),
+                        18.0,
+                        [200, 230, 200, 255],
+                    ));
+                    q.push(DrawText::new(
+                        text(lang, UiText::PressEnterReturn).to_string(),
+                        Vec2::new(cx - 100.0, cy + 100.0),
+                        22.0,
+                        [255, 255, 255, 255],
+                    ));
                 }
                 return;
             }
@@ -431,19 +431,19 @@ impl System for HudSystem {
                     );
                 }
                 if let Some(q) = world.resource_mut::<TextQueue>() {
-                    q.push(DrawText {
-                        text: text(lang, UiText::PowerupShop).to_string(),
-                        position: Vec2::new(cx - 250.0, 30.0),
-                        size: 32.0,
-                        color: [255, 220, 80, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::PowerupShop).to_string(),
+                        Vec2::new(cx - 250.0, 30.0),
+                        32.0,
+                        [255, 220, 80, 255],
+                    ));
                     if let Some(meta) = &meta_clone {
-                        q.push(DrawText {
-                            text: format!("{} {}", text(lang, UiText::Gold), meta.gold_total),
-                            position: Vec2::new(cx + 150.0, 30.0),
-                            size: 20.0,
-                            color: [255, 255, 100, 255],
-                        });
+                        q.push(DrawText::new(
+                            format!("{} {}", text(lang, UiText::Gold), meta.gold_total),
+                            Vec2::new(cx + 150.0, 30.0),
+                            20.0,
+                            [255, 255, 100, 255],
+                        ));
                     }
                     for (i, kind) in PowerUpKind::ALL.iter().enumerate() {
                         let lv = meta_clone
@@ -457,8 +457,8 @@ impl System for HudSystem {
                         } else {
                             [200, 200, 200, 255]
                         };
-                        q.push(DrawText {
-                            text: format!(
+                        q.push(DrawText::new(
+                            format!(
                                 "{} {:<10} Lv {}/{}  {}{}",
                                 prefix,
                                 kind.label(lang),
@@ -467,20 +467,20 @@ impl System for HudSystem {
                                 text(lang, UiText::CostPrefix),
                                 cost,
                             ),
-                            position: Vec2::new(cx - 320.0, 76.0 + i as f32 * 26.0),
-                            size: 16.0,
+                            Vec2::new(cx - 320.0, 76.0 + i as f32 * 26.0),
+                            16.0,
                             color,
-                        });
+                        ));
                     }
-                    q.push(DrawText {
-                        text: text(lang, UiText::NavigateBuyBack).to_string(),
-                        position: Vec2::new(
+                    q.push(DrawText::new(
+                        text(lang, UiText::NavigateBuyBack).to_string(),
+                        Vec2::new(
                             cx - 250.0,
                             76.0 + PowerUpKind::ALL.len() as f32 * 26.0 + 20.0,
                         ),
-                        size: 14.0,
-                        color: [180, 180, 180, 255],
-                    });
+                        14.0,
+                        [180, 180, 180, 255],
+                    ));
 
                     if let Some(meta) = &meta_clone {
                         let done = AchievementKind::ALL
@@ -488,17 +488,17 @@ impl System for HudSystem {
                             .filter(|&&a| achievement_completed(meta, a))
                             .count();
                         let ax = (cx + 150.0).min(vw - 270.0);
-                        q.push(DrawText {
-                            text: format!(
+                        q.push(DrawText::new(
+                            format!(
                                 "{} {}/{}",
                                 text(lang, UiText::Achievements),
                                 done,
                                 AchievementKind::ALL.len()
                             ),
-                            position: Vec2::new(ax, 76.0),
-                            size: 18.0,
-                            color: [255, 220, 80, 255],
-                        });
+                            Vec2::new(ax, 76.0),
+                            18.0,
+                            [255, 220, 80, 255],
+                        ));
                         for (i, &achievement) in AchievementKind::ALL.iter().take(8).enumerate() {
                             let completed = achievement_completed(meta, achievement);
                             let mark = if completed { "[x]" } else { "[ ]" };
@@ -507,17 +507,17 @@ impl System for HudSystem {
                             } else {
                                 [135, 135, 145, 255]
                             };
-                            q.push(DrawText {
-                                text: format!(
+                            q.push(DrawText::new(
+                                format!(
                                     "{} {} - {}",
                                     mark,
                                     achievement.title(lang),
                                     achievement.reward(lang)
                                 ),
-                                position: Vec2::new(ax, 104.0 + i as f32 * 24.0),
-                                size: 12.0,
+                                Vec2::new(ax, 104.0 + i as f32 * 24.0),
+                                12.0,
                                 color,
-                            });
+                            ));
                         }
                     }
                 }
@@ -580,31 +580,31 @@ impl System for HudSystem {
                 ];
 
                 if let Some(q) = world.resource_mut::<TextQueue>() {
-                    q.push(DrawText {
-                        text: text(lang, UiText::Paused).to_string(),
-                        position: Vec2::new(panel_x + panel_w / 2.0 - 50.0, panel_y + 14.0),
-                        size: 34.0,
-                        color: [255, 220, 80, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::Paused).to_string(),
+                        Vec2::new(panel_x + panel_w / 2.0 - 50.0, panel_y + 14.0),
+                        34.0,
+                        [255, 220, 80, 255],
+                    ));
                     for (i, (label, _)) in labels.iter().enumerate().take(PAUSE_MENU_ITEMS) {
                         let color = if i == cursor_idx {
                             [255, 255, 80, 255]
                         } else {
                             [200, 200, 200, 255]
                         };
-                        q.push(DrawText {
-                            text: label.to_string(),
-                            position: Vec2::new(panel_x + 20.0, item_y0 + i as f32 * ITEM_H),
-                            size: 22.0,
+                        q.push(DrawText::new(
+                            label.to_string(),
+                            Vec2::new(panel_x + 20.0, item_y0 + i as f32 * ITEM_H),
+                            22.0,
                             color,
-                        });
+                        ));
                     }
-                    q.push(DrawText {
-                        text: text(lang, UiText::PauseHelp).to_string(),
-                        position: Vec2::new(panel_x + 10.0, panel_y + panel_h - 22.0),
-                        size: 12.0,
-                        color: [160, 160, 160, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::PauseHelp).to_string(),
+                        Vec2::new(panel_x + 10.0, panel_y + panel_h - 22.0),
+                        12.0,
+                        [160, 160, 160, 255],
+                    ));
                 }
                 return;
             }
@@ -652,12 +652,12 @@ impl System for HudSystem {
                     );
                 }
                 if let Some(q) = world.resource_mut::<TextQueue>() {
-                    q.push(DrawText {
-                        text: text(lang, UiText::Settings).to_string(),
-                        position: Vec2::new(cx - 40.0, py + 12.0),
-                        size: 30.0,
-                        color: [255, 220, 80, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::Settings).to_string(),
+                        Vec2::new(cx - 40.0, py + 12.0),
+                        30.0,
+                        [255, 220, 80, 255],
+                    ));
                     let rows = [
                         (
                             text(lang, UiText::Language).to_string(),
@@ -687,19 +687,19 @@ impl System for HudSystem {
                         } else {
                             [200, 200, 200, 255]
                         };
-                        q.push(DrawText {
-                            text: format!("{:<14}  < {} >", label, value),
-                            position: Vec2::new(px + 20.0, py + 74.0 + i as f32 * 42.0),
-                            size: 19.0,
+                        q.push(DrawText::new(
+                            format!("{:<14}  < {} >", label, value),
+                            Vec2::new(px + 20.0, py + 74.0 + i as f32 * 42.0),
+                            19.0,
                             color,
-                        });
+                        ));
                     }
-                    q.push(DrawText {
-                        text: text(lang, UiText::NavigateChangeApplyBack).to_string(),
-                        position: Vec2::new(px + 10.0, py + panel_h - 22.0),
-                        size: 13.0,
-                        color: [160, 160, 160, 255],
-                    });
+                    q.push(DrawText::new(
+                        text(lang, UiText::NavigateChangeApplyBack).to_string(),
+                        Vec2::new(px + 10.0, py + panel_h - 22.0),
+                        13.0,
+                        [160, 160, 160, 255],
+                    ));
                 }
                 return;
             }
@@ -865,25 +865,25 @@ impl System for HudSystem {
                 }
             };
             if let Some(q) = world.resource_mut::<TextQueue>() {
-                q.push(DrawText {
-                    text: hp_text,
-                    position: Vec2::new(10.0 + HP_BAR_W + 4.0, 8.0),
-                    size: 13.0,
-                    color: [255, 255, 255, 255],
-                });
-                q.push(DrawText {
-                    text: info_line,
-                    position: Vec2::new(10.0, 26.0),
-                    size: 14.0,
-                    color: [210, 210, 210, 255],
-                });
+                q.push(DrawText::new(
+                    hp_text,
+                    Vec2::new(10.0 + HP_BAR_W + 4.0, 8.0),
+                    13.0,
+                    [255, 255, 255, 255],
+                ));
+                q.push(DrawText::new(
+                    info_line,
+                    Vec2::new(10.0, 26.0),
+                    14.0,
+                    [210, 210, 210, 255],
+                ));
                 if let Some(stat_line) = stat_line {
-                    q.push(DrawText {
-                        text: stat_line,
-                        position: Vec2::new(10.0, 42.0),
-                        size: 12.0,
-                        color: [185, 205, 220, 245],
-                    });
+                    q.push(DrawText::new(
+                        stat_line,
+                        Vec2::new(10.0, 42.0),
+                        12.0,
+                        [185, 205, 220, 245],
+                    ));
                 }
             }
         }
@@ -945,18 +945,18 @@ impl System for HudSystem {
         }
 
         if let Some(q) = world.resource_mut::<TextQueue>() {
-            q.push(DrawText {
-                text: text(lang, UiText::Weapons).to_string(),
-                position: Vec2::new(slot_x0, weapon_y - 16.0),
-                size: 11.0,
-                color: [180, 190, 220, 255],
-            });
-            q.push(DrawText {
-                text: text(lang, UiText::Passives).to_string(),
-                position: Vec2::new(slot_x0 + 52.0, weapon_y - 16.0),
-                size: 11.0,
-                color: [180, 190, 220, 255],
-            });
+            q.push(DrawText::new(
+                text(lang, UiText::Weapons).to_string(),
+                Vec2::new(slot_x0, weapon_y - 16.0),
+                11.0,
+                [180, 190, 220, 255],
+            ));
+            q.push(DrawText::new(
+                text(lang, UiText::Passives).to_string(),
+                Vec2::new(slot_x0 + 52.0, weapon_y - 16.0),
+                11.0,
+                [180, 190, 220, 255],
+            ));
 
             for i in 0..SLOT_COLS {
                 let sx = slot_x0 + i as f32 * (SLOT_W + SLOT_GAP);
@@ -970,12 +970,12 @@ impl System for HudSystem {
                         }
                     })
                     .unwrap_or_else(|| text(lang, UiText::EmptySlot).to_string());
-                q.push(DrawText {
+                q.push(DrawText::new(
                     text,
-                    position: Vec2::new(sx + 10.0, weapon_y + 5.0),
-                    size: 12.0,
-                    color: [235, 235, 240, 235],
-                });
+                    Vec2::new(sx + 10.0, weapon_y + 5.0),
+                    12.0,
+                    [235, 235, 240, 235],
+                ));
             }
 
             for i in 0..SLOT_COLS {
@@ -984,12 +984,12 @@ impl System for HudSystem {
                     .get(i)
                     .map(|(kind, level)| format!("{} {}", passive_kind_name(*kind, lang), level))
                     .unwrap_or_else(|| text(lang, UiText::EmptySlot).to_string());
-                q.push(DrawText {
+                q.push(DrawText::new(
                     text,
-                    position: Vec2::new(sx + 10.0, passive_y + 5.0),
-                    size: 12.0,
-                    color: [235, 235, 240, 235],
-                });
+                    Vec2::new(sx + 10.0, passive_y + 5.0),
+                    12.0,
+                    [235, 235, 240, 235],
+                ));
             }
         }
 
@@ -1037,30 +1037,30 @@ impl System for HudSystem {
                         }
                     }
                     if let Some(q) = world.resource_mut::<TextQueue>() {
-                        q.push(DrawText {
-                            text: text(lang, UiText::LevelUp).to_string(),
-                            position: Vec2::new(cx - 60.0, cy - 117.0),
-                            size: 38.0,
-                            color: [255, 220, 80, 255],
-                        });
-                        q.push(DrawText {
-                            text: format!("1.  {}", offered[0].label(lang)),
-                            position: Vec2::new(cx - 180.0, cy - 42.0),
-                            size: 19.0,
-                            color: [255, 255, 255, 255],
-                        });
-                        q.push(DrawText {
-                            text: format!("2.  {}", offered[1].label(lang)),
-                            position: Vec2::new(cx - 180.0, cy + 5.0),
-                            size: 19.0,
-                            color: [255, 255, 255, 255],
-                        });
-                        q.push(DrawText {
-                            text: format!("3.  {}", offered[2].label(lang)),
-                            position: Vec2::new(cx - 180.0, cy + 52.0),
-                            size: 19.0,
-                            color: [255, 255, 255, 255],
-                        });
+                        q.push(DrawText::new(
+                            text(lang, UiText::LevelUp).to_string(),
+                            Vec2::new(cx - 60.0, cy - 117.0),
+                            38.0,
+                            [255, 220, 80, 255],
+                        ));
+                        q.push(DrawText::new(
+                            format!("1.  {}", offered[0].label(lang)),
+                            Vec2::new(cx - 180.0, cy - 42.0),
+                            19.0,
+                            [255, 255, 255, 255],
+                        ));
+                        q.push(DrawText::new(
+                            format!("2.  {}", offered[1].label(lang)),
+                            Vec2::new(cx - 180.0, cy + 5.0),
+                            19.0,
+                            [255, 255, 255, 255],
+                        ));
+                        q.push(DrawText::new(
+                            format!("3.  {}", offered[2].label(lang)),
+                            Vec2::new(cx - 180.0, cy + 52.0),
+                            19.0,
+                            [255, 255, 255, 255],
+                        ));
                     }
                 }
             }
@@ -1085,14 +1085,14 @@ impl System for HudSystem {
                 );
             }
             if let Some(q) = world.resource_mut::<TextQueue>() {
-                q.push(DrawText {
-                    text: text(lang, UiText::GameOver).to_string(),
-                    position: Vec2::new(cx - 80.0, cy - 158.0),
-                    size: 52.0,
-                    color: [255, 60, 60, 255],
-                });
-                q.push(DrawText {
-                    text: format!(
+                q.push(DrawText::new(
+                    text(lang, UiText::GameOver).to_string(),
+                    Vec2::new(cx - 80.0, cy - 158.0),
+                    52.0,
+                    [255, 60, 60, 255],
+                ));
+                q.push(DrawText::new(
+                    format!(
                         "{} {:02}:{:02}  {} {}  {} {}  {} {}",
                         text(lang, UiText::Time),
                         mm2,
@@ -1104,16 +1104,16 @@ impl System for HudSystem {
                         text(lang, UiText::Gold),
                         gold
                     ),
-                    position: Vec2::new(cx - 220.0, cy - 20.0),
-                    size: 18.0,
-                    color: [220, 180, 180, 255],
-                });
-                q.push(DrawText {
-                    text: text(lang, UiText::RestartHint).to_string(),
-                    position: Vec2::new(cx - 90.0, cy + 130.0),
-                    size: 22.0,
-                    color: [255, 255, 255, 255],
-                });
+                    Vec2::new(cx - 220.0, cy - 20.0),
+                    18.0,
+                    [220, 180, 180, 255],
+                ));
+                q.push(DrawText::new(
+                    text(lang, UiText::RestartHint).to_string(),
+                    Vec2::new(cx - 90.0, cy + 130.0),
+                    22.0,
+                    [255, 255, 255, 255],
+                ));
             }
         }
 
@@ -1156,12 +1156,12 @@ impl System for HudSystem {
                 }
             }
             if let Some(q) = world.resource_mut::<TextQueue>() {
-                q.push(DrawText {
-                    text: format!("{}  {:.0}/{:.0}", kind.label(lang), hp.max(0.0), max),
-                    position: Vec2::new(boss_bar_x, BOSS_BAR_Y - 18.0),
-                    size: 14.0,
-                    color: [255, 120, 120, 255],
-                });
+                q.push(DrawText::new(
+                    format!("{}  {:.0}/{:.0}", kind.label(lang), hp.max(0.0), max),
+                    Vec2::new(boss_bar_x, BOSS_BAR_Y - 18.0),
+                    14.0,
+                    [255, 120, 120, 255],
+                ));
             }
         }
 
@@ -1189,12 +1189,12 @@ impl System for HudSystem {
         if !damage_items.is_empty() {
             if let Some(q) = world.resource_mut::<TextQueue>() {
                 for (pos, value, alpha) in damage_items {
-                    q.push(DrawText {
-                        text: format!("{:.0}", value),
-                        position: pos,
-                        size: 16.0,
-                        color: [255, 230, 120, alpha],
-                    });
+                    q.push(DrawText::new(
+                        format!("{:.0}", value),
+                        pos,
+                        16.0,
+                        [255, 230, 120, alpha],
+                    ));
                 }
             }
         }

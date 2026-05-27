@@ -64,7 +64,7 @@ fn main() {
     app.add_system(StatRecalcSystem); // Phase 3-A: 패시브 합산해 PlayerStats 갱신 (현재 no-op)
     app.add_system(LevelUpSystem);
     app.add_system(PlayerMovementSystem);
-    app.add_system(EnemyAiSystem);
+    app.add_system(EnemyAiSystem::default());
     app.add_system(SpawnDirectorSystem::default());
     app.add_system(BossSpawnSystem); // Phase 5: 시간축 보스 등장 트리거
     app.add_system(BossPhaseSystem); // Phase 5: HP 비율 → phase 전환

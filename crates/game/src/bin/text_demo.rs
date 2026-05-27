@@ -14,30 +14,30 @@ impl System for TextDemoSystem {
         let fps = if dt > 0.0 { 1.0 / dt } else { 0.0 };
 
         if let Some(q) = world.resource_mut::<TextQueue>() {
-            q.push(DrawText {
-                text: "Rust 2D Game Engine".into(),
-                position: Vec2::new(40.0, 40.0),
-                size: 32.0,
-                color: [255, 255, 255, 255],
-            });
-            q.push(DrawText {
-                text: "안녕하세요! 한글이 보입니다.".into(),
-                position: Vec2::new(40.0, 90.0),
-                size: 28.0,
-                color: [255, 220, 120, 255],
-            });
-            q.push(DrawText {
-                text: format!("Elapsed: {:.1}s   FPS: {:.0}", self.elapsed, fps),
-                position: Vec2::new(40.0, 140.0),
-                size: 20.0,
-                color: [180, 220, 255, 255],
-            });
-            q.push(DrawText {
-                text: "ESC 키로 종료".into(),
-                position: Vec2::new(40.0, 540.0),
-                size: 18.0,
-                color: [200, 200, 200, 255],
-            });
+            q.push(DrawText::new(
+                "Rust 2D Game Engine",
+                Vec2::new(40.0, 40.0),
+                32.0,
+                [255, 255, 255, 255],
+            ));
+            q.push(DrawText::new(
+                "안녕하세요! 한글이 보입니다.",
+                Vec2::new(40.0, 90.0),
+                28.0,
+                [255, 220, 120, 255],
+            ));
+            q.push(DrawText::new(
+                format!("Elapsed: {:.1}s   FPS: {:.0}", self.elapsed, fps),
+                Vec2::new(40.0, 140.0),
+                20.0,
+                [180, 220, 255, 255],
+            ));
+            q.push(DrawText::new(
+                "ESC 키로 종료",
+                Vec2::new(40.0, 540.0),
+                18.0,
+                [200, 200, 200, 255],
+            ));
         }
     }
 }

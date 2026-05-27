@@ -87,6 +87,8 @@ pub fn add_tinted_sprite(
             texture: Some(ATLAS_PATH.to_string()),
             color,
             image_handle: None,
+            normal_texture: None,
+            normal_handle: None,
         },
     );
     world.add_component(entity, uv);
