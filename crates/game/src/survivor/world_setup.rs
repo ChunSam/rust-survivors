@@ -9,7 +9,7 @@ use super::pickup::GoldWallet;
 use super::player::{Player, PlayerStats, Velocity};
 use super::powerup::ShopCursor;
 use super::sfx::SfxQueue;
-use super::sprites::{add_sprite, SurvivorSprite};
+use super::sprites::{add_sprite, SurvivorSprite, PLAYER_VISUAL_SIZE};
 use super::stage::{SelectedStage, StageCursor};
 use super::xp::XpAccumulator;
 #[cfg(not(test))]
@@ -24,7 +24,7 @@ pub fn spawn_player(world: &mut World) {
         e,
         Transform {
             position: Vec2::new(0.0, 0.0),
-            scale: Vec2::new(48.0, 48.0),
+            scale: Vec2::splat(PLAYER_VISUAL_SIZE),
             rotation: 0.0,
             z: 1.0, // 적보다 위에 그려지도록 z=1
         },

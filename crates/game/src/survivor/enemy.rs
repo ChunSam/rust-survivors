@@ -1,6 +1,5 @@
 use super::player::Player;
-use engine::components::GameState;
-use engine::{Entity, System, Transform, World};
+use engine::{Entity, GameState, System, Transform, World};
 use glam::Vec2;
 
 /// 적 종류. 시각화 + AI variant + 기본 스탯의 키.
@@ -187,71 +186,72 @@ impl System for EnemyAiSystem {
             return;
         };
 
-        // 2+3) 병렬로 새 위치 계산 (rayon via par_query2_map: Transform + EnemyAi)
-        //      EnemyAi 를 가진 엔티티는 적뿐이므로 Enemy 마커 필터 없이도 동일 결과.
-        self.updates = world.par_query2_map::<Transform, EnemyAi, _, _>(|e, t, ai| {
-            let pos = t.position;
-            let move_speed = ai.move_speed;
-            let to_player = player_pos - pos;
-            let dist_sq = to_player.length_squared();
-            let dir = if dist_sq > 0.0 {
-                to_player / dist_sq.sqrt()
-            } else {
-                Vec2::ZERO
-            };
+        // 2+3) 새 위치 계산. query borrow 가 끝난 뒤 Transform 을 수정하기 위해 updates 에 캐시한다.
+        self.updates.clear();
+        self.updates
+            .extend(world.query2::<Transform, EnemyAi>().map(|(e, t, ai)| {
+                let pos = t.position;
+                let move_speed = ai.move_speed;
+                let to_player = player_pos - pos;
+                let dist_sq = to_player.length_squared();
+                let dir = if dist_sq > 0.0 {
+                    to_player / dist_sq.sqrt()
+                } else {
+                    Vec2::ZERO
+                };
 
-            let (new_pos, new_ai) = match ai.ai.clone() {
-                EnemyAiKind::Chase | EnemyAiKind::Split => (pos + dir * move_speed * dt, None),
-                EnemyAiKind::Hover { stop_at } => {
-                    if dist_sq > stop_at * stop_at {
-                        (pos + dir * move_speed * dt, None)
-                    } else {
-                        (pos, None)
-                    }
-                }
-                EnemyAiKind::Kite { min_dist } => {
-                    if dist_sq < min_dist * min_dist {
-                        (pos - dir * move_speed * dt, None)
-                    } else {
-                        (pos + dir * move_speed * dt, None)
-                    }
-                }
-                EnemyAiKind::Dash {
-                    cooldown,
-                    elapsed,
-                    dash_speed,
-                    dash_lifetime,
-                    dashing,
-                } => {
-                    let mut new_elapsed = elapsed;
-                    let mut new_dashing = dashing;
-
-                    let new_pos = if new_dashing > 0.0 {
-                        new_dashing -= dt;
-                        pos + dir * dash_speed * dt
-                    } else {
-                        new_elapsed += dt;
-                        if new_elapsed >= cooldown {
-                            new_elapsed -= cooldown;
-                            new_dashing = dash_lifetime;
+                let (new_pos, new_ai) = match ai.ai {
+                    EnemyAiKind::Chase | EnemyAiKind::Split => (pos + dir * move_speed * dt, None),
+                    EnemyAiKind::Hover { stop_at } => {
+                        if dist_sq > stop_at * stop_at {
+                            (pos + dir * move_speed * dt, None)
+                        } else {
+                            (pos, None)
                         }
-                        pos + dir * move_speed * dt
-                    };
-
-                    let new_ai = EnemyAiKind::Dash {
+                    }
+                    EnemyAiKind::Kite { min_dist } => {
+                        if dist_sq < min_dist * min_dist {
+                            (pos - dir * move_speed * dt, None)
+                        } else {
+                            (pos + dir * move_speed * dt, None)
+                        }
+                    }
+                    EnemyAiKind::Dash {
                         cooldown,
-                        elapsed: new_elapsed,
+                        elapsed,
                         dash_speed,
                         dash_lifetime,
-                        dashing: new_dashing,
-                    };
-                    (new_pos, Some(new_ai))
-                }
-                EnemyAiKind::Stay => (pos, None),
-            };
+                        dashing,
+                    } => {
+                        let mut new_elapsed = elapsed;
+                        let mut new_dashing = dashing;
 
-            (e, new_pos, new_ai)
-        });
+                        let new_pos = if new_dashing > 0.0 {
+                            new_dashing -= dt;
+                            pos + dir * dash_speed * dt
+                        } else {
+                            new_elapsed += dt;
+                            if new_elapsed >= cooldown {
+                                new_elapsed -= cooldown;
+                                new_dashing = dash_lifetime;
+                            }
+                            pos + dir * move_speed * dt
+                        };
+
+                        let new_ai = EnemyAiKind::Dash {
+                            cooldown,
+                            elapsed: new_elapsed,
+                            dash_speed,
+                            dash_lifetime,
+                            dashing: new_dashing,
+                        };
+                        (new_pos, Some(new_ai))
+                    }
+                    EnemyAiKind::Stay => (pos, None),
+                };
+
+                (e, new_pos, new_ai)
+            }));
 
         // 4) Transform + EnemyAi 갱신 (query 끝난 뒤 get_mut — borrow checker 회피)
         for (e, new_pos, new_ai) in self.updates.drain(..) {

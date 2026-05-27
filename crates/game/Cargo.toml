@@ -13,10 +13,6 @@ name = "game"
 path = "src/main.rs"
 
 [[bin]]
-name = "text_demo"
-path = "src/bin/text_demo.rs"
-
-[[bin]]
 name = "survivor"
 path = "src/bin/survivor.rs"
 

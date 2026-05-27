@@ -4,9 +4,7 @@ use super::passive::{PassiveInventory, PassiveKind};
 use super::player::Player;
 use super::sfx::{SfxEvent, SfxQueue};
 use super::xp::XpAccumulator;
-use engine::components::GameState;
-use engine::input::InputState;
-use engine::{System, World};
+use engine::{GameState, InputState, System, World};
 use rand::seq::SliceRandom;
 use winit::keyboard::KeyCode;
 
@@ -273,11 +271,9 @@ impl CardKind {
 
 /// LevelUp 진행 중에만 World 에 삽입되는 리소스.
 ///
-/// `consumed = false` → 카드 선택 대기 중.
-/// `consumed = true`  → 선택 완료 (World::remove_resource 가 없어서 sentinel 처리).
+/// 카드 선택이 끝나면 최신 엔진의 `World::remove_resource` 로 제거한다.
 pub struct PendingLevelUp {
     pub offered: [CardKind; 3],
-    pub consumed: bool,
 }
 
 /// 레벨업 감지 + 카드 선택 처리 시스템.
@@ -685,17 +681,26 @@ impl LevelUpSystem {
 
         Some((new_current, new_threshold))
     }
+
+    pub fn choose_card(
+        world: &mut World,
+        player_entity: engine::Entity,
+        card: CardKind,
+    ) -> Option<(u32, u32)> {
+        let result = Self::apply_card(world, player_entity, card)?;
+        world.remove_resource::<PendingLevelUp>();
+        if let Some(gs) = world.resource_mut::<GameState>() {
+            *gs = GameState::Playing;
+        }
+        Some(result)
+    }
 }
 
 impl System for LevelUpSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
         let state = world.resource::<GameState>().cloned();
 
-        // has_pending: PendingLevelUp 리소스가 있고 아직 소비되지 않았는지
-        let has_pending = world
-            .resource::<PendingLevelUp>()
-            .map(|p| !p.consumed)
-            .unwrap_or(false);
+        let has_pending = world.resource::<PendingLevelUp>().is_some();
 
         match (state, has_pending) {
             // ── 평소: XP 임계치 도달 체크 ──────────────────────────────────────
@@ -735,10 +740,7 @@ impl System for LevelUpSystem {
                         .collect();
                     let offered = [chosen[0], chosen[1], chosen[2]];
 
-                    world.insert_resource(PendingLevelUp {
-                        offered,
-                        consumed: false,
-                    });
+                    world.insert_resource(PendingLevelUp { offered });
                     if let Some(gs) = world.resource_mut::<GameState>() {
                         *gs = GameState::Paused;
                     }
@@ -780,12 +782,12 @@ impl System for LevelUpSystem {
 
                 // Player 엔티티 조회 — borrow 를 즉시 끊음
                 let player_entity = world
-                    .query2::<Player, WeaponInventory>()
+                    .query_with::<Player, WeaponInventory>()
                     .next()
-                    .map(|(e, _, _)| e);
+                    .map(|(e, _)| e);
 
                 if let Some(pe) = player_entity {
-                    if let Some((new_current, new_threshold)) = Self::apply_card(world, pe, card) {
+                    if let Some((new_current, new_threshold)) = Self::choose_card(world, pe, card) {
                         println!(
                             "Resumed (XP={}, next threshold={})",
                             new_current, new_threshold
@@ -794,16 +796,6 @@ impl System for LevelUpSystem {
                         eprintln!("Ignored invalid LevelUp card: {:?}", card);
                         return;
                     }
-                }
-
-                // 소비 완료 sentinel 설정 (remove_resource 대체)
-                if let Some(p) = world.resource_mut::<PendingLevelUp>() {
-                    p.consumed = true;
-                }
-
-                // Playing 으로 복귀
-                if let Some(gs) = world.resource_mut::<GameState>() {
-                    *gs = GameState::Playing;
                 }
             }
 
@@ -948,5 +940,27 @@ mod tests {
             after_level, before_level,
             "없는 무기 카드 선택은 레벨을 소비하면 안 됨"
         );
+    }
+
+    #[test]
+    fn choose_card_removes_pending_levelup_resource() {
+        let (mut world, player_entity) = make_world_with_player();
+        world.insert_resource(GameState::Paused);
+        world.insert_resource(PendingLevelUp {
+            offered: [
+                CardKind::WhipDamage,
+                CardKind::WhipArea,
+                CardKind::WhipCooldown,
+            ],
+        });
+
+        let result = LevelUpSystem::choose_card(&mut world, player_entity, CardKind::WhipDamage);
+
+        assert!(result.is_some(), "owned Whip card should apply");
+        assert!(
+            world.resource::<PendingLevelUp>().is_none(),
+            "PendingLevelUp should be removed after selection"
+        );
+        assert_eq!(world.resource::<GameState>(), Some(&GameState::Playing));
     }
 }

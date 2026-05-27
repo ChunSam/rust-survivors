@@ -1,5 +1,4 @@
-use engine::components::GameState;
-use engine::{CollisionLayer, Entity, SpatialGrid, System, Transform, World};
+use engine::{CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 use rand::seq::SliceRandom;
 
@@ -150,16 +149,40 @@ impl System for LightningFlashSystem {
 
 /// 번개 flash 엔티티를 스폰한다.
 pub fn spawn_lightning_flash(world: &mut World, pos: Vec2) {
+    spawn_timed_effect(
+        world,
+        pos,
+        Vec2::new(72.0, 108.0),
+        SurvivorSprite::LightningStrike,
+        [1.0, 1.0, 0.7, 0.95],
+        0.15,
+        0.7,
+    );
+}
+
+/// 짧게 보였다 사라지는 전투 이펙트 엔티티를 스폰한다.
+pub fn spawn_timed_effect(
+    world: &mut World,
+    pos: Vec2,
+    scale: Vec2,
+    sprite: SurvivorSprite,
+    color: [f32; 4],
+    lifetime: f32,
+    z: f32,
+) {
     let e = world.spawn();
     world.add_component(
         e,
         Transform {
             position: pos,
-            scale: Vec2::new(40.0, 40.0),
+            scale,
             rotation: 0.0,
-            z: 0.7,
+            z,
         },
     );
-    add_tinted_sprite(world, e, SurvivorSprite::MagicBolt, [1.0, 1.0, 0.55, 0.9]);
-    world.add_component(e, LightningFlash { lifetime: 0.15 });
+    add_tinted_sprite(world, e, sprite, color);
+    if let Some(t) = world.get_mut::<Transform>(e) {
+        t.scale = scale;
+    }
+    world.add_component(e, LightningFlash { lifetime });
 }

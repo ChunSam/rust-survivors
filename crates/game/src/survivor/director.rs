@@ -8,9 +8,8 @@
 use super::enemy::EnemyKind;
 use super::hud::GameStats;
 use super::spawn::spawn_enemy_elite;
-use engine::components::GameState;
 use engine::Transform;
-use engine::{Camera, System, ViewportSize, World};
+use engine::{Camera, Entity, GameState, System, ViewportSize, World};
 use glam::Vec2;
 use rand::Rng;
 use serde::Deserialize;
@@ -137,6 +136,7 @@ fn enemy_kind_from_str(s: &str) -> Option<EnemyKind> {
 pub struct SpawnDirectorSystem {
     pub spawn_radius: f32,
     pub despawn_radius: f32,
+    to_despawn: Vec<Entity>,
 }
 
 impl Default for SpawnDirectorSystem {
@@ -144,6 +144,7 @@ impl Default for SpawnDirectorSystem {
         Self {
             spawn_radius: 500.0,
             despawn_radius: 900.0,
+            to_despawn: Vec::new(),
         }
     }
 }
@@ -205,13 +206,15 @@ impl System for SpawnDirectorSystem {
 
         // 6) despawn_radius 밖 적 정리
         use super::enemy::Enemy;
-        use engine::Entity;
-        let to_despawn: Vec<Entity> = world
-            .query2::<Enemy, Transform>()
-            .filter(|(_, _, t)| (t.position - center).length() > self.despawn_radius)
-            .map(|(e, _, _)| e)
-            .collect();
-        for e in to_despawn {
+        let despawn_radius_sq = self.despawn_radius * self.despawn_radius;
+        self.to_despawn.clear();
+        self.to_despawn.extend(
+            world
+                .query2::<Enemy, Transform>()
+                .filter(|(_, _, t)| (t.position - center).length_squared() > despawn_radius_sq)
+                .map(|(e, _, _)| e),
+        );
+        for e in self.to_despawn.drain(..) {
             world.despawn(e);
         }
     }

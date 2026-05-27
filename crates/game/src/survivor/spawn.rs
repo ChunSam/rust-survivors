@@ -1,6 +1,6 @@
 use super::enemy::{Enemy, EnemyAi, EnemyAiKind, EnemyKind, Zombie};
 use super::health::Health;
-use super::sprites::{add_sprite, add_tinted_sprite, SurvivorSprite};
+use super::sprites::{add_sprite, add_tinted_sprite, SurvivorSprite, ENEMY_VISUAL_SCALE};
 use super::LAYER_ENEMY;
 use engine::{Collider, CollisionLayer, Transform, World};
 use glam::Vec2;
@@ -36,9 +36,12 @@ pub fn spawn_enemy_full(
     is_elite: bool,
 ) {
     let mut stats = kind.stats();
+    let mut collision_radius = stats.scale * 0.5;
+    stats.scale *= ENEMY_VISUAL_SCALE;
     if is_elite {
         stats.hp *= 5.0;
         stats.scale *= 1.5;
+        collision_radius *= 1.5;
         stats.color = [
             (stats.color[0] * 1.2).clamp(0.0, 1.0),
             (stats.color[1] * 0.9).clamp(0.0, 1.0),
@@ -110,7 +113,7 @@ pub fn spawn_enemy_full(
     world.add_component(
         e,
         Collider::Circle {
-            radius: stats.scale / 2.0,
+            radius: collision_radius,
         },
     );
 
@@ -125,4 +128,45 @@ pub fn spawn_enemy_full(
 /// 내부적으로 `spawn_enemy(world, pos, EnemyKind::Zombie)` 를 호출한다.
 pub fn spawn_zombie(world: &mut World, pos: Vec2) {
     spawn_enemy(world, pos, EnemyKind::Zombie);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn enemy_collider_uses_gameplay_size_not_visual_scale() {
+        let mut world = World::new();
+        spawn_enemy(&mut world, Vec2::ZERO, EnemyKind::Zombie);
+
+        let (_, transform, collider) = world
+            .query2::<Transform, Collider>()
+            .next()
+            .expect("enemy should have transform and collider");
+        let Collider::Circle { radius } = collider else {
+            panic!("enemy collider should be a circle");
+        };
+
+        assert!(
+            *radius < transform.scale.x * 0.25,
+            "contact collider should not grow with enlarged render scale"
+        );
+        assert_eq!(*radius, EnemyKind::Zombie.stats().scale * 0.5);
+    }
+
+    #[test]
+    fn elite_enemy_collider_scales_only_by_elite_multiplier() {
+        let mut world = World::new();
+        spawn_enemy_elite(&mut world, Vec2::ZERO, EnemyKind::Zombie, true);
+
+        let (_, _, collider) = world
+            .query2::<Transform, Collider>()
+            .next()
+            .expect("elite enemy should have transform and collider");
+        let Collider::Circle { radius } = collider else {
+            panic!("enemy collider should be a circle");
+        };
+
+        assert_eq!(*radius, EnemyKind::Zombie.stats().scale * 0.5 * 1.5);
+    }
 }

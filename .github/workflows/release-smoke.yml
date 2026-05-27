@@ -8,12 +8,8 @@ on:
 
 jobs:
   game-checks:
-    name: ${{ matrix.os }} game checks
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-latest, windows-latest]
+    name: macOS game checks
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -35,35 +31,15 @@ jobs:
         run: cargo build -p game --bin survivor --release
 
       - name: Package macOS app and folder
-        if: runner.os == 'macOS'
         run: bash scripts/package_macos.sh
 
       - name: Verify macOS packages
-        if: runner.os == 'macOS'
         run: bash scripts/verify_macos_package.sh
 
-      - name: Package Windows folder
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: scripts\package_windows.ps1
-
-      - name: Verify Windows package
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: scripts\verify_windows_package.ps1
-
       - name: Upload macOS package
-        if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
           name: RustSurvivors-macos
           path: |
             dist/macos/RustSurvivors
             dist/macos/RustSurvivors.app
-
-      - name: Upload Windows package
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: RustSurvivors-windows
-          path: dist/windows/RustSurvivors

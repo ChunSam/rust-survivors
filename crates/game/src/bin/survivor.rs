@@ -27,18 +27,20 @@
 //! **Phase 3-A 완료** — PlayerStats 16 필드 + StatRecalcSystem(stub) + HealthRegenSystem
 //!                     + 모든 무기/시스템(10종)에 stats 적용.
 
-use engine::{App, FontData, WindowConfig};
+use engine::{AnimationSystem, App, FontData, WindowConfig};
 use game::survivor::{
-    setup_survivor_world, AchievementSystem, AxeSystem, BgmSystem, BossDeathSystem,
-    BossPhaseSystem, BossSpawnSystem, CameraFollowSystem, CharacterSelectSystem, ChestPickupSystem,
-    CrossSystem, DamageNumberSystem, DeathSystem, DebugInputSystem, EnemyAiSystem,
-    EnemyContactDamageSystem, FireWandSystem, GarlicSystem, HealthRegenSystem, HitFlashSystem,
-    HolyWaterPoolSystem, HolyWaterSystem, HudSystem, KingBibleSystem, KnifeSystem, LevelUpSystem,
-    LightningFlashSystem, LightningRingSystem, MagicWandSystem, MagnetSystem, MetaSave,
-    ModeTransitionSystem, OrbitingBookSystem, ParticleSystem, PickupSystem, PlayerMovementSystem,
-    ProjectileSystem, ResolutionPreset, RestartSystem, SfxSystem, ShopInputSystem,
-    SpawnDirectorSystem, StageSelectSystem, StatRecalcSystem, TitleVisualSystem, WhipSystem,
-    ATLAS_PATH, TITLE_BACKDROP_PATH,
+    setup_survivor_world, AchievementSystem, AxeSystem, BackgroundSystem, BgmSystem,
+    BossDeathSystem, BossPhaseSystem, BossSpawnSystem, CameraFollowSystem, CharacterSelectSystem,
+    ChestPickupSystem, CrossSystem, DamageNumberSystem, DeathSystem, DebugInputSystem,
+    EnemyAiSystem, EnemyContactDamageSystem, FireWandSystem, GarlicSystem, HealthRegenSystem,
+    HitFlashSystem, HolyWaterPoolSystem, HolyWaterSystem, HudSystem, KingBibleSystem, KnifeSystem,
+    LevelUpSystem, LightningFlashSystem, LightningRingSystem, MagicWandSystem, MagnetSystem,
+    MetaSave, ModeTransitionSystem, OrbitingBookSystem, ParticleSystem, PickupSystem,
+    PlayerMovementSystem, ProjectileSystem, ResolutionPreset, RestartSystem, SfxSystem,
+    ShopInputSystem, SpawnDirectorSystem, StageSelectSystem, StatRecalcSystem,
+    SurvivorTextureHandles, TitleVisualSystem, UiIconSystem, WhipSystem, ACTOR_FRAMES_PATH,
+    ATLAS_PATH, EFFECTS_PATH, EVOLUTIONS_PATH, ICONS_PATH, PASSIVES_PATH, POWERUPS_PATH,
+    TITLE_BACKDROP_PATH,
 };
 
 fn main() {
@@ -55,7 +57,7 @@ fn main() {
     //       → KingBible(책 스폰) → OrbitingBook(책 회전+tick) → LightningRing(번개) → LightningFlash(flash lifetime)
     // → ProjectileSystem(이동·충돌·데미지)
     // → 자석(픽업/끌어당김) → 히트플래시 → HUD (TextQueue push — 마지막)
-    app.add_system(DebugInputSystem); // 시각검증: F5=Bomb F6=Rosary F7=보스 소환
+    app.add_system(DebugInputSystem); // 시각검증: H=도움말 F5=Bomb F6=Rosary B=보스 소환
     app.add_system(ModeTransitionSystem); // Phase 8-A: 최상단 — SurvivorMode 전환 + GameState 동기화
     app.add_system(BgmSystem::default()); // Phase 11-H: BGM 자동 전환
     app.add_system(ShopInputSystem); // Phase 8-B: Shop 입력 처리
@@ -63,17 +65,18 @@ fn main() {
     app.add_system(StageSelectSystem); // Phase 10: 스테이지 선택 입력 처리
     app.add_system(StatRecalcSystem); // Phase 3-A: 패시브 합산해 PlayerStats 갱신 (현재 no-op)
     app.add_system(LevelUpSystem);
-    app.add_system(PlayerMovementSystem);
+    app.add_system(PlayerMovementSystem::default());
     app.add_system(EnemyAiSystem::default());
     app.add_system(SpawnDirectorSystem::default());
     app.add_system(BossSpawnSystem); // Phase 5: 시간축 보스 등장 트리거
     app.add_system(BossPhaseSystem); // Phase 5: HP 비율 → phase 전환
     app.add_system(BossDeathSystem); // Phase 5: 보스 사망 + StageClear
     app.add_system(EnemyContactDamageSystem::default());
-    app.add_system(HealthRegenSystem); // Phase 3-A: recovery stat 적용 (0.0 default → no-op)
+    app.add_system(HealthRegenSystem::default()); // Phase 3-A: recovery stat 적용 (0.0 default → no-op)
     app.add_system(DeathSystem);
     app.add_system(RestartSystem);
     app.add_system(CameraFollowSystem::default());
+    app.add_system(BackgroundSystem::default());
     app.add_system(TitleVisualSystem);
     app.add_system(WhipSystem::default());
     app.add_system(MagicWandSystem::default());
@@ -94,10 +97,12 @@ fn main() {
     app.add_system(PickupSystem::default()); // Phase 7: 픽업 5종 자동 픽업
     app.add_system(AchievementSystem); // Phase C: 업적 감지 + 해금 보상
     app.add_system(HitFlashSystem);
-    app.add_system(DamageNumberSystem); // Phase 11: 데미지 숫자 age/이동/despawn
+    app.add_system(DamageNumberSystem::default()); // Phase 11: 데미지 숫자 age/이동/despawn
     app.add_system(ParticleSystem::default()); // Phase 11-E: 파티클 이동/페이드/despawn
+    app.add_system(AnimationSystem); // 스프라이트시트 기반 actor/effect UV 진행
+    app.add_system(UiIconSystem); // HUD/카드/상점 아이콘을 화면 고정 스프라이트로 표시
     app.add_system(HudSystem); // 마지막 — TextQueue push (데미지 숫자 포함)
-    app.add_system(SfxSystem); // Phase 11-D: SfxQueue drain → AudioManager
+    app.add_system(SfxSystem::default()); // Phase 11-D: SfxQueue drain → AudioManager
 
     // 한글 폰트 — 엔진이 아닌 게임이 책임짐
     app.world.insert_resource(FontData(
@@ -114,10 +119,20 @@ fn main() {
         clear_color: [0.04, 0.04, 0.08, 1.0],
     });
 
+    let survivor_textures = SurvivorTextureHandles {
+        atlas: app.load_image(ATLAS_PATH),
+        effects: app.load_image(EFFECTS_PATH),
+        actor_frames: app.load_image(ACTOR_FRAMES_PATH),
+        evolutions: app.load_image(EVOLUTIONS_PATH),
+        icons: app.load_image(ICONS_PATH),
+        passives: app.load_image(PASSIVES_PATH),
+        powerups: app.load_image(POWERUPS_PATH),
+        title_backdrop: app.load_image(TITLE_BACKDROP_PATH),
+    };
+    app.world.insert_resource(survivor_textures);
+
     // 초기 엔티티 + 리소스 설정 (GameStats 포함)
     setup_survivor_world(&mut app.world);
-    app.load_texture(ATLAS_PATH);
-    app.load_texture(TITLE_BACKDROP_PATH);
 
     // 이벤트 루프 진입 (ESC → 일시정지 메뉴, 메뉴에서 종료 선택 가능)
     app.run();

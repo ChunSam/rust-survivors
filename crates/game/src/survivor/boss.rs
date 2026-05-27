@@ -13,10 +13,9 @@ use super::hud::GameStats;
 use super::locale::{loc, Lang};
 use super::player::Player;
 use super::sfx::{SfxEvent, SfxQueue};
-use super::sprites::{add_sprite, SurvivorSprite};
+use super::sprites::{add_sprite, SurvivorSprite, BOSS_VISUAL_SCALE};
 use super::LAYER_ENEMY;
-use engine::components::GameState;
-use engine::{Collider, CollisionLayer, System, Transform, World};
+use engine::{Collider, CollisionLayer, GameState, System, Transform, World};
 use glam::Vec2;
 
 // ─── BossKind ────────────────────────────────────────────────────────────────
@@ -56,7 +55,7 @@ impl BossKind {
 
     /// 화면상 크기(픽셀). HP 가 클수록 크지만 최대 +40px.
     pub fn scale(self) -> f32 {
-        80.0 + (self.max_hp() / 100.0).min(40.0)
+        (80.0 + (self.max_hp() / 100.0).min(40.0)) * BOSS_VISUAL_SCALE
     }
 
     pub fn label(self, lang: Lang) -> &'static str {

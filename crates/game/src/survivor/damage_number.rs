@@ -68,23 +68,25 @@ pub fn spawn_damage_number(world: &mut World, pos: Vec2, value: f32) -> Entity {
 /// → 1) 먼저 `(entity, new_pos, expired)` 벡터를 모으고
 ///   2) 그 다음 mut 빌림으로 Transform 업데이트 + age 증가 + 죽은 것 despawn.
 #[derive(Default)]
-pub struct DamageNumberSystem;
+pub struct DamageNumberSystem {
+    snapshot: Vec<Entity>,
+    expired: Vec<Entity>,
+}
 
 impl System for DamageNumberSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
         // 1) 읽기 패스 — entity 와 현재 상태 수집
-        let snapshot: Vec<(Entity, f32, f32)> = world
-            .query2::<DamageNumber, Transform>()
-            .map(|(e, dn, t)| (e, dn.age, t.position.y))
-            .collect();
+        self.snapshot.clear();
+        self.expired.clear();
+        self.snapshot
+            .extend(world.query::<DamageNumber>().map(|(e, _)| e));
 
         // 2) 쓰기 패스 — age 증가, 위로 이동, 만료 표시
-        let mut expired: Vec<Entity> = Vec::new();
-        for (e, _, _) in &snapshot {
+        for e in &self.snapshot {
             if let Some(dn) = world.get_mut::<DamageNumber>(*e) {
                 dn.age += dt;
                 if dn.age >= dn.lifetime {
-                    expired.push(*e);
+                    self.expired.push(*e);
                     continue;
                 }
             }
@@ -95,7 +97,7 @@ impl System for DamageNumberSystem {
         }
 
         // 3) 만료 despawn
-        for e in expired {
+        for e in self.expired.drain(..) {
             world.despawn(e);
         }
     }
@@ -145,7 +147,7 @@ mod tests {
         let e = spawn_damage_number(&mut world, Vec2::new(0.0, 100.0), 10.0);
         let initial_y = world.get::<Transform>(e).unwrap().position.y;
 
-        let mut sys = DamageNumberSystem;
+        let mut sys = DamageNumberSystem::default();
         sys.run(&mut world, 0.1); // age = 0.1, 위로 4px 이동
 
         let y_after = world.get::<Transform>(e).unwrap().position.y;

@@ -1,5 +1,4 @@
-use engine::components::GameState;
-use engine::{CollisionLayer, Entity, SpatialGrid, System, Transform, World};
+use engine::{CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 
 use super::damage::apply_damage_to_enemy;
@@ -238,7 +237,7 @@ pub fn spawn_book(
             z: 0.6,
         },
     );
-    add_tinted_sprite(world, e, SurvivorSprite::Rosary, [0.7, 0.85, 1.0, 1.0]);
+    add_tinted_sprite(world, e, SurvivorSprite::HolyBook, [0.9, 0.95, 1.0, 1.0]);
     world.add_component(
         e,
         OrbitingBook {

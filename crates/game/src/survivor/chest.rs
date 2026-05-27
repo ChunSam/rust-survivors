@@ -1,9 +1,8 @@
-use engine::components::GameState;
 /// Phase 6: 보물상자 컴포넌트 + 픽업 시스템 + 진화 로직.
 ///
 /// 엘리트 적 사망 시 spawn_chest() 로 스폰. 플레이어 pickup_radius 안에 들어오면
 /// ChestPickupSystem 이 자동 픽업 후 try_evolve() 를 호출한다.
-use engine::{Entity, System, Transform, World};
+use engine::{Entity, GameState, System, Transform, World};
 use glam::Vec2;
 
 use super::inventory::{WeaponInventory, WeaponKind};
@@ -20,12 +19,14 @@ pub struct Chest;
 /// 픽업 시 try_evolve() 로 진화 시도.
 pub struct ChestPickupSystem {
     pub pickup_radius: f32,
+    chests: Vec<Entity>,
 }
 
 impl Default for ChestPickupSystem {
     fn default() -> Self {
         Self {
             pickup_radius: 40.0,
+            chests: Vec::new(),
         }
     }
 }
@@ -46,27 +47,30 @@ impl System for ChestPickupSystem {
         };
 
         // 픽업 반경 안에 있는 Chest entity 수집
-        let chests: Vec<Entity> = world
-            .query2::<Chest, Transform>()
-            .filter(|(_, _, t)| (t.position - player_pos).length() <= self.pickup_radius)
-            .map(|(e, _, _)| e)
-            .collect();
+        let pickup_radius_sq = self.pickup_radius * self.pickup_radius;
+        self.chests.clear();
+        self.chests.extend(
+            world
+                .query2::<Chest, Transform>()
+                .filter(|(_, _, t)| (t.position - player_pos).length_squared() <= pickup_radius_sq)
+                .map(|(e, _, _)| e),
+        );
 
-        if chests.is_empty() {
+        if self.chests.is_empty() {
             return;
         }
 
-        for chest in &chests {
+        for chest in &self.chests {
             world.despawn(*chest);
         }
         if let Some(q) = world.resource_mut::<SfxQueue>() {
-            for _ in 0..chests.len() {
+            for _ in 0..self.chests.len() {
                 q.push(SfxEvent::ChestOpen);
             }
         }
 
         // 픽업 개수만큼 진화 시도
-        for _ in 0..chests.len() {
+        for _ in 0..self.chests.len() {
             try_evolve(world, player_entity);
         }
     }
@@ -304,8 +308,7 @@ mod tests {
     use crate::survivor::passive::PassiveInventory;
     use crate::survivor::player::Player;
     use crate::survivor::world_setup::spawn_player;
-    use engine::components::GameState;
-    use engine::World;
+    use engine::{GameState, World};
 
     fn make_playing_world_with_player() -> (World, Entity) {
         let mut world = World::new();

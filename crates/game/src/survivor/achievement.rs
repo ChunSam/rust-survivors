@@ -180,10 +180,7 @@ impl System for AchievementSystem {
             .next()
             .map(|(_, _, inv)| inv.passives.len())
             .unwrap_or(0);
-        let pending_levelup = world
-            .resource::<PendingLevelUp>()
-            .map(|p| !p.consumed)
-            .unwrap_or(false);
+        let pending_levelup = world.resource::<PendingLevelUp>().is_some();
 
         let meta_snapshot = world.resource::<MetaSave>().cloned().unwrap_or_default();
         let total_kills = meta_snapshot.kills_total.saturating_add(stats.1);

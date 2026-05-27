@@ -1,4 +1,5 @@
 //! 시각 검증용 디버그 입력 시스템.
+//! H  = 플레이 중 디버그 도움말 표시/숨김
 //! F5 = Bomb 픽업 플레이어 앞 스폰
 //! F6 = Rosary 픽업 플레이어 앞 스폰
 //! B  = GiantSlime 보스 즉시 소환 (F7은 macOS 미디어키 충돌)
@@ -11,24 +12,34 @@ use engine::{Entity, InputState, Sprite, System, Transform, World};
 use glam::Vec2;
 use winit::keyboard::KeyCode;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct DebugOverlay {
+    pub visible: bool,
+}
+
 #[derive(Default)]
 pub struct DebugInputSystem;
 
 impl System for DebugInputSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
-        let (f5, f6, boss_key) = {
+        let (help_key, f5, f6, boss_key) = {
             let Some(input) = world.resource::<InputState>() else {
                 return;
             };
             (
+                input.just_pressed(KeyCode::KeyH),
                 input.just_pressed(KeyCode::F5),
                 input.just_pressed(KeyCode::F6),
                 input.just_pressed(KeyCode::KeyB),
             )
         };
 
-        if !f5 && !f6 && !boss_key {
+        if !help_key && !f5 && !f6 && !boss_key {
             return;
+        }
+
+        if help_key {
+            toggle_debug_overlay(world);
         }
 
         let player_pos = find_player_pos(world);
@@ -40,7 +51,7 @@ impl System for DebugInputSystem {
             spawn_pickup_near(world, player_pos, PickupKind::Rosary);
         }
         if boss_key {
-            let pos = player_pos + Vec2::new(0.0, -200.0);
+            let pos = player_pos + Vec2::new(0.0, -320.0);
             spawn_boss(world, pos, BossKind::GiantSlime);
             // 디버그용 — 즉시 처치되지 않도록 HP를 높게 덮어씀 (query → collect → get_mut 순으로 borrow 분리)
             let boss_entity = world.query::<super::boss::Boss>().next().map(|(e, _)| e);
@@ -50,7 +61,7 @@ impl System for DebugInputSystem {
                     h.max = 3000.0;
                 }
             }
-            println!("[DEBUG] GiantSlime 보스 즉시 소환 (HP 99999)");
+            println!("[DEBUG] GiantSlime 보스 즉시 소환 (HP 3000)");
         }
     }
 }
@@ -80,4 +91,40 @@ fn spawn_pickup_near(world: &mut World, pos: Vec2, kind: PickupKind) {
     world.add_component(e, Sprite::colored(color[0], color[1], color[2]));
     world.add_component(e, Pickup { kind });
     println!("[DEBUG] {:?} 픽업 스폰 at {:?}", kind, pos);
+}
+
+pub fn toggle_debug_overlay(world: &mut World) {
+    let next_visible = !world
+        .resource::<DebugOverlay>()
+        .map(|overlay| overlay.visible)
+        .unwrap_or(false);
+    world.insert_resource(DebugOverlay {
+        visible: next_visible,
+    });
+    println!(
+        "[DEBUG] 테스트 도움말 {}",
+        if next_visible { "표시" } else { "숨김" }
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_overlay_toggles_on_and_off() {
+        let mut world = World::new();
+
+        toggle_debug_overlay(&mut world);
+        assert_eq!(
+            world.resource::<DebugOverlay>(),
+            Some(&DebugOverlay { visible: true })
+        );
+
+        toggle_debug_overlay(&mut world);
+        assert_eq!(
+            world.resource::<DebugOverlay>(),
+            Some(&DebugOverlay { visible: false })
+        );
+    }
 }

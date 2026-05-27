@@ -4,13 +4,13 @@
 //! - [`HolyWaterSystem`] — cooldown 마다 플레이어 주변 랜덤 위치에 [`HolyWaterPool`] 드롭.
 //! - [`HolyWaterPoolSystem`] — Pool 의 lifetime 감소 + tick 마다 area-damage.
 
-use engine::components::GameState;
-use engine::{CollisionLayer, Entity, SpatialGrid, System, Transform, World};
+use engine::{CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 
 use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
+use super::lightning::spawn_timed_effect;
 use super::player::Player;
 use super::sprites::{add_tinted_sprite, SurvivorSprite};
 use super::stats::read_player_stats;
@@ -85,6 +85,16 @@ impl System for GarlicSystem {
         // stats 적용
         let damage = base_damage + stats.might;
         let radius = base_radius * stats.area;
+
+        spawn_timed_effect(
+            world,
+            player_pos,
+            Vec2::splat(radius * 2.0),
+            SurvivorSprite::GarlicAura,
+            [0.9, 1.0, 0.45, 0.55],
+            0.22,
+            0.25,
+        );
 
         // 2) grid rebuild + 원형 query
         self.grid.rebuild(world);
@@ -293,7 +303,12 @@ pub fn spawn_holy_water_pool(
             z: 0.2, // zombie(0.5) · XpGem(0.3) 아래에 렌더
         },
     );
-    add_tinted_sprite(world, e, SurvivorSprite::Vacuum, [0.45, 0.65, 1.0, 0.65]);
+    add_tinted_sprite(
+        world,
+        e,
+        SurvivorSprite::HolyWaterPool,
+        [0.55, 0.78, 1.0, 0.72],
+    );
     world.add_component(
         e,
         HolyWaterPool {

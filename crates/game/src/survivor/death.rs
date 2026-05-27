@@ -5,10 +5,17 @@ use super::hud::GameStats;
 use super::player::{Player, PlayerStats};
 use super::sfx::{SfxEvent, SfxQueue};
 use super::{world_setup, LAYER_ENEMY};
-use engine::components::GameState;
-use engine::input::InputState;
-use engine::{CollisionLayer, SpatialGrid, System, Transform, World};
+use engine::{
+    Camera, CollisionLayer, GameState, InputState, SpatialGrid, System, Transform, World,
+};
+use glam::Vec2;
 use winit::keyboard::KeyCode;
+
+/// 플레이어가 실제로 적에게 닿았다고 보는 논리 반경.
+///
+/// 스프라이트는 가시성을 위해 크게 렌더링하지만, 피격 판정까지 같이 커지면
+/// Whip 같은 근접 공격 중에도 닿지 않은 적에게 접촉 데미지를 받을 수 있다.
+pub const PLAYER_CONTACT_RADIUS: f32 = 30.0;
 
 /// 매 프레임 Player 주변의 적과 접촉 시 데미지 누적.
 /// 1초 cooldown 으로 Player Health -= 10 (적 1마리 이상 접촉 시).
@@ -27,7 +34,7 @@ impl Default for EnemyContactDamageSystem {
             elapsed: 0.0,
             cooldown: 1.0,
             damage: 10.0,
-            contact_radius: 25.0,
+            contact_radius: PLAYER_CONTACT_RADIUS,
         }
     }
 }
@@ -126,7 +133,36 @@ impl System for DeathSystem {
 /// - setup_survivor_world 로 Player 재스폰 + 리소스 재설정.
 /// - GameState 를 Playing 으로 전환.
 pub fn restart_world(world: &mut World) {
-    // 모든 게임 엔티티 정리 (Player/Zombie/XpGem 은 모두 Transform 보유)
+    reset_run_state(world);
+
+    // Player + 관련 리소스 재설정
+    world_setup::setup_survivor_world(world);
+
+    // Playing 으로 복귀
+    if let Some(gs) = world.resource_mut::<GameState>() {
+        *gs = GameState::Playing;
+    }
+
+    println!("Restarted.");
+}
+
+/// Title/Menu 로 돌아갈 때 사용하는 정리 경로.
+///
+/// `restart_world`와 달리 새 Player를 즉시 스폰하지 않는다. Title 상태에 Player가 남으면
+/// CameraFollowSystem이 메뉴 화면에서도 플레이어를 따라가 다음 런 진입 시 카메라가 꼬일 수 있다.
+pub fn reset_to_title_world(world: &mut World) {
+    reset_run_state(world);
+    if let Some(gs) = world.resource_mut::<GameState>() {
+        *gs = GameState::Paused;
+    }
+    if let Some(camera) = world.resource_mut::<Camera>() {
+        camera.position = Vec2::ZERO;
+        camera.zoom = 1.0;
+    }
+}
+
+fn reset_run_state(world: &mut World) {
+    // 모든 게임 엔티티 정리 (Player/Zombie/XpGem/TitleBackdrop 은 모두 Transform 보유)
     let to_despawn: Vec<engine::Entity> = world.query::<Transform>().map(|(e, _)| e).collect();
     for e in to_despawn {
         world.despawn(e);
@@ -136,9 +172,7 @@ pub fn restart_world(world: &mut World) {
     if let Some(stats) = world.resource_mut::<GameStats>() {
         *stats = GameStats::default();
     }
-    if let Some(p) = world.resource_mut::<super::levelup::PendingLevelUp>() {
-        p.consumed = true; // LevelUpSystem 이 다음 프레임에서 skip
-    }
+    world.remove_resource::<super::levelup::PendingLevelUp>();
     // SpawnDirector cooldown 리셋 (waves 정의는 유지, 내부 카운터만 초기화)
     if let Some(d) = world.resource_mut::<super::director::SpawnDirector>() {
         d.spawn_elapsed = 0.0;
@@ -154,16 +188,6 @@ pub fn restart_world(world: &mut World) {
     if let Some(p) = world.resource_mut::<StageProgress>() {
         *p = StageProgress::default();
     }
-
-    // Player + 관련 리소스 재설정
-    world_setup::setup_survivor_world(world);
-
-    // Playing 으로 복귀
-    if let Some(gs) = world.resource_mut::<GameState>() {
-        *gs = GameState::Playing;
-    }
-
-    println!("Restarted.");
 }
 
 /// GameOver 상태에서 R 키 → restart_world 호출.
@@ -185,5 +209,126 @@ impl System for RestartSystem {
         }
 
         restart_world(world);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::survivor::enemy::{Enemy, EnemyKind};
+    use crate::survivor::levelup::{CardKind, PendingLevelUp};
+    use crate::survivor::LAYER_ENEMY;
+    use engine::{Collider, World};
+
+    #[test]
+    fn restart_world_spawns_player_and_sets_playing() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Paused);
+
+        restart_world(&mut world);
+
+        assert!(matches!(
+            world.resource::<GameState>(),
+            Some(GameState::Playing)
+        ));
+        assert!(world.query::<Player>().next().is_some());
+    }
+
+    #[test]
+    fn reset_to_title_world_despawns_player_and_pauses() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(PendingLevelUp {
+            offered: [
+                CardKind::WhipDamage,
+                CardKind::WhipArea,
+                CardKind::WhipCooldown,
+            ],
+        });
+        world_setup::setup_survivor_world(&mut world);
+
+        reset_to_title_world(&mut world);
+
+        assert!(matches!(
+            world.resource::<GameState>(),
+            Some(GameState::Paused)
+        ));
+        assert!(world.query::<Player>().next().is_none());
+        assert!(
+            world.resource::<PendingLevelUp>().is_none(),
+            "reset should remove pending level-up state"
+        );
+    }
+
+    fn setup_contact_world(enemy_x: f32) -> World {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(CameraShake::default());
+        world.insert_resource(SfxQueue::default());
+
+        let player = world.spawn();
+        world.add_component(player, Player);
+        world.add_component(
+            player,
+            Transform {
+                position: Vec2::ZERO,
+                scale: Vec2::splat(150.0),
+                rotation: 0.0,
+                z: 0.0,
+            },
+        );
+        world.add_component(player, Health::new(100.0));
+        world.add_component(player, PlayerStats::default());
+
+        let enemy = world.spawn();
+        world.add_component(
+            enemy,
+            Transform {
+                position: Vec2::new(enemy_x, 0.0),
+                scale: Vec2::splat(150.0),
+                rotation: 0.0,
+                z: 0.0,
+            },
+        );
+        world.add_component(
+            enemy,
+            Enemy {
+                kind: EnemyKind::Zombie,
+                contact_damage: 10.0,
+                split_remaining: 0,
+                is_elite: false,
+            },
+        );
+        world.add_component(enemy, CollisionLayer(LAYER_ENEMY));
+        world.add_component(enemy, Collider::Circle { radius: 20.0 });
+        world
+    }
+
+    #[test]
+    fn contact_damage_uses_logical_radius_not_visual_size() {
+        let mut world = setup_contact_world(70.0);
+        let mut system = EnemyContactDamageSystem::default();
+
+        system.run(&mut world, 1.0);
+
+        let hp = world
+            .query2::<Player, Health>()
+            .next()
+            .map(|(_, _, h)| h.current);
+        assert_eq!(hp, Some(100.0));
+    }
+
+    #[test]
+    fn contact_damage_applies_when_bodies_overlap() {
+        let mut world = setup_contact_world(45.0);
+        let mut system = EnemyContactDamageSystem::default();
+
+        system.run(&mut world, 1.0);
+
+        let hp = world
+            .query2::<Player, Health>()
+            .next()
+            .map(|(_, _, h)| h.current);
+        assert_eq!(hp, Some(90.0));
     }
 }

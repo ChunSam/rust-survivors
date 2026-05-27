@@ -1,5 +1,4 @@
-use engine::components::GameState;
-use engine::{Collider, CollisionLayer, Entity, System, Transform, World};
+use engine::{Collider, CollisionLayer, Entity, GameState, System, Transform, World};
 use glam::Vec2;
 
 use super::particle::spawn_collect_burst;
@@ -38,6 +37,9 @@ pub struct MagnetSystem {
     pub pickup_radius: f32, // 이 거리 안에 들어오면 픽업
     pub magnet_radius: f32, // 이 거리 안에 들어오면 플레이어 쪽으로 끌어당김
     pub attract_speed: f32, // 끌어당기는 속도 (px/s)
+    gems: Vec<(Entity, Vec2, u32)>,
+    to_pickup: Vec<(Entity, u32)>,
+    to_attract: Vec<(Entity, Vec2)>,
 }
 
 impl Default for MagnetSystem {
@@ -46,6 +48,9 @@ impl Default for MagnetSystem {
             pickup_radius: 20.0,
             magnet_radius: 80.0,
             attract_speed: 400.0,
+            gems: Vec::new(),
+            to_pickup: Vec::new(),
+            to_attract: Vec::new(),
         }
     }
 }
@@ -74,38 +79,42 @@ impl System for MagnetSystem {
 
         let effective_magnet_radius = self.magnet_radius * magnet_multiplier;
         let effective_pickup_radius = self.pickup_radius * magnet_multiplier;
+        let effective_magnet_radius_sq = effective_magnet_radius * effective_magnet_radius;
+        let effective_pickup_radius_sq = effective_pickup_radius * effective_pickup_radius;
 
         // 2) XpGem 들의 (entity, position, value) 수집
-        let gems: Vec<(Entity, Vec2, u32)> = world
-            .query2::<XpGem, Transform>()
-            .map(|(e, gem, t)| (e, t.position, gem.value))
-            .collect();
+        self.gems.clear();
+        self.to_pickup.clear();
+        self.to_attract.clear();
+        self.gems.extend(
+            world
+                .query2::<XpGem, Transform>()
+                .map(|(e, gem, t)| (e, t.position, gem.value)),
+        );
 
         // 3) 분류: 픽업할 것, 끌어당길 것
-        let mut to_pickup: Vec<(Entity, u32)> = Vec::new();
-        let mut to_attract: Vec<(Entity, Vec2)> = Vec::new();
-
-        for (e, pos, value) in gems {
+        for (e, pos, value) in self.gems.drain(..) {
             let to_player = player_pos - pos;
-            let dist = to_player.length();
-            if dist <= effective_pickup_radius {
-                to_pickup.push((e, value));
-            } else if dist <= effective_magnet_radius {
-                let dir = if dist > 0.0 {
-                    to_player / dist
+            let dist_sq = to_player.length_squared();
+            if dist_sq <= effective_pickup_radius_sq {
+                self.to_pickup.push((e, value));
+            } else if dist_sq <= effective_magnet_radius_sq {
+                let dir = if dist_sq > 0.0 {
+                    to_player / dist_sq.sqrt()
                 } else {
                     Vec2::ZERO
                 };
                 let new_pos = pos + dir * self.attract_speed * dt;
-                to_attract.push((e, new_pos));
+                self.to_attract.push((e, new_pos));
             }
         }
 
         // 4) Player 의 XpAccumulator 컴포넌트 갱신 (growth 배율 적용)
         // XpAccumulator 는 Player 컴포넌트로만 사용. 리소스로는 insert 하지 않음.
-        if !to_pickup.is_empty() {
+        if !self.to_pickup.is_empty() {
             // growth 배율 적용: 각 gem 의 value 에 growth 곱 후 합산
-            let total: u32 = to_pickup
+            let total: u32 = self
+                .to_pickup
                 .iter()
                 .map(|(_, v)| (*v as f32 * growth_multiplier).round() as u32)
                 .sum();
@@ -119,7 +128,7 @@ impl System for MagnetSystem {
                 }
             }
             if let Some(q) = world.resource_mut::<SfxQueue>() {
-                for _ in 0..to_pickup.len().min(3) {
+                for _ in 0..self.to_pickup.len().min(3) {
                     q.push(SfxEvent::XpGem);
                 }
             }
@@ -128,12 +137,12 @@ impl System for MagnetSystem {
         }
 
         // 5) 픽업된 gem 은 despawn
-        for (e, _) in &to_pickup {
+        for (e, _) in &self.to_pickup {
             world.despawn(*e);
         }
 
         // 6) 끌어당길 gem 의 Transform 갱신
-        for (e, new_pos) in to_attract {
+        for (e, new_pos) in self.to_attract.drain(..) {
             if let Some(t) = world.get_mut::<Transform>(e) {
                 t.position = new_pos;
             }

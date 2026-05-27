@@ -1,5 +1,6 @@
 pub mod achievement;
 pub mod area;
+pub mod background;
 pub mod bgm;
 pub mod bible;
 pub mod boss;
@@ -15,6 +16,7 @@ pub mod director;
 pub mod enemy;
 pub mod health;
 pub mod hud;
+pub mod icons;
 pub mod inventory;
 pub mod levelup;
 pub mod lightning;
@@ -32,6 +34,7 @@ pub mod sprites;
 pub mod stage;
 pub mod stats;
 pub mod title_visual;
+pub mod ui_icons;
 pub mod weapon;
 pub mod world_setup;
 pub mod xp;
@@ -42,6 +45,7 @@ pub use achievement::{
 pub use area::{
     spawn_holy_water_pool, GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem,
 };
+pub use background::BackgroundSystem;
 pub use bgm::BgmSystem;
 pub use bible::{spawn_book, KingBibleSystem, OrbitingBook, OrbitingBookSystem};
 pub use boss::{
@@ -56,14 +60,17 @@ pub use chest::{
 pub use damage::apply_damage_to_enemy;
 pub use damage_number::{spawn_damage_number, DamageNumber, DamageNumberSystem};
 pub use data::load_starter_weapons;
-pub use death::{restart_world, DeathSystem, EnemyContactDamageSystem, RestartSystem};
-pub use debug_input::DebugInputSystem;
+pub use death::{
+    reset_to_title_world, restart_world, DeathSystem, EnemyContactDamageSystem, RestartSystem,
+};
+pub use debug_input::{DebugInputSystem, DebugOverlay};
 pub use director::{
     spawn_pattern, EnemyEntry, SpawnDirector, SpawnDirectorSystem, SpawnPattern, WaveDef, WavesFile,
 };
 pub use enemy::{Enemy, EnemyAi, EnemyAiKind, EnemyAiSystem, EnemyKind, EnemyStats, Zombie};
 pub use health::{Health, HealthRegenSystem};
 pub use hud::{GameStats, HudSystem};
+pub use icons::{weapon_icon, IconFrame, UiIcon, ICONS_PATH, ICON_COLS, ICON_ROWS, ICON_SIZE};
 pub use inventory::{WeaponInventory, WeaponKind, WeaponSlot};
 pub use levelup::{CardKind, LevelUpSystem, PendingLevelUp};
 pub use lightning::{
@@ -89,10 +96,17 @@ pub use sfx::{SfxEvent, SfxQueue, SfxSystem};
 pub use spawn::{
     spawn_enemy, spawn_enemy_elite, spawn_enemy_full, spawn_enemy_with_splits, spawn_zombie,
 };
-pub use sprites::{add_sprite, add_tinted_sprite, SurvivorSprite, ATLAS_PATH, TITLE_BACKDROP_PATH};
+pub use sprites::{
+    add_sprite, add_tinted_sprite, survivor_textured_sprite, SurvivorSprite,
+    SurvivorTextureHandles, ACTOR_FRAMES_PATH, ATLAS_PATH, BOSS_VISUAL_SCALE, EFFECTS_PATH,
+    ENEMY_VISUAL_SCALE, EVOLUTIONS_PATH, PASSIVES_PATH, PLAYER_VISUAL_SIZE, POWERUPS_PATH,
+    RENDER_LAYER_BACKGROUND, RENDER_LAYER_EFFECTS, RENDER_LAYER_UI, RENDER_LAYER_WORLD,
+    TITLE_BACKDROP_PATH,
+};
 pub use stage::{SelectedStage, StageCursor, StageKind, StageSelectSystem};
 pub use stats::{read_player_stats, StatRecalcSystem};
 pub use title_visual::{TitleBackdrop, TitleVisualSystem};
+pub use ui_icons::{UiIconSprite, UiIconSystem};
 pub use weapon::{
     AxeSystem, CrossSystem, FireWandSystem, HitFlash, HitFlashSystem, KnifeSystem, MagicWandSystem,
     WhipSystem, FLASH_DURATION, SCALE_BUMP,

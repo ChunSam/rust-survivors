@@ -1,5 +1,4 @@
-use engine::components::GameState;
-use engine::{Collider, CollisionLayer, Entity, SpatialGrid, System, Transform, World};
+use engine::{Collider, CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 
 use super::damage::apply_damage_to_enemy;
@@ -7,6 +6,19 @@ use super::enemy::Enemy;
 use super::hud::GameStats;
 use super::sprites::{add_sprite, SurvivorSprite};
 use super::LAYER_ENEMY;
+
+type ProjectileSnapshot = (
+    Entity,
+    Vec2,
+    Vec2,
+    f32,
+    u8,
+    f32,
+    CollisionLayer,
+    f32,
+    ProjectileBehavior,
+);
+type ProjectileUpdate = (Entity, Vec2, f32, u8, Vec2, ProjectileBehavior);
 
 /// 투사체 이동 방식.
 ///
@@ -51,12 +63,20 @@ pub struct Projectile {
 /// borrow checker 충돌을 피하기 위해 ECS 리소스로 넣지 않는다.
 pub struct ProjectileSystem {
     pub grid: SpatialGrid,
+    projectiles: Vec<ProjectileSnapshot>,
+    to_despawn: Vec<Entity>,
+    hits_buffer: Vec<(Entity, f32)>,
+    proj_updates: Vec<ProjectileUpdate>,
 }
 
 impl Default for ProjectileSystem {
     fn default() -> Self {
         Self {
             grid: SpatialGrid::new(128.0),
+            projectiles: Vec::new(),
+            to_despawn: Vec::new(),
+            hits_buffer: Vec::new(),
+            proj_updates: Vec::new(),
         }
     }
 }
@@ -70,20 +90,14 @@ impl System for ProjectileSystem {
         // grid rebuild — 적(Zombie) 위치 기준으로 쿼리하기 위해 재구성
         self.grid.rebuild(world);
 
+        self.projectiles.clear();
+        self.to_despawn.clear();
+        self.hits_buffer.clear();
+        self.proj_updates.clear();
+
         // 1) 모든 Projectile 의 파라미터를 복사해 캐시 (borrow 끊기)
-        let projs: Vec<(
-            Entity,
-            Vec2,
-            Vec2,
-            f32,
-            u8,
-            f32,
-            CollisionLayer,
-            f32,
-            ProjectileBehavior,
-        )> = world
-            .query2::<Projectile, Transform>()
-            .map(|(e, p, t)| {
+        self.projectiles
+            .extend(world.query2::<Projectile, Transform>().map(|(e, p, t)| {
                 (
                     e,
                     t.position,
@@ -95,16 +109,11 @@ impl System for ProjectileSystem {
                     p.radius,
                     p.behavior,
                 )
-            })
-            .collect();
+            }));
 
-        let mut to_despawn: Vec<Entity> = Vec::new();
-        // (zombie_entity, damage)
-        let mut hits_buffer: Vec<(Entity, f32)> = Vec::new();
-        // (proj_entity, new_pos, new_lifetime, new_pierce, new_velocity, new_behavior)
-        let mut proj_updates: Vec<(Entity, Vec2, f32, u8, Vec2, ProjectileBehavior)> = Vec::new();
-
-        for (proj_e, pos, vel, life, pierce, damage, mask, radius, behavior) in projs {
+        for (proj_e, pos, vel, life, pierce, damage, mask, radius, behavior) in
+            self.projectiles.drain(..)
+        {
             // behavior 에 따라 velocity 갱신 (Arc 는 중력, Boomerang 은 반전)
             let mut new_velocity = vel;
             let mut new_behavior = behavior;
@@ -129,7 +138,7 @@ impl System for ProjectileSystem {
             let new_life = life - dt;
 
             if new_life <= 0.0 {
-                to_despawn.push(proj_e);
+                self.to_despawn.push(proj_e);
                 continue;
             }
 
@@ -145,7 +154,7 @@ impl System for ProjectileSystem {
                 if !is_enemy {
                     continue;
                 }
-                hits_buffer.push((cand, damage));
+                self.hits_buffer.push((cand, damage));
                 if new_pierce == 0 {
                     // 관통 횟수 소진 → 투사체 제거 예약
                     consumed = true;
@@ -155,9 +164,9 @@ impl System for ProjectileSystem {
             }
 
             if consumed {
-                to_despawn.push(proj_e);
+                self.to_despawn.push(proj_e);
             } else {
-                proj_updates.push((
+                self.proj_updates.push((
                     proj_e,
                     new_pos,
                     new_life,
@@ -169,7 +178,9 @@ impl System for ProjectileSystem {
         }
 
         // 2) 투사체 위치·수명·관통·속도·behavior 갱신 (behavior 는 Boomerang elapsed/returned 상태 포함)
-        for (proj_e, new_pos, new_life, new_pierce, new_velocity, new_behavior) in proj_updates {
+        for (proj_e, new_pos, new_life, new_pierce, new_velocity, new_behavior) in
+            self.proj_updates.drain(..)
+        {
             if let Some(t) = world.get_mut::<Transform>(proj_e) {
                 t.position = new_pos;
             }
@@ -183,14 +194,14 @@ impl System for ProjectileSystem {
 
         // 3) 데미지 적용 + 사망 처리 + XpGem 드롭 + HitFlash + 처치 카운터
         let mut killed_count: u32 = 0;
-        for (enemy, damage) in hits_buffer {
+        for (enemy, damage) in self.hits_buffer.drain(..) {
             if apply_damage_to_enemy(world, enemy, damage) {
                 killed_count += 1;
             }
         }
 
         // 4) 수명 소진·관통 소진 투사체 despawn
-        for proj_e in to_despawn {
+        for proj_e in self.to_despawn.drain(..) {
             world.despawn(proj_e);
         }
 
@@ -291,12 +302,12 @@ pub fn spawn_projectile_ex(
 fn projectile_sprite(color: [f32; 3], behavior: ProjectileBehavior) -> SurvivorSprite {
     match behavior {
         ProjectileBehavior::Arc { .. } => SurvivorSprite::Axe,
-        ProjectileBehavior::Boomerang { .. } => SurvivorSprite::Axe,
+        ProjectileBehavior::Boomerang { .. } => SurvivorSprite::CrossProjectile,
         ProjectileBehavior::Straight => {
             if color[0] > 0.75 && color[1] > 0.75 {
                 SurvivorSprite::MagicBolt
             } else if color[0] > 0.7 && color[1] < 0.5 {
-                SurvivorSprite::MagicBolt
+                SurvivorSprite::Fireball
             } else {
                 SurvivorSprite::Knife
             }
@@ -310,8 +321,7 @@ mod tests {
     use super::super::health::Health;
     use super::super::spawn::spawn_zombie;
     use super::*;
-    use engine::components::GameState;
-    use engine::World;
+    use engine::{GameState, World};
     use glam::Vec2;
 
     fn playing_world() -> World {

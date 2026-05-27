@@ -1,11 +1,10 @@
-use engine::input::InputState;
 /// Phase 10: 다중 스테이지 3종 + StageSelect 화면 + 클리어 시 다음 스테이지 해금.
 ///
 /// - `StageKind` — MadForest / InlaidLibrary / DairyPlant (3종).
 /// - `SelectedStage` — 현재 선택된 스테이지 리소스.
 /// - `StageCursor` — StageSelect 화면 커서 리소스.
 /// - `StageSelectSystem` — W/S/Enter/Esc 입력 처리 + SpawnDirector 갱신.
-use engine::{System, World};
+use engine::{InputState, System, World};
 use serde::{Deserialize, Serialize};
 use winit::keyboard::KeyCode;
 

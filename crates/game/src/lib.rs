@@ -17,11 +17,11 @@ mod tests {
         KingBibleSystem, KnifeSystem, LevelUpSystem, LightningFlash, LightningRingSystem,
         MagicWandSystem, MagnetSystem, OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player,
         PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnDirector,
-        SpawnDirectorSystem, StageProgress, WeaponInventory, WeaponKind, WeaponSlot, WhipSystem,
-        XpAccumulator, XpGem, Zombie,
+        SpawnDirectorSystem, StageProgress, SurvivorSprite, WeaponInventory, WeaponKind,
+        WeaponSlot, WhipSystem, XpAccumulator, XpGem, Zombie, BOSS_VISUAL_SCALE,
+        ENEMY_VISUAL_SCALE, PLAYER_VISUAL_SIZE,
     };
-    use engine::components::GameState;
-    use engine::{Camera, System, Transform, World};
+    use engine::{Camera, GameState, System, Transform, World};
     use glam::Vec2;
 
     #[test]
@@ -142,6 +142,10 @@ mod tests {
         // Player 가 있는 엔티티가 정확히 1개
         let count = world.query::<Player>().count();
         assert_eq!(count, 1);
+
+        let player_entity = world.query::<Player>().next().map(|(e, _)| e).unwrap();
+        let scale = world.get::<Transform>(player_entity).unwrap().scale;
+        assert_eq!(scale, SurvivorSprite::Hero.fit_scale(PLAYER_VISUAL_SIZE));
     }
 
     #[test]
@@ -201,7 +205,7 @@ mod tests {
             .map(|t| t.position.x)
             .unwrap();
 
-        EnemyAiSystem.run(&mut world, 0.5);
+        EnemyAiSystem::default().run(&mut world, 0.5);
 
         let after_x = zombie_entity
             .and_then(|e| world.get::<Transform>(e))
@@ -526,7 +530,6 @@ mod tests {
         // PendingLevelUp 리소스가 삽입됐는지
         let pending = world.resource::<PendingLevelUp>();
         assert!(pending.is_some(), "PendingLevelUp 리소스가 삽입돼야 함");
-        assert!(!pending.unwrap().consumed, "consumed 는 false 여야 함");
     }
 
     /// apply_card(WhipDamage) 호출 시 WeaponInventory Whip 슬롯 damage +5, level+1, next_threshold 갱신
@@ -616,7 +619,7 @@ mod tests {
             .unwrap();
         let before_x = world.get::<Transform>(ze).map(|t| t.position.x).unwrap();
 
-        EnemyAiSystem.run(&mut world, 1.0);
+        EnemyAiSystem::default().run(&mut world, 1.0);
 
         let after_x = world.get::<Transform>(ze).map(|t| t.position.x).unwrap();
         assert_eq!(
@@ -1497,6 +1500,33 @@ mod tests {
         }
     }
 
+    #[test]
+    fn enemy_spawn_applies_large_visual_scale() {
+        let mut world = World::new();
+        spawn_enemy(&mut world, Vec2::ZERO, EnemyKind::Zombie);
+
+        let enemy_entity = world.query::<Enemy>().next().map(|(e, _)| e).unwrap();
+        let scale = world.get::<Transform>(enemy_entity).unwrap().scale;
+        let expected = EnemyKind::Zombie.stats().scale * ENEMY_VISUAL_SCALE;
+
+        assert_eq!(scale, SurvivorSprite::Zombie.fit_scale(expected));
+    }
+
+    #[test]
+    fn boss_spawn_applies_large_visual_scale() {
+        let mut world = World::new();
+        spawn_boss(&mut world, Vec2::ZERO, BossKind::GiantSlime);
+
+        let boss_entity = world.query::<Boss>().next().map(|(e, _)| e).unwrap();
+        let scale = world.get::<Transform>(boss_entity).unwrap().scale;
+        let base = 80.0 + (BossKind::GiantSlime.max_hp() / 100.0).min(40.0);
+
+        assert_eq!(
+            scale,
+            SurvivorSprite::GiantSlime.fit_scale(base * BOSS_VISUAL_SCALE)
+        );
+    }
+
     /// Ghost 는 stop_at(80px) 범위에 플레이어가 있으면 이동하지 않아야 한다.
     #[test]
     fn ghost_hovers_at_stop_distance() {
@@ -1520,7 +1550,7 @@ mod tests {
 
         let ghost_e = world.query::<Enemy>().next().map(|(e, _)| e).unwrap();
 
-        EnemyAiSystem.run(&mut world, 5.0);
+        EnemyAiSystem::default().run(&mut world, 5.0);
 
         // Ghost 위치 x < 100 (플레이어 방향으로 이동했어야 함)
         let pos_x = world

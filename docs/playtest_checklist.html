@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rust Survivors Playtest Checklist</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111318;
+      --panel: #1b1f28;
+      --panel-2: #232937;
+      --text: #eef2ff;
+      --muted: #a9b1c7;
+      --line: #343b4d;
+      --accent: #f0c15a;
+      --ok: #72d391;
+      --bad: #ff7a7a;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: rgba(17, 19, 24, 0.96);
+      backdrop-filter: blur(10px);
+    }
+
+    .wrap {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 20px 0;
+    }
+
+    .title-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    .meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    main.wrap {
+      display: grid;
+      gap: 14px;
+      padding-bottom: 48px;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    section h2 {
+      margin: 0;
+      padding: 14px 16px;
+      font-size: 18px;
+      background: var(--panel-2);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .items {
+      display: grid;
+      gap: 1px;
+      background: var(--line);
+    }
+
+    label {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 12px 14px;
+      background: var(--panel);
+      cursor: pointer;
+    }
+
+    label:hover {
+      background: #202634;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 2px 0 0;
+      accent-color: var(--ok);
+    }
+
+    .item-title {
+      font-weight: 650;
+    }
+
+    .hint {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      background: #0d0f14;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 12px;
+      font: inherit;
+    }
+
+    .notes {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .progress {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .fail {
+      color: var(--bad);
+    }
+
+    code {
+      color: #ffe0a3;
+    }
+
+    @media (max-width: 720px) {
+      .wrap {
+        width: min(100vw - 20px, 1120px);
+      }
+
+      h1 {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="title-row">
+        <div>
+          <h1>Rust Survivors 플레이 테스트 체크리스트</h1>
+          <div class="meta">
+            실행: <code>cargo run -p game --bin survivor --release</code>
+            · 진행률 <span class="progress" id="progress">0 / 0</span>
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="copy">결과 복사</button>
+          <button id="clear">체크 초기화</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>1. 시작 전 준비</h2>
+      <div class="items">
+        <label><input type="checkbox"><span><span class="item-title">릴리즈 빌드로 실행한다.</span><span class="hint">프레임과 실제 체감 크기는 release 기준으로 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Settings에서 800x600 해상도를 적용한다.</span><span class="hint">저해상도 UI 겹침을 먼저 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">언어를 한국어와 English로 각각 바꿔본다.</span><span class="hint">설정 화면과 주요 메뉴 문자열이 즉시 바뀌는지 본다.</span></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Title / Settings</h2>
+      <div class="items">
+        <label><input type="checkbox"><span><span class="item-title">Title 배경이 정방향으로 보인다.</span><span class="hint">뒤집힘, 깨짐, 과한 확대/잘림이 없어야 한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Title 메뉴 텍스트가 배경 위에서 읽힌다.</span><span class="hint">Character, Stage, Shop, Settings 버튼을 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Settings 항목이 화면 밖으로 나가지 않는다.</span><span class="hint">언어, HUD 정보량, BGM/SFX 볼륨, 해상도.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">ESC로 Settings에서 Title로 돌아온다.</span><span class="hint">상태 전환 후 Title 조작이 계속 가능해야 한다.</span></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. InGame HUD / 아이콘</h2>
+      <div class="items">
+        <label><input type="checkbox"><span><span class="item-title">HP/XP/Level/Time/Kills가 겹치지 않는다.</span><span class="hint">800x600에서 먼저 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">무기 슬롯 6칸과 패시브 슬롯 6칸이 두 줄로 보인다.</span><span class="hint">아이콘이 텍스트 시작 위치를 침범하지 않아야 한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">장비명, 레벨, 빈 슬롯 상태가 구분된다.</span><span class="hint">한국어/영어 모두 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">상세 HUD 스탯 줄이 상단 UI와 겹치지 않는다.</span><span class="hint">HUD 정보량을 상세로 바꾼 뒤 확인한다.</span></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. 플레이어 / 적 / 보스 스프라이트</h2>
+      <div class="items">
+        <label><input type="checkbox"><span><span class="item-title">플레이어가 충분히 크게 보이고 중앙에 유지된다.</span><span class="hint">보스 등장 전후 모두 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">일반 적이 정방향과 적절한 크기로 보인다.</span><span class="hint">머리만 잘리거나 몸통이 사라지면 실패.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">플레이어와 적 이동 애니메이션이 자연스럽다.</span><span class="hint">깜빡임, 프레임 위치 튐, 상하 반전을 본다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title"><code>F7</code> 보스 소환 시 플레이어가 중앙에서 벗어나지 않는다.</span><span class="hint">카메라 줌아웃 중에도 중앙 고정이어야 한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">보스 HP 바와 보스 스프라이트가 잘 보인다.</span><span class="hint">보스가 너무 크거나 UI를 가리면 기록한다.</span></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. 무기 / 이펙트</h2>
+      <div class="items">
+        <label><input type="checkbox"><span><span class="item-title">Whip 좌/우 slash가 보인다.</span><span class="hint">공격 순간 짧게 표시되어야 한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Fire Wand 투사체가 전용 Fireball로 보인다.</span><span class="hint">기존 단색/아이콘 재사용처럼 보이면 기록한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Cross 투사체가 전용 스프라이트로 보인다.</span><span class="hint">왕복 움직임 중 방향/크기 이상 확인.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Holy Water pool, Holy Book, Lightning, Garlic aura가 보인다.</span><span class="hint">최소 하나씩 발동 여부를 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title"><code>H</code> 테스트 도움말 토글, <code>F5</code> Bomb, <code>F6</code> Rosary 디버그 효과가 동작한다.</span><span class="hint">화면 우측 도움말, 화면 흔들림과 적 처리 결과를 확인한다.</span></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>6. LevelUp / Shop / 메뉴</h2>
+      <div class="items">
+        <label><input type="checkbox"><span><span class="item-title">첫 LevelUp 카드 3장이 카드 박스 안에서 읽힌다.</span><span class="hint">아이콘이 번호/문구를 가리지 않아야 한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title"><code>1/2/3</code> 선택 뒤 전투가 재개된다.</span><span class="hint">선택한 강화가 적용되는지 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Shop 파워업 아이콘과 텍스트가 겹치지 않는다.</span><span class="hint">800x600에서 파워업 목록 전체를 확인한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Shop 업적 요약이 파워업 목록과 겹치지 않는다.</span><span class="hint">완료/미완료 상태 표시가 읽혀야 한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">PauseMenu에서 Resume/Return/Quit 선택이 동작한다.</span><span class="hint">ESC와 Enter 조작을 확인한다.</span></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>7. GameOver / 저장 / 오디오</h2>
+      <div class="items">
+        <label><input type="checkbox"><span><span class="item-title">GameOver 패널과 <code>R</code> 재시작 안내가 보인다.</span><span class="hint">사망 후 결과 텍스트가 겹치지 않아야 한다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title"><code>R</code> 입력 시 새 런으로 재시작된다.</span><span class="hint">HUD와 플레이어 상태가 초기화되는지 본다.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">Settings 변경값이 재실행 후 유지된다.</span><span class="hint">언어, 해상도, HUD 정보량, 볼륨.</span></span></label>
+        <label><input type="checkbox"><span><span class="item-title">BGM/SFX가 들리거나 fallback 톤이 들린다.</span><span class="hint">보스 등장, 레벨업, 픽업, 피격, 사망 SFX를 확인한다.</span></span></label>
+      </div>
+    </section>
+
+    <section>
+      <h2>메모</h2>
+      <div class="notes">
+        <textarea id="notes" placeholder="발견한 문제, 재현 순서, 해상도, 스크린샷 파일명 등을 적어주세요."></textarea>
+        <div class="hint fail">실패 항목은 체크하지 말고, 메모에 재현 순서를 남겨주세요.</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const key = "rust-survivors-playtest-checklist-v1";
+    const checks = [...document.querySelectorAll('input[type="checkbox"]')];
+    const notes = document.querySelector("#notes");
+    const progress = document.querySelector("#progress");
+
+    function load() {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      checks.forEach((box, index) => {
+        box.checked = Boolean(saved.checks && saved.checks[index]);
+      });
+      notes.value = saved.notes || "";
+      update();
+    }
+
+    function save() {
+      localStorage.setItem(key, JSON.stringify({
+        checks: checks.map((box) => box.checked),
+        notes: notes.value
+      }));
+      update();
+    }
+
+    function update() {
+      const done = checks.filter((box) => box.checked).length;
+      progress.textContent = `${done} / ${checks.length}`;
+    }
+
+    function report() {
+      const lines = ["Rust Survivors Playtest Result", ""];
+      document.querySelectorAll("section").forEach((section) => {
+        const title = section.querySelector("h2")?.textContent;
+        const sectionChecks = [...section.querySelectorAll('input[type="checkbox"]')];
+        if (!title || sectionChecks.length === 0) return;
+        lines.push(`## ${title}`);
+        sectionChecks.forEach((box) => {
+          const item = box.closest("label").querySelector(".item-title").textContent.trim();
+          lines.push(`${box.checked ? "[x]" : "[ ]"} ${item}`);
+        });
+        lines.push("");
+      });
+      lines.push("## 메모");
+      lines.push(notes.value.trim() || "(없음)");
+      navigator.clipboard.writeText(lines.join("\n"));
+    }
+
+    document.querySelector("#copy").addEventListener("click", report);
+    document.querySelector("#clear").addEventListener("click", () => {
+      if (!confirm("체크와 메모를 모두 초기화할까요?")) return;
+      localStorage.removeItem(key);
+      checks.forEach((box) => box.checked = false);
+      notes.value = "";
+      update();
+    });
+    checks.forEach((box) => box.addEventListener("change", save));
+    notes.addEventListener("input", save);
+    load();
+  </script>
+</body>
+</html>

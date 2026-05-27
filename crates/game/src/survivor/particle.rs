@@ -9,7 +9,8 @@
 //! query 의 불변 borrow 와 get_mut 의 가변 borrow 충돌 방지 →
 //! 읽기 패스(collect) 후 쓰기 패스(get_mut/despawn) 로 분리.
 
-use engine::{Entity, Sprite, System, Transform, World};
+use super::sprites::RENDER_LAYER_EFFECTS;
+use engine::{Entity, RenderLayer, Sprite, System, Transform, World};
 use glam::Vec2;
 use rand::Rng;
 
@@ -149,16 +150,10 @@ fn spawn_particle(
             z: 2.0, // 플레이어(1.0) 위에 그려지도록
         },
     );
-    world.add_component(
-        e,
-        Sprite {
-            texture: None,
-            color: color_start,
-            image_handle: None,
-            normal_texture: None,
-            normal_handle: None,
-        },
-    );
+    let mut sprite = Sprite::colored(color_start[0], color_start[1], color_start[2]);
+    sprite.color = color_start;
+    world.add_component(e, sprite);
+    world.add_component(e, RenderLayer(RENDER_LAYER_EFFECTS));
     world.add_component(
         e,
         Particle {
@@ -209,14 +204,7 @@ mod tests {
                 z: 0.0,
             },
         );
-        world.add_component(
-            e,
-            Sprite {
-                texture: None,
-                color: [1.0; 4],
-                image_handle: None,
-            },
-        );
+        world.add_component(e, Sprite::colored(1.0, 1.0, 1.0));
         world.add_component(
             e,
             Particle {

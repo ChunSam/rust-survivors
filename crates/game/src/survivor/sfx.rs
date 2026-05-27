@@ -10,8 +10,7 @@
 //! 피격 등 동일 이벤트가 프레임당 수십 번 발생할 수 있으므로
 //! 같은 카테고리 이벤트는 프레임당 최대 횟수를 제한한다.
 
-use engine::audio::AudioManager;
-use engine::{System, World};
+use engine::{AudioManager, System, World};
 
 use super::meta::MetaSave;
 
@@ -93,17 +92,21 @@ impl SfxQueue {
 
 /// SfxQueue 를 drain 해서 AudioManager 로 재생하는 시스템.
 /// HudSystem 다음(최후)에 등록한다.
-pub struct SfxSystem;
+#[derive(Default)]
+pub struct SfxSystem {
+    events: Vec<SfxEvent>,
+}
 
 impl System for SfxSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
         // 1) 큐 drain — AudioManager 와의 이중 borrow 를 피하기 위해 먼저 빼낸다
-        let events: Vec<SfxEvent> = if let Some(q) = world.resource_mut::<SfxQueue>() {
-            q.events.drain(..).collect()
+        self.events.clear();
+        if let Some(q) = world.resource_mut::<SfxQueue>() {
+            self.events.append(&mut q.events);
         } else {
             return;
-        };
-        if events.is_empty() {
+        }
+        if self.events.is_empty() {
             return;
         }
 
@@ -120,7 +123,7 @@ impl System for SfxSystem {
         let mut die_n = 0u8;
         let mut xp_n = 0u8;
 
-        for event in events {
+        for event in self.events.drain(..) {
             match event {
                 SfxEvent::EnemyHit => {
                     if hit_n < 2 {
@@ -197,6 +200,15 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
+    fn test_audio_file_exists(key: &str) -> bool {
+        EXTENSIONS.iter().any(|ext| {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../assets/audio")
+                .join(format!("{key}.{ext}"))
+                .exists()
+        })
+    }
+
     #[test]
     fn sfx_events_have_unique_file_keys() {
         let mut keys = HashSet::new();
@@ -205,5 +217,16 @@ mod tests {
         }
         assert!(keys.contains("sfx_chest_open"));
         assert!(keys.contains("sfx_boss_appear"));
+    }
+
+    #[test]
+    fn sfx_placeholder_files_exist_for_release_package() {
+        for event in SfxEvent::ALL {
+            assert!(
+                test_audio_file_exists(event.file_key()),
+                "missing SFX asset for key {}",
+                event.file_key()
+            );
+        }
     }
 }

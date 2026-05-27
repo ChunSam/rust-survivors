@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn stat_recalc_applies_spinach_might() {
         let mut world = World::new();
-        world.insert_resource(engine::components::GameState::Playing);
+        world.insert_resource(engine::GameState::Playing);
         spawn_player(&mut world);
 
         let player_entity = world

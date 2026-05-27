@@ -1,13 +1,15 @@
-use engine::components::GameState;
-use engine::input::InputState;
 /// Phase 8-A: SurvivorMode + MetaSave + Title 화면.
 ///
 /// - `MetaSave` — 영구 저장 메타 진행 데이터 (gold, kills, best_time 등).
 /// - `SurvivorMode` — 최상위 게임 모드 (Title / Shop / InGame / StageClear).
 /// - `ModeTransitionSystem` — 모드 전환 + GameState 동기화.
 use engine::save;
-use engine::{PendingResize, ShouldQuit, System, World};
+use engine::{
+    DisplayScaleFactor, GameState, InputState, PendingResize, ShouldQuit, System, ViewportSize,
+    WindowConfig, World,
+};
 use serde::{Deserialize, Serialize};
+use winit::event::MouseButton;
 use winit::keyboard::KeyCode;
 
 use super::character::CharacterCursor;
@@ -272,6 +274,100 @@ pub struct SettingsCursor {
     pub index: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct TitleButtonLayout {
+    pub start: (f32, f32, f32, f32),
+    pub buttons: [(f32, f32, f32, f32); 4],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TitleAction {
+    Start,
+    Character,
+    Stage,
+    Shop,
+    Settings,
+}
+
+pub fn title_button_layout(vw: f32, vh: f32) -> TitleButtonLayout {
+    let cx = vw / 2.0;
+    let cy = vh / 2.0;
+    let start_w = (vw * 0.68).clamp(620.0, 860.0).min(vw - 64.0);
+    let start_h = 104.0_f32.min(vh * 0.16);
+    let button_gap = if vw <= 900.0 { 10.0 } else { 18.0 };
+    let button_w = ((vw - 96.0 - button_gap * 3.0) / 4.0)
+        .clamp(150.0, 280.0)
+        .min((vw - 48.0 - button_gap * 3.0) / 4.0);
+    let button_h = 104.0_f32.min(vh * 0.16);
+    let total_w = button_w * 4.0 + button_gap * 3.0;
+    let button_y = cy + vh * 0.16;
+    let first_x = cx - total_w / 2.0;
+
+    TitleButtonLayout {
+        start: (cx - start_w / 2.0, cy - vh * 0.08, start_w, start_h),
+        buttons: [
+            (first_x, button_y, button_w, button_h),
+            (
+                first_x + (button_w + button_gap),
+                button_y,
+                button_w,
+                button_h,
+            ),
+            (
+                first_x + (button_w + button_gap) * 2.0,
+                button_y,
+                button_w,
+                button_h,
+            ),
+            (
+                first_x + (button_w + button_gap) * 3.0,
+                button_y,
+                button_w,
+                button_h,
+            ),
+        ],
+    }
+}
+
+fn title_action_at(x: f32, y: f32, vw: f32, vh: f32) -> Option<TitleAction> {
+    let layout = title_button_layout(vw, vh);
+
+    if point_in_rect(x, y, layout.start) {
+        return Some(TitleAction::Start);
+    }
+
+    [
+        TitleAction::Character,
+        TitleAction::Stage,
+        TitleAction::Shop,
+        TitleAction::Settings,
+    ]
+    .into_iter()
+    .zip(layout.buttons)
+    .find_map(|(action, rect)| point_in_rect(x, y, rect).then_some(action))
+}
+
+fn point_in_rect(x: f32, y: f32, rect: (f32, f32, f32, f32)) -> bool {
+    let (rx, ry, rw, rh) = rect;
+    x >= rx && x <= rx + rw && y >= ry && y <= ry + rh
+}
+
+fn logical_cursor_position(cursor: glam::Vec2, display_scale: f32) -> glam::Vec2 {
+    cursor / display_scale.max(1.0)
+}
+
+fn request_resolution_change(world: &mut World, w: u32, h: u32) {
+    world.insert_resource(PendingResize(Some((w, h))));
+    world.insert_resource(ViewportSize {
+        width: w as f32,
+        height: h as f32,
+    });
+    if let Some(config) = world.resource_mut::<WindowConfig>() {
+        config.width = w;
+        config.height = h;
+    }
+}
+
 // ─── ModeTransitionSystem ────────────────────────────────────────────────────
 
 /// SurvivorMode 전환 + GameState 동기화.
@@ -320,10 +416,25 @@ impl System for ModeTransitionSystem {
                     char_sel_pressed,
                     stage_sel_pressed,
                     settings_pressed,
+                    mouse_action,
                 ) = {
                     let i = match world.resource::<InputState>() {
                         Some(i) => i,
                         None => return,
+                    };
+                    let (vw, vh) = world
+                        .resource::<ViewportSize>()
+                        .map(|v| (v.width, v.height))
+                        .unwrap_or((1280.0, 720.0));
+                    let display_scale = world
+                        .resource::<DisplayScaleFactor>()
+                        .map(|s| s.0)
+                        .unwrap_or(1.0);
+                    let mouse_action = if i.mouse_just_pressed(MouseButton::Left) {
+                        let cursor = logical_cursor_position(i.cursor(), display_scale);
+                        title_action_at(cursor.x, cursor.y, vw, vh)
+                    } else {
+                        None
                     };
                     (
                         i.just_pressed(KeyCode::Enter),
@@ -331,9 +442,10 @@ impl System for ModeTransitionSystem {
                         i.just_pressed(KeyCode::KeyC),
                         i.just_pressed(KeyCode::KeyT),
                         i.just_pressed(KeyCode::KeyO),
+                        mouse_action,
                     )
                 };
-                if enter_pressed {
+                if enter_pressed || mouse_action == Some(TitleAction::Start) {
                     // SpawnDirector waves 를 SelectedStage 기반으로 갱신 (게임 시작 직전)
                     let stage = world
                         .resource::<SelectedStage>()
@@ -354,7 +466,7 @@ impl System for ModeTransitionSystem {
                     }
                     println!("Game started (stage: {}).", stage.label(Lang::En));
                 }
-                if shop_pressed {
+                if shop_pressed || mouse_action == Some(TitleAction::Shop) {
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
                         *m = SurvivorMode::Shop;
                     }
@@ -364,7 +476,7 @@ impl System for ModeTransitionSystem {
                     }
                     println!("Entered shop");
                 }
-                if char_sel_pressed {
+                if char_sel_pressed || mouse_action == Some(TitleAction::Character) {
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
                         *m = SurvivorMode::CharacterSelect;
                     }
@@ -374,7 +486,7 @@ impl System for ModeTransitionSystem {
                     }
                     println!("Entered character select");
                 }
-                if stage_sel_pressed {
+                if stage_sel_pressed || mouse_action == Some(TitleAction::Stage) {
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
                         *m = SurvivorMode::StageSelect;
                     }
@@ -383,7 +495,7 @@ impl System for ModeTransitionSystem {
                     }
                     println!("Entered stage select");
                 }
-                if settings_pressed {
+                if settings_pressed || mouse_action == Some(TitleAction::Settings) {
                     world.insert_resource(SettingsCursor { index: 0 });
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
                         *m = SurvivorMode::Settings;
@@ -531,7 +643,7 @@ impl System for ModeTransitionSystem {
                         }
                         1 => {
                             // 타이틀로 돌아가기
-                            super::death::restart_world(world);
+                            super::death::reset_to_title_world(world);
                             if let Some(m) = world.resource_mut::<SurvivorMode>() {
                                 *m = SurvivorMode::Title;
                             }
@@ -552,7 +664,7 @@ impl System for ModeTransitionSystem {
                     .map(|i| i.just_pressed(KeyCode::Enter))
                     .unwrap_or(false);
                 if enter_pressed {
-                    super::death::restart_world(world);
+                    super::death::reset_to_title_world(world);
                     if let Some(m) = world.resource_mut::<SurvivorMode>() {
                         *m = SurvivorMode::Title;
                     }
@@ -618,6 +730,7 @@ impl System for ModeTransitionSystem {
                 };
 
                 if delta != 0 {
+                    let mut resize_request = None;
                     if let Some(meta) = world.resource_mut::<MetaSave>() {
                         match new_idx {
                             0 => {
@@ -631,10 +744,17 @@ impl System for ModeTransitionSystem {
                                 meta.resolution_key =
                                     ResolutionPreset::step_key(&meta.resolution_key, delta)
                                         .to_string();
+                                resize_request = Some(
+                                    ResolutionPreset::from_key(&meta.resolution_key).dimensions(),
+                                );
                             }
                             _ => {}
                         }
                         meta.save_to_disk();
+                    }
+                    if let Some((w, h)) = resize_request {
+                        request_resolution_change(world, w, h);
+                        println!("Resolution → {}x{}", w, h);
                     }
                 }
 
@@ -644,7 +764,7 @@ impl System for ModeTransitionSystem {
                         .map(|m| ResolutionPreset::from_key(&m.resolution_key))
                         .unwrap_or(ResolutionPreset::R1280x720);
                     let (w, h) = preset.dimensions();
-                    world.insert_resource(PendingResize(Some((w, h))));
+                    request_resolution_change(world, w, h);
                     println!("Resolution → {}x{}", w, h);
                 }
             }
@@ -755,14 +875,59 @@ mod tests {
     }
 
     #[test]
+    fn request_resolution_change_updates_resize_and_viewport_resources() {
+        use engine::World;
+
+        let mut world = World::new();
+        world.insert_resource(WindowConfig::default());
+
+        request_resolution_change(&mut world, 800, 600);
+
+        assert_eq!(
+            world.resource::<PendingResize>().and_then(|r| r.0),
+            Some((800, 600))
+        );
+        let viewport = world.resource::<ViewportSize>().unwrap();
+        assert_eq!((viewport.width, viewport.height), (800.0, 600.0));
+        let config = world.resource::<WindowConfig>().unwrap();
+        assert_eq!((config.width, config.height), (800, 600));
+    }
+
+    #[test]
     fn survivor_mode_default_is_title() {
         assert_eq!(SurvivorMode::default(), SurvivorMode::Title);
     }
 
     #[test]
+    fn title_settings_hitbox_matches_rendered_button() {
+        let action = title_action_at(710.0, 425.0, 800.0, 600.0);
+
+        assert_eq!(action, Some(TitleAction::Settings));
+    }
+
+    #[test]
+    fn compact_title_buttons_fit_inside_viewport() {
+        let layout = title_button_layout(800.0, 600.0);
+
+        assert!(layout.start.0 >= 0.0);
+        assert!(layout.start.0 + layout.start.2 <= 800.0);
+        for rect in layout.buttons {
+            assert!(rect.0 >= 0.0);
+            assert!(rect.0 + rect.2 <= 800.0);
+        }
+    }
+
+    #[test]
+    fn physical_cursor_is_converted_to_logical_for_retina_clicks() {
+        let logical = logical_cursor_position(glam::Vec2::new(1420.0, 850.0), 2.0);
+        let action = title_action_at(logical.x, logical.y, 800.0, 600.0);
+
+        assert_eq!(action, Some(TitleAction::Settings));
+    }
+
+    #[test]
     fn enter_in_game_resets_world_and_sets_mode() {
-        use engine::components::GameState;
-        use engine::World;
+        use engine::{GameState, World};
 
         let mut world = World::new();
         world.insert_resource(GameState::Playing);

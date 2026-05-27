@@ -1,9 +1,11 @@
-use engine::components::GameState;
-use engine::{Camera, Sprite, System, Transform, ViewportSize, World};
+use engine::{Camera, GameState, RenderLayer, System, Transform, ViewportSize, World};
 use glam::Vec2;
 
 use super::meta::SurvivorMode;
-use super::sprites::TITLE_BACKDROP_PATH;
+use super::sprites::{
+    survivor_textured_sprite, vertically_flipped_full_uv, RENDER_LAYER_BACKGROUND,
+    TITLE_BACKDROP_PATH,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TitleBackdrop;
@@ -39,7 +41,9 @@ impl System for TitleVisualSystem {
             None => {
                 let e = world.spawn();
                 world.add_component(e, TitleBackdrop);
-                world.add_component(e, Sprite::textured(TITLE_BACKDROP_PATH));
+                world.add_component(e, survivor_textured_sprite(world, TITLE_BACKDROP_PATH));
+                world.add_component(e, RenderLayer(RENDER_LAYER_BACKGROUND));
+                world.add_component(e, vertically_flipped_full_uv());
                 world.add_component(e, Transform::default());
                 e
             }

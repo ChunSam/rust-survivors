@@ -1,7 +1,9 @@
-# Rust 2D Game Engine
+# Rust Survivors
 
-Rust로 처음부터 만드는 학습용 2D 게임 엔진.  
-`wgpu` 렌더링 · 직접 구현한 ECS · `rapier2d` 물리 엔진을 단계적으로 쌓아올린다.
+`rust-2d-engine`을 기반으로 만드는 Vampire Survivors 스타일 탑다운 자동공격 로그라이트 게임.
+
+현재 workspace의 빌드 대상은 `crates/game` 하나다. 엔진은 로컬 소스가 아니라
+`crates/game/Cargo.toml`의 git dependency인 `https://github.com/ChunSam/rust-2d-engine`을 사용한다.
 
 ---
 
@@ -11,61 +13,41 @@ Rust로 처음부터 만드는 학습용 2D 게임 엔진.
 # Rust 미설치 시
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
+# 서바이버 실행
+cargo run -p game --bin survivor
+cargo run -p game --bin survivor --release
+
 # 플랫포머 데모 실행
-cargo run -p game
+cargo run -p game --bin game
 
-# 엔진 단위 테스트
-cargo test -p engine
+# 게임 라이브러리 테스트
+cargo test -p game --lib -- --test-threads=1
+
+# 릴리즈 빌드
+cargo build -p game --bin survivor --release
 ```
 
-**조작법** — `A` / `D` 또는 `←` / `→` 이동 · `Space` 점프 · `ESC` 종료
-
----
-
-## 데모 화면
-
-```
-┌────────────────────────────────────┐
-│                                    │
-│        ■  ← 플레이어 (빨강)         │
-│                                    │
-│   ▬▬▬▬▬▬▬      ▬▬▬▬▬▬▬           │
-│              ▬▬▬▬▬▬               │
-│                                    │
-│████████████████████████████████████│ ← 바닥
-└────────────────────────────────────┘
-```
-
-- 중력 낙하, 플랫폼 착지, 점프 (착지 상태에서만)
-- 1 물리 단위 = 50 픽셀 · 중력 9.8 m/s²
+**서바이버 조작법** — `W/A/S/D` 또는 방향키 이동 · `1/2/3` 레벨업 카드 선택 · `Enter` 메뉴 선택 · `ESC` 일시정지/뒤로
 
 ---
 
 ## 프로젝트 구조
 
 ```
-Rust-GameEngine/
-├── Cargo.toml                    # Cargo workspace
-├── assets/
-│   └── shaders/sprite.wgsl       # WGSL 스프라이트 셰이더
+rust-survivors/
+├── Cargo.toml                    # workspace: members = ["crates/game"]
+├── assets/                       # 게임 자산 (audio, fonts, textures, data)
+├── docs/                         # QA, 릴리즈, 오디오/자산 문서
+├── scripts/                      # 패키징/검증 스크립트
 └── crates/
-    ├── engine/                   # 엔진 라이브러리
-    │   └── src/
-    │       ├── app.rs            # 게임 루프 (winit ApplicationHandler)
-    │       ├── components.rs     # Transform, Sprite
-    │       ├── input.rs          # InputState 리소스
-    │       ├── ecs/
-    │       │   ├── world.rs      # World, Entity, 컴포넌트 저장소
-    │       │   └── system.rs     # System trait
-    │       ├── renderer/
-    │       │   ├── context.rs    # wgpu Device / Queue / Surface
-    │       │   ├── sprite.rs     # 인스턴스 렌더링 파이프라인
-    │       │   └── texture.rs    # PNG 텍스처 로딩
-    │       └── physics/
-    │           └── system.rs     # PhysicsWorld, PhysicsBody, PhysicsSystem
-    └── game/
-        └── src/main.rs           # 플랫포머 데모
+    ├── game/                     # 실제 게임 크레이트 (lib + bin)
+    │   ├── src/main.rs           # 플랫포머 데모 bin (`game`)
+    │   ├── src/bin/survivor.rs   # 서바이버 실행 bin (`survivor`)
+    │   └── src/survivor/         # 서바이버 게임 로직
 ```
+
+엔진 API, 렌더러, 입력, 오디오, 저장, 충돌 모듈 자체 수정이 필요하면 별도 `rust-2d-engine` 저장소에서 작업한 뒤
+이 저장소의 git dependency revision을 갱신한다.
 
 ---
 
@@ -131,7 +113,7 @@ EventLoop::run_app()
 
 | 크레이트 | 버전 | 역할 |
 |---------|------|------|
-| `wgpu` | 0.20 | GPU 렌더링 (Metal / Vulkan / DX12 추상화) |
+| `wgpu` | 22 | GPU 렌더링 (Metal / Vulkan / DX12 추상화) |
 | `winit` | 0.30 | 창 생성 · 이벤트 루프 |
 | `rapier2d` | 0.22 | 2D 물리 시뮬레이션 |
 | `glam` | 0.28 | 수학 (Vec2, Mat4) |

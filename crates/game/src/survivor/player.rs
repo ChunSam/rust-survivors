@@ -1,5 +1,4 @@
-use engine::components::GameState;
-use engine::{Entity, InputState, System, Transform, World};
+use engine::{Entity, GameState, InputState, System, Transform, World};
 use glam::Vec2;
 use winit::keyboard::KeyCode;
 
@@ -62,7 +61,10 @@ impl Default for PlayerStats {
 }
 
 /// WASD/방향키 → Velocity → Transform.position 갱신.
-pub struct PlayerMovementSystem;
+#[derive(Default)]
+pub struct PlayerMovementSystem {
+    targets: Vec<(Entity, f32)>,
+}
 
 impl System for PlayerMovementSystem {
     fn run(&mut self, world: &mut World, dt: f32) {
@@ -94,12 +96,14 @@ impl System for PlayerMovementSystem {
 
         // 2. Player + PlayerStats + Transform 모두 가진 엔티티에 적용
         // 두 단계로 분리(query 결과를 모은 뒤 mut 접근)해서 borrow checker 회피
-        let targets: Vec<(Entity, f32)> = world
-            .query2::<Player, PlayerStats>()
-            .map(|(e, _, stats)| (e, stats.move_speed))
-            .collect();
+        self.targets.clear();
+        self.targets.extend(
+            world
+                .query2::<Player, PlayerStats>()
+                .map(|(e, _, stats)| (e, stats.move_speed)),
+        );
 
-        for (entity, speed) in targets {
+        for (entity, speed) in self.targets.drain(..) {
             if let Some(t) = world.get_mut::<Transform>(entity) {
                 t.position += dir * speed * dt;
             }

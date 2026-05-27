@@ -69,7 +69,7 @@ cargo test --workspace                      # engine 26 / game lib 80 / doc 2 �
 ## Phase 10 — 다중 스테이지 3종 + StageSelect (2026-05-21) — **Phase 10 완료 / 풀 클론 핵심 시스템 완성**
 
 > **Phase 10 완료 = Vampire Survivors 풀 클론 핵심 시스템 100% 구현**
-> 향후: Phase 11 폴리쉬 (데미지 숫자, 히트 플래시 개선, SFX, BGM, 업적, 로컬라이제이션, macOS .app / Windows .exe)
+> 향후: Phase 11 폴리쉬 (데미지 숫자, 히트 플래시 개선, SFX, BGM, 업적, 로컬라이제이션, macOS .app)
 
 ### 신규 파일
 
@@ -161,10 +161,10 @@ cargo test --workspace                      # engine 26 / game lib 80 / doc 2 �
 
 | 모듈 | 파일 | 핵심 타입·함수 |
 |---|---|---|
-| 카메라 | `crates/engine/src/camera.rs` | `Camera { position, zoom }`, `Camera::new(pos, zoom)`, `view_proj(w, h) -> Mat4` |
-| 충돌 그리드 | `crates/engine/src/collision/grid.rs` | `Collider`, `CollisionLayer(u32)`, `SpatialGrid`, `CollisionGridSystem` |
-| 충돌 쿼리 | `crates/engine/src/collision/query.rs` | `SpatialGrid::query_radius`, `SpatialGrid::query_aabb` |
-| 저장 | `crates/engine/src/save.rs` | `save_path`, `save<T: Serialize>`, `load<T: DeserializeOwned>`, `SaveError` |
+| 카메라 | `rust-2d-engine/src/camera.rs` | `Camera { position, zoom }`, `Camera::new(pos, zoom)`, `view_proj(w, h) -> Mat4` |
+| 충돌 그리드 | `rust-2d-engine/src/collision/grid.rs` | `Collider`, `CollisionLayer(u32)`, `SpatialGrid`, `CollisionGridSystem` |
+| 충돌 쿼리 | `rust-2d-engine/src/collision/query.rs` | `SpatialGrid::query_radius`, `SpatialGrid::query_aabb` |
+| 저장 | `rust-2d-engine/src/save.rs` | `save_path`, `save<T: Serialize>`, `load<T: DeserializeOwned>`, `SaveError` |
 
 ### 기존 모듈 확장
 
@@ -202,7 +202,7 @@ cargo test --workspace                      # engine 26 / game lib 80 / doc 2 �
 
 | 파일 | 내용 |
 |---|---|
-| `crates/engine/src/renderer/text.rs` | `TextRenderer`, `TextQueue`, `DrawText` |
+| `rust-2d-engine/src/renderer/text.rs` | `TextRenderer`, `TextQueue`, `DrawText` |
 | `assets/fonts/NotoSansKR-Regular.ttf` | OpenType 한글 폰트 (SIL OFL 1.1) |
 | `assets/fonts/OFL.txt` | SIL OFL 1.1 라이선스 전문 |
 
@@ -214,7 +214,7 @@ cargo test --workspace                      # engine 26 / game lib 80 / doc 2 �
 
 ### 검증
 
-- `cargo run -p game --bin text_demo` — 한글·영문 동시 출력 (GUI 환경 필요)
+- 한글·영문 텍스트 출력은 survivor HUD/메뉴에서 검증
 - engine 단위 테스트 3건: `TextQueue::push/clear`, 이터레이터 순서 보존, `DrawText` 필드 보존
 
 ---
@@ -231,7 +231,6 @@ cargo test --workspace                      # engine 26 / game lib 80 / doc 2 �
 | `crates/game/src/survivor/camera_follow.rs` | `CameraFollowSystem { lerp: 0.15, viewport }` |
 | `crates/game/src/survivor/world_setup.rs` | `spawn_player(world)` — 노란 48×48 스프라이트, z=1 |
 | `crates/game/src/bin/survivor.rs` | Phase 1-A 진입점 |
-| `crates/game/src/bin/text_demo.rs` | glyphon 텍스트 데모 |
 
 ### 시스템 등록 순서 (Phase 1-A)
 
@@ -253,7 +252,7 @@ PlayerMovementSystem → CameraFollowSystem
 
 - `cargo build --workspace` 성공
 - `cargo test --workspace` — engine 26 + game lib 3 = 29개 통과
-- 바이너리 3개 확인: `game` · `survivor` · `text_demo`
+- 바이너리 확인: `game` · `survivor`
 
 ---
 

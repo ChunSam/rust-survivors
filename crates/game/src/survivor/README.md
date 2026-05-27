@@ -35,11 +35,13 @@ cargo build -p game --bin survivor
 | `1/2/3` | 레벨업 카드 선택 |
 | `ESC` | 일시정지 메뉴 또는 이전 화면 |
 | `R` | GameOver 후 재시작 |
-| `F5/F6/F7` | 시각 검증용 디버그 입력 |
+| `F5` | 시각 검증용 Bomb 픽업 스폰 |
+| `F6` | 시각 검증용 Rosary 픽업 스폰 |
+| `B` | 시각 검증용 GiantSlime 보스 소환 |
 
 ## 작업 경계
 
-이 저장소의 작업 대상은 `crates/game`이다. `crates/engine`은 과거/참조용 스냅샷이며 현재 workspace 빌드 대상이 아니다.
+이 저장소의 작업 대상은 `crates/game`이다. 엔진 소스는 별도 `rust-2d-engine` 저장소에서 관리한다.
 엔진 API, 렌더러, 입력, 오디오, 저장, 충돌 모듈 자체 수정이 필요하면 별도 `rust-2d-engine` 저장소에서 작업한다.
 
 ## 모듈 개요

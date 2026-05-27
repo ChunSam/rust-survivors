@@ -1,10 +1,9 @@
-use engine::components::GameState;
 /// Phase 7: 픽업 5종 (Coin / Chicken / Vacuum / Bomb / Rosary).
 ///
 /// 적 사망 시 낮은 확률로 드롭 (Coin/Chicken/Rosary),
 /// 보스 사망 시 항상 드롭 (Vacuum/Bomb).
 /// 픽업 시 즉시 효과 발동.
-use engine::{Entity, System, Transform, World};
+use engine::{Entity, GameState, System, Transform, World};
 use glam::Vec2;
 use rand::Rng;
 
@@ -65,12 +64,14 @@ pub struct GoldWallet {
 /// 픽업 자동 픽업 시스템.
 pub struct PickupSystem {
     pub pickup_radius: f32,
+    to_pickup: Vec<(Entity, PickupKind)>,
 }
 
 impl Default for PickupSystem {
     fn default() -> Self {
         Self {
             pickup_radius: 35.0,
+            to_pickup: Vec::new(),
         }
     }
 }
@@ -89,13 +90,16 @@ impl System for PickupSystem {
             return;
         };
 
-        let to_pickup: Vec<(Entity, PickupKind)> = world
-            .query2::<Pickup, Transform>()
-            .filter(|(_, _, t)| (t.position - player_pos).length() <= self.pickup_radius)
-            .map(|(e, p, _)| (e, p.kind))
-            .collect();
+        let pickup_radius_sq = self.pickup_radius * self.pickup_radius;
+        self.to_pickup.clear();
+        self.to_pickup.extend(
+            world
+                .query2::<Pickup, Transform>()
+                .filter(|(_, _, t)| (t.position - player_pos).length_squared() <= pickup_radius_sq)
+                .map(|(e, p, _)| (e, p.kind)),
+        );
 
-        for (entity, kind) in to_pickup {
+        for (entity, kind) in self.to_pickup.drain(..) {
             world.despawn(entity);
             apply_pickup_effect(world, player_entity, player_pos, kind);
         }
@@ -241,8 +245,7 @@ mod tests {
     use crate::survivor::player::Player;
     use crate::survivor::spawn::spawn_enemy;
     use crate::survivor::world_setup::spawn_player;
-    use engine::components::GameState;
-    use engine::World;
+    use engine::{GameState, World};
 
     fn make_playing_world_with_player() -> (World, Entity) {
         let mut world = World::new();

@@ -1,7 +1,6 @@
 use super::locale::{loc, Lang};
 use super::meta::{MetaSave, SurvivorMode};
 use super::player::PlayerStats;
-use engine::input::InputState;
 /// Phase 8-B: PowerUp 매장 19종.
 ///
 /// - `PowerUpKind` — 19종 영구 강화 종류 (Reroll/Skip/Banish 포함).
@@ -9,7 +8,7 @@ use engine::input::InputState;
 /// - `ShopInputSystem` — W/S/Enter/Esc 입력 처리.
 /// - `try_purchase` — gold 차감 + level 증가.
 /// - `apply_powerups` — StatRecalcSystem 에서 패시브 합산 *후* 호출.
-use engine::{System, World};
+use engine::{InputState, System, World};
 use winit::keyboard::KeyCode;
 
 // ─── PowerUpKind ──────────────────────────────────────────────────────────────

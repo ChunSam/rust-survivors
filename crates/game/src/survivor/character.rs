@@ -1,11 +1,10 @@
-use engine::input::InputState;
 /// Phase 9: 캐릭터 6종 + CharacterSelect 화면 + 해금 시스템.
 ///
 /// - `CharacterKind` — 6종 캐릭터 (Antonio/Imelda/Pasqualina/Gennaro/Arca/Porta).
 /// - `SelectedCharacter` — 현재 선택된 캐릭터 리소스.
 /// - `CharacterCursor` — CharacterSelect 화면 커서 리소스.
 /// - `CharacterSelectSystem` — W/S/Enter/Esc 입력 처리.
-use engine::{System, World};
+use engine::{InputState, System, World};
 use serde::{Deserialize, Serialize};
 use winit::keyboard::KeyCode;
 

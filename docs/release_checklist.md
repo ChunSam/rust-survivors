@@ -4,7 +4,7 @@
 갱신일: 2026-05-24
 
 배포 준비는 HUD/업적/로컬라이제이션/오디오가 검증된 뒤 진행한다.
-현재 목표는 로컬에서 재현 가능한 macOS/Windows 준비 절차를 고정하는 것이다.
+현재 목표는 로컬에서 재현 가능한 macOS 준비 절차를 고정하는 것이다.
 
 ## CI 검증
 
@@ -22,22 +22,19 @@ gh run list --workflow release-smoke.yml --limit 5
 검증 대상:
 
 - `macos-latest`
-- `windows-latest`
 
-각 OS에서 실행:
+macOS에서 실행:
 
 - `cargo fmt --check`
 - `cargo test -p game --lib -- --test-threads=1`
 - `cargo build -p game --bin survivor`
 - `cargo build -p game --bin survivor --release`
-- macOS: `scripts/package_macos.sh` (`RustSurvivors` 폴더 + `RustSurvivors.app`)
-- Windows: `scripts\package_windows.ps1`
-- macOS 검증: `scripts/verify_macos_package.sh`
-- Windows 검증: `scripts\verify_windows_package.ps1`
-- 각 패키지에 `assets/`, `ASSET_LICENSES.md`, `audio_assets.md` 포함
-- 각 패키지에 `PACKAGE_MANIFEST.sha256` 생성
+- `scripts/package_macos.sh` (`RustSurvivors` 폴더 + `RustSurvivors.app`)
+- `scripts/verify_macos_package.sh`
+- 패키지에 `assets/`, `ASSET_LICENSES.md`, `audio_assets.md` 포함
+- 패키지에 `PACKAGE_MANIFEST.sha256` 생성
 - CI에서 `PACKAGE_MANIFEST.sha256` 해시 검증
-- 패키지 폴더 artifact 업로드
+- macOS 패키지 artifact 업로드
 
 ## 공통 검증
 
@@ -61,9 +58,7 @@ cargo build -p game --bin survivor --release
 - macOS 패키지에 `PACKAGE_MANIFEST.sha256` 생성 확인
 - macOS 패키지를 `scripts/verify_macos_package.sh`로 검증
 - `scripts/package_macos.sh` 실행 확인
-- GitHub Actions `release-smoke` run `26340730147`: `macos-latest`, `windows-latest` 모두 통과
-- Windows 산출물 검증: `windows-latest game checks`에서 `scripts\package_windows.ps1`, `scripts\verify_windows_package.ps1`, artifact upload 통과
-- 다운로드한 `RustSurvivors-windows` artifact의 `PACKAGE_MANIFEST.sha256` 로컬 재검증 통과
+- GitHub Actions `release-smoke`는 macOS 전용 검증으로 운영
 
 2026-05-23 GUI smoke 결과:
 
@@ -140,36 +135,6 @@ cargo build -p game --bin survivor --release
    ```bash
    open dist/macos/RustSurvivors.app
    ```
-
-## Windows
-
-Windows 산출물은 Windows 환경 또는 cross toolchain에서 만든다.
-
-권장 절차:
-
-1. Windows에서 repo checkout
-2. Rust stable 설치
-3. PowerShell에서 패키징 스크립트 실행:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\package_windows.ps1
-   ```
-
-   이 스크립트는 마지막에 `scripts\verify_windows_package.ps1`를 호출해 필수 파일, macOS metadata 파일, manifest hash를 함께 검증한다.
-
-4. 패키지를 별도로 재검증:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File scripts\verify_windows_package.ps1
-   ```
-
-5. 또는 수동으로 `cargo build -p game --bin survivor --release`
-6. `target/release/survivor.exe`와 `assets/`를 같은 배포 폴더에 복사
-7. `ASSET_LICENSES.md`, `audio_assets.md`가 배포 폴더에 포함되는지 확인
-8. `PACKAGE_MANIFEST.sha256`가 생성되는지 확인
-9. `PACKAGE_MANIFEST.sha256`의 각 항목이 실제 파일 SHA-256과 일치하는지 확인
-10. `._*`, `.DS_Store`가 배포 폴더에 남지 않는지 확인
-11. 실행 위치 기준 상대 경로 `assets/...`가 정상 로드되는지 확인
 
 ## Asset Path
 

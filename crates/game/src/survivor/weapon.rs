@@ -1,13 +1,17 @@
-use engine::components::GameState;
-use engine::{CollisionLayer, Entity, SpatialGrid, Sprite, System, Transform, World};
+use engine::{
+    AnimationPlayer, CollisionLayer, Entity, GameState, SpatialGrid, Sprite, System, Transform,
+    World,
+};
 use glam::Vec2;
 use rand::seq::SliceRandom;
 
 use super::damage::apply_damage_to_enemy;
 use super::hud::GameStats;
 use super::inventory::{WeaponInventory, WeaponKind};
+use super::lightning::spawn_timed_effect;
 use super::player::Player;
 use super::projectile::{spawn_projectile, spawn_projectile_ex, ProjectileBehavior};
+use super::sprites::SurvivorSprite;
 use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
@@ -19,10 +23,8 @@ pub const SCALE_BUMP: f32 = 1.18;
 /// 히트플래시 컴포넌트. 피격된 엔티티에 일시적으로 부착.
 ///
 /// `remaining > 0`: 플래시 진행 중.
-/// `remaining <= 0` (sentinel `f32::NEG_INFINITY`): 복원 완료 — skip.
-///
 /// Phase 11-B: 흰색 순간 플래시 → 원래 색 페이드 + 스케일 펄스.
-/// `World::remove_component` 미구현이므로 sentinel 패턴으로 재처리 방지.
+/// 최신 엔진의 `World::remove_component` 로 만료 시 컴포넌트를 제거한다.
 pub struct HitFlash {
     pub remaining: f32,       // 남은 시간
     pub duration: f32,        // 총 지속 시간 (lerp 기준)
@@ -42,25 +44,26 @@ impl System for HitFlashSystem {
             .collect();
 
         for (entity, remaining, duration, original, original_scale) in flashes {
-            if remaining <= 0.0 {
-                continue;
-            } // sentinel
-
             let new_remaining = remaining - dt;
             if new_remaining <= 0.0 {
-                // 만료 — 색·스케일 원복 후 sentinel
+                // 만료 — 색·스케일 원복 후 컴포넌트 제거
                 if let Some(s) = world.get_mut::<Sprite>(entity) {
                     s.color = original;
+                }
+                if let Some(player) = world.get_mut::<AnimationPlayer>(entity) {
+                    player.play(0);
                 }
                 if let Some(t) = world.get_mut::<Transform>(entity) {
                     t.scale = original_scale;
                 }
-                if let Some(f) = world.get_mut::<HitFlash>(entity) {
-                    f.remaining = f32::NEG_INFINITY;
-                }
+                world.remove_component::<HitFlash>(entity);
             } else {
                 // t_norm: 1.0(방금 피격) → 0.0(만료 직전)
                 let t_norm = (new_remaining / duration).clamp(0.0, 1.0);
+
+                if let Some(player) = world.get_mut::<AnimationPlayer>(entity) {
+                    player.play(1);
+                }
 
                 // 색상: 흰색 → 원래 색 페이드
                 if let Some(s) = world.get_mut::<Sprite>(entity) {
@@ -165,6 +168,25 @@ impl System for WhipSystem {
         // 우측 AABB
         let right_min = player_pos + Vec2::new(0.0, -half_h);
         let right_max = player_pos + Vec2::new(area_width, half_h);
+
+        spawn_timed_effect(
+            world,
+            player_pos + Vec2::new(-area_width * 0.5, 0.0),
+            Vec2::new(area_width, area_height * 1.2),
+            SurvivorSprite::WhipSlashLeft,
+            [1.0, 0.96, 0.72, 0.88],
+            0.12,
+            0.65,
+        );
+        spawn_timed_effect(
+            world,
+            player_pos + Vec2::new(area_width * 0.5, 0.0),
+            Vec2::new(area_width, area_height * 1.2),
+            SurvivorSprite::WhipSlashRight,
+            [1.0, 0.96, 0.72, 0.88],
+            0.12,
+            0.65,
+        );
 
         let mut hits: Vec<Entity> = self
             .grid
@@ -775,6 +797,51 @@ impl System for FireWandSystem {
             damage,
             [1.0, 0.4, 0.1], // 주황색 — Fire Wand 컬러
             ProjectileBehavior::Straight,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hit_flash_removes_component_after_expiry() {
+        let mut world = World::new();
+        let entity = world.spawn();
+        let original = [0.2, 0.4, 0.6, 1.0];
+        let original_scale = Vec2::splat(42.0);
+        let mut sprite = Sprite::colored(1.0, 1.0, 1.0);
+        sprite.color = [1.0, 1.0, 1.0, 1.0];
+
+        world.add_component(entity, sprite);
+        world.add_component(
+            entity,
+            Transform {
+                position: Vec2::ZERO,
+                scale: original_scale * SCALE_BUMP,
+                rotation: 0.0,
+                z: 0.0,
+            },
+        );
+        world.add_component(
+            entity,
+            HitFlash {
+                remaining: 0.01,
+                duration: FLASH_DURATION,
+                original,
+                original_scale,
+            },
+        );
+
+        let mut system = HitFlashSystem;
+        system.run(&mut world, 0.02);
+
+        assert!(world.get::<HitFlash>(entity).is_none());
+        assert_eq!(world.get::<Sprite>(entity).unwrap().color, original);
+        assert_eq!(
+            world.get::<Transform>(entity).unwrap().scale,
+            original_scale
         );
     }
 }

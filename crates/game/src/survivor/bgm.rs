@@ -9,9 +9,7 @@
 //! `assets/audio/` 아래 WAV 또는 OGG (rodio vorbis feature 활성화).
 //! 플레이스홀더 파일을 교체하면 즉시 반영된다.
 
-use engine::audio::AudioManager;
-use engine::components::GameState;
-use engine::{System, World};
+use engine::{AudioManager, GameState, System, World};
 
 use super::boss::Boss;
 use super::meta::MetaSave;
@@ -33,6 +31,15 @@ const AUDIO_DIR: &str = "assets/audio";
 
 /// 지원 확장자 목록 — 먼저 발견되는 것 사용.
 const EXTENSIONS: &[&str] = &["ogg", "wav"];
+
+#[cfg(test)]
+const BGM_KEYS: &[&str] = &[
+    "bgm_title",
+    "bgm_ingame",
+    "bgm_boss",
+    "bgm_stageclear",
+    "bgm_gameover",
+];
 
 fn find_audio_file(key: &str) -> Option<String> {
     for ext in EXTENSIONS {
@@ -114,6 +121,15 @@ impl System for BgmSystem {
 mod tests {
     use super::*;
 
+    fn test_audio_file_exists(key: &str) -> bool {
+        EXTENSIONS.iter().any(|ext| {
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../assets/audio")
+                .join(format!("{key}.{ext}"))
+                .exists()
+        })
+    }
+
     #[test]
     fn bgm_key_switches_to_boss_track_only_during_ingame_boss() {
         assert_eq!(
@@ -132,5 +148,15 @@ mod tests {
             bgm_key(SurvivorMode::InGame, &GameState::GameOver, true),
             "bgm_gameover"
         );
+    }
+
+    #[test]
+    fn bgm_placeholder_files_exist_for_release_package() {
+        for key in BGM_KEYS {
+            assert!(
+                test_audio_file_exists(key),
+                "missing BGM asset for key {key}"
+            );
+        }
     }
 }
