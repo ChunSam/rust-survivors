@@ -4,6 +4,143 @@ Vampire Survivors 클론 개발 진행 상황. 각 sub-phase 완료 시 항목 �
 
 ---
 
+## Visual QA Backing Fix Pass (2026-05-28)
+
+실제 패키지 앱을 `Computer Use`로 열어 기본 해상도와 800x600에서 이미지 UI를 확인한 뒤, 투명 영역 합성 문제와 Settings 도움말 겹침을 수정한 패스.
+
+### 변경
+
+- Title logo/button 이미지 아래에 불투명한 어두운 backing `DrawImage::colored(...)`를 추가.
+- `ui_modal_panel.png`와 `ui_slot_frame.png`를 큐에 넣기 전에 공통 backing을 먼저 제출하도록 `hud.rs` / `ui_icons.rs` 헬퍼를 보강.
+- Settings 하단 도움말 문구를 모달 프레임 밖 아래쪽으로 이동하고 크기를 줄임.
+- `title_menu_images_queue_opaque_backings` 테스트 추가.
+
+### 검증
+
+```bash
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo check -p game --all-targets --locked
+cargo build -p game --bin survivor --release --locked
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
+```
+
+game lib tests: 147 passed.
+
+### 수동 QA
+
+- 패키지 앱 smoke: Title, InGame HUD, `B` boss spawn, Level-up, Shop, Settings 확인.
+- 기본 해상도와 800x600에서 흰 사각형 누수 없음.
+- QA 중 변경한 해상도는 1280x720 기본값으로 되돌림.
+
+---
+
+## Image Based UI Pass (2026-05-28)
+
+타이틀에 이어 인게임/메뉴 전반의 UI 표면을 이미지 기반 프레임으로 확장한 작업.
+
+### 신규 에셋
+
+| 파일 | 용도 |
+|---|---|
+| `assets/textures/survivor/ui/ui_modal_panel.png` | 큰 메뉴/결과/설정/선택 패널 |
+| `assets/textures/survivor/ui/ui_slot_frame.png` | HUD, 장비 슬롯, 레벨업 카드 row, 선택 row, 보스바 프레임 |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `survivor/sprites.rs` | UI 이미지 경로 상수와 `SurvivorTextureHandles` 필드 추가 |
+| `bin/survivor.rs` | 새 UI 이미지를 시작 시 로드 |
+| `survivor/mod.rs` | 새 UI 이미지 경로 상수 재수출 |
+| `survivor/ui_icons.rs` | HUD/Level-up/Shop 배경과 아이콘을 `UiImageQueue` 이미지로 제출 |
+| `survivor/hud.rs` | 상단 HUD, 보스바, 장비 슬롯, 주요 모달 패널을 이미지 프레임 중심으로 교체 |
+| `docs/IMAGE_BASED_UI_PASS.md` | 작업 상세 문서 추가 |
+| `docs/ASSET_LICENSES.md` | 새 생성 에셋 출처와 SHA-256 기록 |
+| `docs/manual_qa_checklist.md` | 이미지 UI 수동 QA 항목 추가 |
+
+### 설계 결정
+
+- 생성 이미지 안에는 텍스트를 넣지 않고 동적 수치/로컬라이즈 라벨은 `TextQueue`로 유지.
+- HP/XP/보스 HP fill도 `DrawImage::colored(...)`로 제출해 이미지 프레임과 z 정렬을 맞춤.
+- 장비 슬롯은 이름 텍스트를 줄이고 아이콘 + `Lv` 중심으로 표시.
+- `Computer Use` 기반 시각 QA는 잠금 해제된 활성 화면에서만 가능하므로, 잠금 상태 해제는 사용자 작업으로 남김.
+
+### 검증
+
+```bash
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo check -p game --all-targets --locked
+cargo build -p game --bin survivor --release --locked
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
+```
+
+game lib tests: 146 passed.
+
+---
+
+## Title Menu Image UI Pass (2026-05-28)
+
+메인 메뉴의 시각 비중을 텍스트/단색 사각형에서 이미지 기반 UI로 이동한 작업.
+
+### 신규 에셋
+
+| 파일 | 용도 |
+|---|---|
+| `assets/textures/survivor/menu/title_backdrop_v2.png` | 새 타이틀 배경 |
+| `assets/textures/survivor/menu/title_logo_plaque.png` | 제목 뒤 장식 받침 |
+| `assets/textures/survivor/menu/menu_button_start.png` | Start 버튼 이미지 |
+| `assets/textures/survivor/menu/menu_button_character.png` | Character 버튼 이미지 |
+| `assets/textures/survivor/menu/menu_button_stage.png` | Stage 버튼 이미지 |
+| `assets/textures/survivor/menu/menu_button_shop.png` | Shop 버튼 이미지 |
+| `assets/textures/survivor/menu/menu_button_settings.png` | Settings 버튼 이미지 |
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|---|---|
+| `survivor/sprites.rs` | 메뉴 이미지 경로 상수와 `SurvivorTextureHandles` 필드 추가 |
+| `bin/survivor.rs` | 새 메뉴 이미지를 시작 시 로드 |
+| `survivor/title_visual.rs` | `UiImageQueue`로 로고/버튼 이미지를 screen-space 제출 |
+| `survivor/hud.rs` | 이미지 버튼 위에 맞도록 타이틀 메뉴 라벨 크기/위치 조정 |
+| `survivor/mod.rs` | 새 메뉴 이미지 경로 상수 재수출 |
+| `docs/ASSET_LICENSES.md` | 새 생성 에셋 출처와 SHA-256 기록 |
+| `docs/manual_qa_checklist.md` | 수동 QA 항목 추가 |
+| `docs/TITLE_MENU_IMAGE_UI.md` | 작업 상세 문서 추가 |
+
+### 설계 결정
+
+- 버튼/로고 이미지는 텍스트 없이 생성하고, KO/EN 문구는 기존 `TextQueue` 렌더링으로 유지.
+- 기존 `title_button_layout(...)`와 클릭 히트박스는 유지해 입력 회귀 위험을 줄임.
+- 타이틀 배경은 기존 `TitleBackdrop` 경로를 그대로 사용하되 이미지 파일만 교체.
+- 메뉴 장식 이미지는 월드 엔티티가 아니라 `UiImageQueue`의 `DrawImage`로 제출해 화면 좌표에 고정.
+
+### 테스트
+
+- `title_visual.rs`에 타이틀 메뉴 이미지가 800x600과 1280x720에 들어오는지 확인하는 레이아웃 테스트 2개 추가.
+- game lib tests: 146 passed.
+
+### 검증
+
+```bash
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo check -p game --all-targets --locked
+cargo build -p game --bin survivor --release --locked
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
+```
+
+### 남은 확인
+
+- `screencapture` smoke는 검은 화면으로만 잡혀 실제 시각 QA가 남아 있음.
+- 기본 해상도와 800x600에서 로고/Start/하단 버튼 이미지와 텍스트 겹침을 직접 확인해야 함.
+
+---
+
 ## Phase 11-A — 데미지 숫자 (floating combat text) (2026-05-22)
 
 > Phase 11 폴리쉬의 첫 항목. 적이 피격될 때마다 데미지 값이 적 위치 위로 떠올랐다가 페이드아웃.
@@ -161,10 +298,10 @@ cargo test --workspace                      # engine 26 / game lib 80 / doc 2 �
 
 | 모듈 | 파일 | 핵심 타입·함수 |
 |---|---|---|
-| 카메라 | `rust-2d-engine/src/camera.rs` | `Camera { position, zoom }`, `Camera::new(pos, zoom)`, `view_proj(w, h) -> Mat4` |
-| 충돌 그리드 | `rust-2d-engine/src/collision/grid.rs` | `Collider`, `CollisionLayer(u32)`, `SpatialGrid`, `CollisionGridSystem` |
-| 충돌 쿼리 | `rust-2d-engine/src/collision/query.rs` | `SpatialGrid::query_radius`, `SpatialGrid::query_aabb` |
-| 저장 | `rust-2d-engine/src/save.rs` | `save_path`, `save<T: Serialize>`, `load<T: DeserializeOwned>`, `SaveError` |
+| 카메라 | `skeleton-engine/src/camera.rs` | `Camera { position, zoom }`, `Camera::new(pos, zoom)`, `view_proj(w, h) -> Mat4` |
+| 충돌 그리드 | `skeleton-engine/src/collision/grid.rs` | `Collider`, `CollisionLayer(u32)`, `SpatialGrid`, `CollisionGridSystem` |
+| 충돌 쿼리 | `skeleton-engine/src/collision/query.rs` | `SpatialGrid::query_radius`, `SpatialGrid::query_aabb` |
+| 저장 | `skeleton-engine/src/save.rs` | `save_path`, `save<T: Serialize>`, `load<T: DeserializeOwned>`, `SaveError` |
 
 ### 기존 모듈 확장
 
@@ -202,7 +339,7 @@ cargo test --workspace                      # engine 26 / game lib 80 / doc 2 �
 
 | 파일 | 내용 |
 |---|---|
-| `rust-2d-engine/src/renderer/text.rs` | `TextRenderer`, `TextQueue`, `DrawText` |
+| `skeleton-engine/src/renderer/text.rs` | `TextRenderer`, `TextQueue`, `DrawText` |
 | `assets/fonts/NotoSansKR-Regular.ttf` | OpenType 한글 폰트 (SIL OFL 1.1) |
 | `assets/fonts/OFL.txt` | SIL OFL 1.1 라이선스 전문 |
 

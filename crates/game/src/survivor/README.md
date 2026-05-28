@@ -1,13 +1,13 @@
 # survivor — Vampire Survivors 클론
 
-`crates/game/src/survivor/`는 `rust-2d-engine` 위에서 동작하는 탑다운 자동공격 로그라이트 게임 로직이다.
+`crates/game/src/survivor/`는 `skeleton-engine` 위에서 동작하는 탑다운 자동공격 로그라이트 게임 로직이다.
 전체 로드맵과 최신 진행 상황은 루트의 `CLAUDE.md`와 `docs/NEXT_WORK_PLAN.md`를 기준으로 본다.
 
 ## 현재 상태
 
 - Phase 1~10 완료: 코어 루프, 무기/패시브/적/보스/진화/픽업/메타 진행/캐릭터/스테이지가 들어가 있다.
 - Phase 11-A~F 완료: 데미지 숫자, 히트 플래시, 화면 흔들기, 절차적 SFX, 파티클, 동적 카메라 줌이 적용됐다.
-- 최근 추가: Settings 화면, HUD 정보량 3단계, 텍스트 기반 장비 슬롯 개선, 업적 20종과 해금 보상.
+- 최근 추가: Settings 화면, HUD 정보량 3단계, 업적 20종과 해금 보상, 이미지 기반 Title 메뉴 1차 패스.
 - 오디오는 `assets/audio/`의 BGM/SFX 파일을 우선 사용하고, SFX 파일이 없으면 절차적 톤으로 fallback한다. 파일명은 `docs/audio_assets.md` 기준.
 - 다음 작업 축: 로컬라이제이션 확대 적용, 외부 음원 라이선스 정리, 배포 준비.
 
@@ -41,8 +41,8 @@ cargo build -p game --bin survivor
 
 ## 작업 경계
 
-이 저장소의 작업 대상은 `crates/game`이다. 엔진 소스는 별도 `rust-2d-engine` 저장소에서 관리한다.
-엔진 API, 렌더러, 입력, 오디오, 저장, 충돌 모듈 자체 수정이 필요하면 별도 `rust-2d-engine` 저장소에서 작업한다.
+이 저장소의 작업 대상은 `crates/game`이다. 엔진 소스는 별도 `skeleton-engine` 저장소에서 관리한다.
+엔진 API, 렌더러, 입력, 오디오, 저장, 충돌 모듈 자체 수정이 필요하면 별도 `skeleton-engine` 저장소에서 작업한다.
 
 ## 모듈 개요
 
@@ -64,7 +64,7 @@ cargo build -p game --bin survivor
 | `character.rs`, `stage.rs` | 캐릭터 6종과 스테이지 3종 선택/해금 |
 | `damage.rs`, `damage_number.rs` | 데미지 적용 헬퍼와 데미지 숫자 |
 | `particle.rs`, `sfx.rs`, `bgm.rs` | 파티클, 절차적 SFX 큐, BGM 전환 |
-| `sprites.rs`, `title_visual.rs` | atlas sprite 매핑, 타이틀 배경 |
+| `sprites.rs`, `title_visual.rs` | atlas sprite 매핑, 타이틀 배경과 이미지 기반 메뉴 장식 |
 | `debug_input.rs` | 수동 시각 검증용 입력 |
 | `data.rs` | 데이터 로딩 헬퍼 |
 
@@ -85,7 +85,7 @@ cargo build -p game --bin survivor
 
 현재 계획은 `docs/NEXT_WORK_PLAN.md`를 따른다.
 
-1. 실제 화면에서 Settings, HUD 장비 슬롯, 업적 목록 가독성 검증
+1. 실제 화면에서 Title 이미지 메뉴, Settings, HUD 장비 슬롯, 업적 목록 가독성 검증
 2. 한/영 로컬라이제이션 확대 적용
-3. 외부 음원 라이선스 정리
+3. 외부 음원/이미지 라이선스 정리
 4. 배포 체크리스트 정리

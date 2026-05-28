@@ -3293,7 +3293,7 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 [[package]]
 name = "skeleton-engine"
 version = "1.0.0"
-source = "git+https://github.com/ChunSam/rust-2d-engine#78cebcffa7a86c69eb2b69485496029794934522"
+source = "git+https://github.com/ChunSam/skeleton-engine#0e01b0f383202acea4d2ff606be4c62f73371471"
 dependencies = [
  "bytemuck",
  "chacha20poly1305",

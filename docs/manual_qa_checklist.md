@@ -103,6 +103,53 @@
 - 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (139 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked` 통과.
 - 수동 smoke 권장: Title backdrop, InGame actor/effect sprites, HUD/level-up/shop icons를 800x600과 기본 해상도에서 확인.
 
+## 2026-05-28 QA Issue Fix Pass
+
+- 발견 이슈: 보스 HP 라벨/바가 기본 해상도에서 상단 HUD 텍스트와 겹침.
+- 발견 이슈: HUD/Level-up/Shop 아이콘이 `UiQueue` 배경 rect 뒤에 가려져 색 막대처럼 보이거나 보이지 않음.
+- 원인: 엔진 렌더 순서가 world sprite -> `UiQueue` rect -> `TextQueue`라서 `RenderLayer(UI)` 스프라이트도 `UiQueue` rect보다 뒤에 그려짐.
+- 수정: 보스 HP 바 위치를 top HUD panel bottom + label padding + label height 기준으로 계산.
+- 수정: HUD 슬롯, Level-up dim/panel/card row, Shop 선택 row 배경을 `UiIconSystem`의 screen-space sprite로 전환하고 icon/background를 `Transform.z`로 정렬.
+- 수정: Title 화면에 gameplay HUD sprite가 새어 보이지 않도록 HUD slot icon/background spawn을 `SurvivorMode::InGame`으로 제한.
+- 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (141 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked`, `bash scripts/package_macos.sh` 통과.
+- 패키지 앱 smoke: Title HUD 누수 없음, InGame Whip/Passive 아이콘 표시, `B` 보스 소환 시 보스바/HUD 겹침 없음, Level-up 카드 아이콘 표시, Shop power-up 아이콘 표시 확인.
+- 미확인 유지: 실제 스피커 출력 기준 BGM/SFX 청취, 장시간 플레이 기반 StageClear.
+
+## 2026-05-28 Engine Migration Pass
+
+- 엔진 의존성을 `skeleton-engine #0e01b0f`로 갱신.
+- Survivor sprite UV 생성은 엔진 `UvRect::from_pixels(...).flipped_y()` / `UvRect::from_grid(...).flipped_y()` helper를 사용.
+- HUD/Level-up/Shop icon과 관련 배경은 per-frame entity spawn/despawn 대신 `UiImageQueue`의 screen-space `DrawImage`로 제출.
+- 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (144 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked` 통과.
+- 수동 smoke 권장: 기본 해상도와 800x600에서 Title, InGame HUD slots, Level-up cards, Shop icons, pickup/effect sprite 방향 확인.
+
+## 2026-05-28 Title Menu Image UI Pass
+
+- `assets/textures/survivor/menu/`에 AI-generated title backdrop, logo plaque, Start/Character/Stage/Shop/Settings 버튼 이미지를 추가.
+- Title 배경은 새 menu backdrop으로 교체하고, 메뉴 장식/버튼은 `UiImageQueue` screen-space image로 제출.
+- KO/EN 로컬라이즈 정확도를 위해 메뉴 문구는 엔진 텍스트로 유지하고, 이미지 에셋은 텍스트 없는 장식/아이콘 중심으로 사용.
+- 수동 smoke 권장: 기본 해상도와 800x600에서 로고/Start/하단 4버튼 이미지가 텍스트와 겹치지 않는지, 클릭 영역이 기존 버튼 위치와 일치하는지 확인.
+
+## 2026-05-28 InGame Image UI Pass
+
+- `assets/textures/survivor/ui/`에 AI-generated modal panel과 slot frame 이미지를 추가.
+- Character/Stage/Shop/Pause/Settings/StageClear/GameOver 패널과 선택 row를 이미지 프레임 중심으로 교체.
+- InGame 상단 HUD, 보스 HP, 장비 슬롯, Level-up 카드 row를 `UiImageQueue` 기반 이미지 UI로 표시.
+- 장비 슬롯은 이름 텍스트 대신 아이콘 + `Lv` 표기로 축소.
+- 수동 smoke 권장: 기본 해상도와 800x600에서 HP/XP/보스바가 프레임 이미지 뒤에 가려지지 않는지, Pause/Settings/Level-up/Shop 텍스트가 프레임 내부에 들어오는지 확인.
+
+## 2026-05-28 Visual QA Backing Fix Pass
+
+- 상세 문서: `docs/VISUAL_QA_BACKING_FIX.md`
+- 발견 이슈: 실제 앱 화면에서 Title/menu/UI frame 이미지의 투명 영역이 흰 사각형으로 보임.
+- 원인 추정: `UiImageQueue` 이미지의 투명 영역과 macOS/wgpu surface 합성 경로에서 배경 알파가 안정적으로 남지 않는 시각 누수.
+- 수정: Title logo/button 이미지와 `ui_modal_panel.png` / `ui_slot_frame.png` 제출 전에 불투명한 어두운 backing `DrawImage::colored(...)`를 먼저 큐에 넣음.
+- 수정: Settings 하단 도움말 문구를 모달 프레임 밖 아래쪽으로 내려 장식 프레임과 겹치지 않게 조정.
+- 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (147 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked`, `bash scripts/package_macos.sh`, `bash scripts/verify_macos_package.sh` 통과.
+- 패키지 앱 smoke: 기본 해상도와 800x600에서 Title, InGame HUD, `B` 보스바, Level-up 카드, Shop, Settings 화면 확인. 흰 사각형 누수 없음.
+- QA 중 800x600으로 바꾼 해상도 설정은 1280x720 기본값으로 되돌리고 앱 종료.
+- 미확인 유지: 실제 스피커 출력 기준 BGM/SFX 청취, 장시간 플레이 기반 StageClear.
+
 ## 실행
 
 ```bash
@@ -137,7 +184,7 @@ cargo run -p game --bin survivor --release
 
 - 800x600에서 HP/XP/Level/Time/Kills가 겹치지 않는다.
 - 무기 슬롯 6칸과 패시브 슬롯 6칸이 두 줄로 고정 표시된다.
-- 장비명/레벨/빈 슬롯 상태가 구분된다.
+- 장비 아이콘/레벨/빈 슬롯 상태가 구분된다.
 - 상세 HUD에서 공격력/쿨다운/범위/투사체 수/이동속도 줄이 상단 UI와 겹치지 않는다.
 
 ## Menu Screens

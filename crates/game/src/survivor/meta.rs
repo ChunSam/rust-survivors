@@ -368,6 +368,266 @@ fn request_resolution_change(world: &mut World, w: u32, h: u32) {
     }
 }
 
+fn handle_title_input(world: &mut World) {
+    // 입력 캐시 (borrow 분리)
+    let (
+        enter_pressed,
+        shop_pressed,
+        char_sel_pressed,
+        stage_sel_pressed,
+        settings_pressed,
+        mouse_action,
+    ) = {
+        let i = match world.resource::<InputState>() {
+            Some(i) => i,
+            None => return,
+        };
+        let (vw, vh) = world
+            .resource::<ViewportSize>()
+            .map(|v| (v.width, v.height))
+            .unwrap_or((1280.0, 720.0));
+        let display_scale = world
+            .resource::<DisplayScaleFactor>()
+            .map(|s| s.0)
+            .unwrap_or(1.0);
+        let mouse_action = if i.mouse_just_pressed(MouseButton::Left) {
+            let cursor = logical_cursor_position(i.cursor(), display_scale);
+            title_action_at(cursor.x, cursor.y, vw, vh)
+        } else {
+            None
+        };
+        (
+            i.just_pressed(KeyCode::Enter),
+            i.just_pressed(KeyCode::KeyS),
+            i.just_pressed(KeyCode::KeyC),
+            i.just_pressed(KeyCode::KeyT),
+            i.just_pressed(KeyCode::KeyO),
+            mouse_action,
+        )
+    };
+    if enter_pressed || mouse_action == Some(TitleAction::Start) {
+        // SpawnDirector waves 를 SelectedStage 기반으로 갱신 (게임 시작 직전)
+        let stage = world
+            .resource::<SelectedStage>()
+            .copied()
+            .unwrap_or_default()
+            .0;
+        let waves = stage.load_waves();
+        if let Some(d) = world.resource_mut::<super::director::SpawnDirector>() {
+            d.waves = waves;
+            d.spawn_elapsed = 0.0;
+        }
+        super::death::restart_world(world);
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::InGame;
+        }
+        if let Some(gs) = world.resource_mut::<GameState>() {
+            *gs = GameState::Playing;
+        }
+        println!("Game started (stage: {}).", stage.label(Lang::En));
+    }
+    if shop_pressed || mouse_action == Some(TitleAction::Shop) {
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::Shop;
+        }
+        // ShopCursor 가 없으면 default 삽입
+        if world.resource::<ShopCursor>().is_none() {
+            world.insert_resource(ShopCursor::default());
+        }
+        println!("Entered shop");
+    }
+    if char_sel_pressed || mouse_action == Some(TitleAction::Character) {
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::CharacterSelect;
+        }
+        // CharacterCursor 가 없으면 default 삽입
+        if world.resource::<CharacterCursor>().is_none() {
+            world.insert_resource(CharacterCursor::default());
+        }
+        println!("Entered character select");
+    }
+    if stage_sel_pressed || mouse_action == Some(TitleAction::Stage) {
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::StageSelect;
+        }
+        if world.resource::<StageCursor>().is_none() {
+            world.insert_resource(StageCursor::default());
+        }
+        println!("Entered stage select");
+    }
+    if settings_pressed || mouse_action == Some(TitleAction::Settings) {
+        world.insert_resource(SettingsCursor { index: 0 });
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::Settings;
+        }
+        println!("Entered settings");
+    }
+}
+
+fn handle_pause_menu_input(world: &mut World) {
+    let (esc_pressed, up_pressed, down_pressed, enter_pressed, cursor_idx) = {
+        let i = match world.resource::<InputState>() {
+            Some(i) => i,
+            None => return,
+        };
+        let cur = world
+            .resource::<PauseMenuCursor>()
+            .map(|c| c.index)
+            .unwrap_or(0);
+        (
+            i.just_pressed(KeyCode::Escape),
+            i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
+            i.just_pressed(KeyCode::KeyS) || i.just_pressed(KeyCode::ArrowDown),
+            i.just_pressed(KeyCode::Enter),
+            cur,
+        )
+    };
+
+    // ESC 로 메뉴 닫기 (게임 재개)
+    if esc_pressed {
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::InGame;
+        }
+        if let Some(gs) = world.resource_mut::<GameState>() {
+            *gs = GameState::Playing;
+        }
+        return;
+    }
+
+    // W/S 또는 방향키 커서 이동
+    let new_idx = if up_pressed && cursor_idx > 0 {
+        cursor_idx - 1
+    } else if down_pressed && cursor_idx + 1 < PAUSE_MENU_ITEMS {
+        cursor_idx + 1
+    } else {
+        cursor_idx
+    };
+    if let Some(c) = world.resource_mut::<PauseMenuCursor>() {
+        c.index = new_idx;
+    }
+
+    if enter_pressed {
+        match cursor_idx {
+            0 => {
+                // 계속하기 — 게임 재개
+                if let Some(m) = world.resource_mut::<SurvivorMode>() {
+                    *m = SurvivorMode::InGame;
+                }
+                if let Some(gs) = world.resource_mut::<GameState>() {
+                    *gs = GameState::Playing;
+                }
+            }
+            1 => {
+                // 타이틀로 돌아가기
+                super::death::reset_to_title_world(world);
+                if let Some(m) = world.resource_mut::<SurvivorMode>() {
+                    *m = SurvivorMode::Title;
+                }
+                println!("PauseMenu → Title");
+            }
+            2 => {
+                // 게임 종료
+                world.insert_resource(ShouldQuit(true));
+                println!("PauseMenu → Quit");
+            }
+            _ => {}
+        }
+    }
+}
+
+fn handle_settings_input(world: &mut World) {
+    let (
+        esc_pressed,
+        up_pressed,
+        down_pressed,
+        left_pressed,
+        right_pressed,
+        enter_pressed,
+        cursor_idx,
+    ) = {
+        let i = match world.resource::<InputState>() {
+            Some(i) => i,
+            None => return,
+        };
+        let cur = world
+            .resource::<SettingsCursor>()
+            .map(|c| c.index)
+            .unwrap_or(1);
+        (
+            i.just_pressed(KeyCode::Escape),
+            i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
+            i.just_pressed(KeyCode::KeyS) || i.just_pressed(KeyCode::ArrowDown),
+            i.just_pressed(KeyCode::KeyA) || i.just_pressed(KeyCode::ArrowLeft),
+            i.just_pressed(KeyCode::KeyD) || i.just_pressed(KeyCode::ArrowRight),
+            i.just_pressed(KeyCode::Enter),
+            cur,
+        )
+    };
+
+    if esc_pressed {
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::Title;
+        }
+        return;
+    }
+
+    let new_idx = if up_pressed && cursor_idx > 0 {
+        cursor_idx - 1
+    } else if down_pressed && cursor_idx + 1 < SETTINGS_ITEMS {
+        cursor_idx + 1
+    } else {
+        cursor_idx
+    };
+    if let Some(c) = world.resource_mut::<SettingsCursor>() {
+        c.index = new_idx;
+    }
+
+    let delta = if left_pressed {
+        -1
+    } else if right_pressed {
+        1
+    } else {
+        0
+    };
+
+    if delta != 0 {
+        let mut resize_request = None;
+        if let Some(meta) = world.resource_mut::<MetaSave>() {
+            match new_idx {
+                0 => {
+                    meta.language_setting = meta.language_setting.step(delta);
+                    meta.lang = meta.language_setting.effective();
+                }
+                1 => meta.hud_detail = meta.hud_detail.step(delta),
+                2 => meta.bgm_volume = step_volume(meta.bgm_volume, delta),
+                3 => meta.sfx_volume = step_volume(meta.sfx_volume, delta),
+                4 => {
+                    meta.resolution_key =
+                        ResolutionPreset::step_key(&meta.resolution_key, delta).to_string();
+                    resize_request =
+                        Some(ResolutionPreset::from_key(&meta.resolution_key).dimensions());
+                }
+                _ => {}
+            }
+            meta.save_to_disk();
+        }
+        if let Some((w, h)) = resize_request {
+            request_resolution_change(world, w, h);
+            println!("Resolution → {}x{}", w, h);
+        }
+    }
+
+    if enter_pressed && new_idx == 4 {
+        let preset = world
+            .resource::<MetaSave>()
+            .map(|m| ResolutionPreset::from_key(&m.resolution_key))
+            .unwrap_or(ResolutionPreset::R1280x720);
+        let (w, h) = preset.dimensions();
+        request_resolution_change(world, w, h);
+        println!("Resolution → {}x{}", w, h);
+    }
+}
+
 // ─── ModeTransitionSystem ────────────────────────────────────────────────────
 
 /// SurvivorMode 전환 + GameState 동기화.
@@ -408,101 +668,7 @@ impl System for ModeTransitionSystem {
         }
 
         match mode {
-            SurvivorMode::Title => {
-                // 입력 캐시 (borrow 분리)
-                let (
-                    enter_pressed,
-                    shop_pressed,
-                    char_sel_pressed,
-                    stage_sel_pressed,
-                    settings_pressed,
-                    mouse_action,
-                ) = {
-                    let i = match world.resource::<InputState>() {
-                        Some(i) => i,
-                        None => return,
-                    };
-                    let (vw, vh) = world
-                        .resource::<ViewportSize>()
-                        .map(|v| (v.width, v.height))
-                        .unwrap_or((1280.0, 720.0));
-                    let display_scale = world
-                        .resource::<DisplayScaleFactor>()
-                        .map(|s| s.0)
-                        .unwrap_or(1.0);
-                    let mouse_action = if i.mouse_just_pressed(MouseButton::Left) {
-                        let cursor = logical_cursor_position(i.cursor(), display_scale);
-                        title_action_at(cursor.x, cursor.y, vw, vh)
-                    } else {
-                        None
-                    };
-                    (
-                        i.just_pressed(KeyCode::Enter),
-                        i.just_pressed(KeyCode::KeyS),
-                        i.just_pressed(KeyCode::KeyC),
-                        i.just_pressed(KeyCode::KeyT),
-                        i.just_pressed(KeyCode::KeyO),
-                        mouse_action,
-                    )
-                };
-                if enter_pressed || mouse_action == Some(TitleAction::Start) {
-                    // SpawnDirector waves 를 SelectedStage 기반으로 갱신 (게임 시작 직전)
-                    let stage = world
-                        .resource::<SelectedStage>()
-                        .copied()
-                        .unwrap_or_default()
-                        .0;
-                    let waves = stage.load_waves();
-                    if let Some(d) = world.resource_mut::<super::director::SpawnDirector>() {
-                        d.waves = waves;
-                        d.spawn_elapsed = 0.0;
-                    }
-                    super::death::restart_world(world);
-                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                        *m = SurvivorMode::InGame;
-                    }
-                    if let Some(gs) = world.resource_mut::<GameState>() {
-                        *gs = GameState::Playing;
-                    }
-                    println!("Game started (stage: {}).", stage.label(Lang::En));
-                }
-                if shop_pressed || mouse_action == Some(TitleAction::Shop) {
-                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                        *m = SurvivorMode::Shop;
-                    }
-                    // ShopCursor 가 없으면 default 삽입
-                    if world.resource::<ShopCursor>().is_none() {
-                        world.insert_resource(ShopCursor::default());
-                    }
-                    println!("Entered shop");
-                }
-                if char_sel_pressed || mouse_action == Some(TitleAction::Character) {
-                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                        *m = SurvivorMode::CharacterSelect;
-                    }
-                    // CharacterCursor 가 없으면 default 삽입
-                    if world.resource::<CharacterCursor>().is_none() {
-                        world.insert_resource(CharacterCursor::default());
-                    }
-                    println!("Entered character select");
-                }
-                if stage_sel_pressed || mouse_action == Some(TitleAction::Stage) {
-                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                        *m = SurvivorMode::StageSelect;
-                    }
-                    if world.resource::<StageCursor>().is_none() {
-                        world.insert_resource(StageCursor::default());
-                    }
-                    println!("Entered stage select");
-                }
-                if settings_pressed || mouse_action == Some(TitleAction::Settings) {
-                    world.insert_resource(SettingsCursor { index: 0 });
-                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                        *m = SurvivorMode::Settings;
-                    }
-                    println!("Entered settings");
-                }
-            }
+            SurvivorMode::Title => handle_title_input(world),
             SurvivorMode::CharacterSelect => {
                 // CharacterSelectSystem 이 처리 — 여기서는 no-op
             }
@@ -588,76 +754,7 @@ impl System for ModeTransitionSystem {
                     }
                 }
             }
-            SurvivorMode::PauseMenu => {
-                let (esc_pressed, up_pressed, down_pressed, enter_pressed, cursor_idx) = {
-                    let i = match world.resource::<InputState>() {
-                        Some(i) => i,
-                        None => return,
-                    };
-                    let cur = world
-                        .resource::<PauseMenuCursor>()
-                        .map(|c| c.index)
-                        .unwrap_or(0);
-                    (
-                        i.just_pressed(KeyCode::Escape),
-                        i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
-                        i.just_pressed(KeyCode::KeyS) || i.just_pressed(KeyCode::ArrowDown),
-                        i.just_pressed(KeyCode::Enter),
-                        cur,
-                    )
-                };
-
-                // ESC 로 메뉴 닫기 (게임 재개)
-                if esc_pressed {
-                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                        *m = SurvivorMode::InGame;
-                    }
-                    if let Some(gs) = world.resource_mut::<GameState>() {
-                        *gs = GameState::Playing;
-                    }
-                    return;
-                }
-
-                // W/S 또는 방향키 커서 이동
-                let new_idx = if up_pressed && cursor_idx > 0 {
-                    cursor_idx - 1
-                } else if down_pressed && cursor_idx + 1 < PAUSE_MENU_ITEMS {
-                    cursor_idx + 1
-                } else {
-                    cursor_idx
-                };
-                if let Some(c) = world.resource_mut::<PauseMenuCursor>() {
-                    c.index = new_idx;
-                }
-
-                if enter_pressed {
-                    match cursor_idx {
-                        0 => {
-                            // 계속하기 — 게임 재개
-                            if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                                *m = SurvivorMode::InGame;
-                            }
-                            if let Some(gs) = world.resource_mut::<GameState>() {
-                                *gs = GameState::Playing;
-                            }
-                        }
-                        1 => {
-                            // 타이틀로 돌아가기
-                            super::death::reset_to_title_world(world);
-                            if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                                *m = SurvivorMode::Title;
-                            }
-                            println!("PauseMenu → Title");
-                        }
-                        2 => {
-                            // 게임 종료
-                            world.insert_resource(ShouldQuit(true));
-                            println!("PauseMenu → Quit");
-                        }
-                        _ => {}
-                    }
-                }
-            }
+            SurvivorMode::PauseMenu => handle_pause_menu_input(world),
             SurvivorMode::StageClear => {
                 let enter_pressed = world
                     .resource::<InputState>()
@@ -674,100 +771,7 @@ impl System for ModeTransitionSystem {
             SurvivorMode::Shop => {
                 // Phase 8-B 에서 구현
             }
-            SurvivorMode::Settings => {
-                let (
-                    esc_pressed,
-                    up_pressed,
-                    down_pressed,
-                    left_pressed,
-                    right_pressed,
-                    enter_pressed,
-                    cursor_idx,
-                ) = {
-                    let i = match world.resource::<InputState>() {
-                        Some(i) => i,
-                        None => return,
-                    };
-                    let cur = world
-                        .resource::<SettingsCursor>()
-                        .map(|c| c.index)
-                        .unwrap_or(1);
-                    (
-                        i.just_pressed(KeyCode::Escape),
-                        i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
-                        i.just_pressed(KeyCode::KeyS) || i.just_pressed(KeyCode::ArrowDown),
-                        i.just_pressed(KeyCode::KeyA) || i.just_pressed(KeyCode::ArrowLeft),
-                        i.just_pressed(KeyCode::KeyD) || i.just_pressed(KeyCode::ArrowRight),
-                        i.just_pressed(KeyCode::Enter),
-                        cur,
-                    )
-                };
-
-                if esc_pressed {
-                    if let Some(m) = world.resource_mut::<SurvivorMode>() {
-                        *m = SurvivorMode::Title;
-                    }
-                    return;
-                }
-
-                let new_idx = if up_pressed && cursor_idx > 0 {
-                    cursor_idx - 1
-                } else if down_pressed && cursor_idx + 1 < SETTINGS_ITEMS {
-                    cursor_idx + 1
-                } else {
-                    cursor_idx
-                };
-                if let Some(c) = world.resource_mut::<SettingsCursor>() {
-                    c.index = new_idx;
-                }
-
-                let delta = if left_pressed {
-                    -1
-                } else if right_pressed {
-                    1
-                } else {
-                    0
-                };
-
-                if delta != 0 {
-                    let mut resize_request = None;
-                    if let Some(meta) = world.resource_mut::<MetaSave>() {
-                        match new_idx {
-                            0 => {
-                                meta.language_setting = meta.language_setting.step(delta);
-                                meta.lang = meta.language_setting.effective();
-                            }
-                            1 => meta.hud_detail = meta.hud_detail.step(delta),
-                            2 => meta.bgm_volume = step_volume(meta.bgm_volume, delta),
-                            3 => meta.sfx_volume = step_volume(meta.sfx_volume, delta),
-                            4 => {
-                                meta.resolution_key =
-                                    ResolutionPreset::step_key(&meta.resolution_key, delta)
-                                        .to_string();
-                                resize_request = Some(
-                                    ResolutionPreset::from_key(&meta.resolution_key).dimensions(),
-                                );
-                            }
-                            _ => {}
-                        }
-                        meta.save_to_disk();
-                    }
-                    if let Some((w, h)) = resize_request {
-                        request_resolution_change(world, w, h);
-                        println!("Resolution → {}x{}", w, h);
-                    }
-                }
-
-                if enter_pressed && new_idx == 4 {
-                    let preset = world
-                        .resource::<MetaSave>()
-                        .map(|m| ResolutionPreset::from_key(&m.resolution_key))
-                        .unwrap_or(ResolutionPreset::R1280x720);
-                    let (w, h) = preset.dimensions();
-                    request_resolution_change(world, w, h);
-                    println!("Resolution → {}x{}", w, h);
-                }
-            }
+            SurvivorMode::Settings => handle_settings_input(world),
         }
     }
 }

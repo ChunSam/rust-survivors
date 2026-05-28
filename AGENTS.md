@@ -2,11 +2,11 @@
 
 ## Scope
 
-`rust-survivors` is the game repository for a Vampire Survivors-style top-down auto-attack roguelite built on `rust-2d-engine`.
+`rust-survivors` is the game repository for a Vampire Survivors-style top-down auto-attack roguelite built on `skeleton-engine`.
 
 - Main work target: `crates/game`
-- Engine: separate git dependency, `https://github.com/ChunSam/rust-2d-engine`
-- Do not edit deleted/legacy `crates/engine` paths in this repo. Engine changes belong in `/Volumes/SSD/Projects/rust-2d-engine`.
+- Engine: separate git dependency, `https://github.com/ChunSam/skeleton-engine`
+- Do not edit deleted/legacy `crates/engine` paths in this repo. Engine changes belong in `/Volumes/SSD/Projects/skeleton-engine`.
 - Preserve the platformer demo binary unless the user explicitly asks otherwise.
 
 ## Structure
@@ -54,7 +54,7 @@ Game code should use public engine APIs such as:
 
 If an engine API change is needed:
 
-1. Change and test `/Volumes/SSD/Projects/rust-2d-engine`.
+1. Change and test `/Volumes/SSD/Projects/skeleton-engine`.
 2. Push/update the git dependency.
 3. Update this repo's lockfile.
 4. Run game tests and survivor build.

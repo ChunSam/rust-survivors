@@ -8,12 +8,23 @@ use super::particle::spawn_death_burst;
 use super::sfx::{SfxEvent, SfxQueue};
 use super::weapon::{HitFlash, FLASH_DURATION, SCALE_BUMP};
 use super::xp::spawn_xp_gem;
+use super::Boss;
 
 /// 적 엔티티에 데미지 적용 + 사망 처리 + XpGem 드롭 + HitFlash 부착.
 ///
 /// Slime 사망 시 split_remaining > 0 이면 작은 슬라임 2마리 스폰 (split_remaining = 0 으로 감소).
-/// 반환값은 *사망 여부*. 호출자는 반환값으로 killed 카운트 누적.
+/// 반환값은 일반 적 처치 여부. 보스 사망은 `BossDeathSystem` 이 처리한다.
 pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> bool {
+    let is_boss = world.get::<Boss>(enemy).is_some();
+
+    if world
+        .get::<Health>(enemy)
+        .map(|h| h.current <= 0.0)
+        .unwrap_or(false)
+    {
+        return false;
+    }
+
     // 읽기 패스 — 불변 borrow 를 값으로 복사한 뒤 해제 (가변 borrow 충돌 방지)
     let maybe_flash = world
         .get::<HitFlash>(enemy)
@@ -60,6 +71,10 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
         } else {
             SfxEvent::EnemyHit
         });
+    }
+
+    if died && is_boss {
+        return false;
     }
 
     if died {

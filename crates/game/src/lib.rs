@@ -7,6 +7,7 @@ pub mod survivor;
 
 #[cfg(test)]
 mod tests {
+    use super::survivor::test_support;
     use super::survivor::{
         apply_damage_to_enemy, restart_world, setup_survivor_world, spawn_book, spawn_boss,
         spawn_enemy, spawn_holy_water_pool, spawn_player, spawn_projectile, spawn_projectile_ex,
@@ -15,8 +16,8 @@ mod tests {
         Enemy, EnemyAiSystem, EnemyContactDamageSystem, EnemyKind, FireWandSystem, GameStats,
         GarlicSystem, Health, HitFlash, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem,
         KingBibleSystem, KnifeSystem, LevelUpSystem, LightningFlash, LightningRingSystem,
-        MagicWandSystem, MagnetSystem, OrbitingBook, OrbitingBookSystem, PendingLevelUp, Player,
-        PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnDirector,
+        MagicWandSystem, MagnetSystem, OrbitingBook, OrbitingBookSystem, PendingLevelUp, Pickup,
+        Player, PlayerStats, Projectile, ProjectileBehavior, ProjectileSystem, SpawnDirector,
         SpawnDirectorSystem, StageProgress, SurvivorSprite, WeaponInventory, WeaponKind,
         WeaponSlot, WhipSystem, XpAccumulator, XpGem, Zombie, BOSS_VISUAL_SCALE,
         ENEMY_VISUAL_SCALE, PLAYER_VISUAL_SIZE,
@@ -1745,10 +1746,7 @@ mod tests {
     /// HP 가 max 의 40%(50% 미만)이면 BossPhaseSystem 이 phase 를 1 로 올려야 한다.
     #[test]
     fn boss_phase_advances_on_low_hp() {
-        let mut world = World::new();
-        world.insert_resource(GameState::Playing);
-        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
-        world.insert_resource(super::survivor::CameraShake::default());
+        let mut world = test_support::playing_world_with_boss_resources();
 
         // GiantSlime 보스 스폰
         spawn_boss(&mut world, Vec2::ZERO, BossKind::GiantSlime);
@@ -1771,12 +1769,7 @@ mod tests {
     /// Death 보스 HP <= 0 → BossDeathSystem 이 despawn + StageProgress.cleared = true.
     #[test]
     fn death_boss_defeat_triggers_stage_clear() {
-        let mut world = World::new();
-        world.insert_resource(GameState::Playing);
-        world.insert_resource(Camera::new(Vec2::ZERO, 1.0));
-        world.insert_resource(StageProgress::default());
-        world.insert_resource(GameStats::default());
-        world.insert_resource(super::survivor::CameraShake::default());
+        let mut world = test_support::playing_world_with_boss_resources();
 
         // Death 보스 스폰
         spawn_boss(&mut world, Vec2::ZERO, BossKind::Death);
@@ -1804,6 +1797,61 @@ mod tests {
         assert!(
             cleared,
             "Death 보스 처치 후 StageProgress.cleared 가 true 여야 함"
+        );
+    }
+
+    /// 무기/광역 데미지로 보스를 처치해도 일반 적 사망 경로가 보스를 despawn 하면 안 된다.
+    #[test]
+    fn lethal_enemy_damage_leaves_boss_for_boss_death_system() {
+        let mut world = test_support::playing_world_with_boss_resources();
+
+        spawn_boss(&mut world, Vec2::ZERO, BossKind::Death);
+        let boss_e = world.query::<Boss>().next().map(|(e, _)| e).unwrap();
+
+        let counted_as_normal_kill =
+            apply_damage_to_enemy(&mut world, boss_e, BossKind::Death.max_hp() + 1.0);
+
+        assert!(
+            !counted_as_normal_kill,
+            "보스 처치는 일반 적 kill count 경로로 세면 안 됨"
+        );
+        assert_eq!(
+            world.query::<Boss>().count(),
+            1,
+            "보스는 BossDeathSystem 이 처리할 때까지 남아 있어야 함"
+        );
+        assert!(
+            world
+                .get::<Health>(boss_e)
+                .map(|h| h.current <= 0.0)
+                .unwrap_or(false),
+            "보스 HP 는 0 이하가 되어야 함"
+        );
+        assert_eq!(
+            world.resource::<GameStats>().map(|s| s.kills).unwrap_or(0),
+            0,
+            "BossDeathSystem 전에는 보스 kill count 를 올리면 안 됨"
+        );
+
+        BossDeathSystem.run(&mut world, 0.0);
+
+        assert_eq!(world.query::<Boss>().count(), 0);
+        assert!(
+            world
+                .resource::<StageProgress>()
+                .map(|p| p.cleared)
+                .unwrap_or(false),
+            "Death 보스는 BossDeathSystem 에서 StageClear 처리되어야 함"
+        );
+        assert_eq!(
+            world.resource::<GameStats>().map(|s| s.kills).unwrap_or(0),
+            1,
+            "보스 kill count 는 BossDeathSystem 에서 한 번만 올라야 함"
+        );
+        assert_eq!(
+            world.query::<Pickup>().count(),
+            2,
+            "보스 드롭 Vacuum + Bomb 이 생성돼야 함"
         );
     }
 }

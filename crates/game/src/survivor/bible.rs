@@ -1,12 +1,10 @@
 use engine::{CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 
-use super::damage::apply_damage_to_enemy;
-use super::hud::GameStats;
+use super::combat::{apply_damage_to_targets, weapon_fire_context};
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::player::Player;
 use super::sprites::{add_tinted_sprite, SurvivorSprite};
-use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
 /// 플레이어 주변을 회전하는 책 엔티티.
@@ -32,17 +30,12 @@ impl System for KingBibleSystem {
             return;
         }
 
-        // 1) Player + slot 캐시
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         let fire_info = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
@@ -190,26 +183,15 @@ impl System for OrbitingBookSystem {
         }
 
         // hit 적용
-        let mut killed: u32 = 0;
         for (pos, hit_radius, damage) in tick_hits {
             let zombies = self
                 .grid
                 .query_radius(pos, hit_radius, CollisionLayer(LAYER_ENEMY));
-            for z in zombies {
-                if apply_damage_to_enemy(world, z, damage) {
-                    killed += 1;
-                }
-            }
+            apply_damage_to_targets(world, zombies, damage);
         }
 
         for e in to_despawn {
             world.despawn(e);
-        }
-
-        if killed > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() {
-                stats.kills += killed;
-            }
         }
     }
 }

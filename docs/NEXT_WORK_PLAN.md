@@ -8,8 +8,8 @@ This is the short agent-facing work plan. Long historical notes belong in `docs/
 
 - Repo: `/Volumes/SSD/Projects/rust-survivors`
 - Main work target: `crates/game`
-- Engine: git dependency on `rust-2d-engine`
-- Engine source repo: `/Volumes/SSD/Projects/rust-2d-engine`
+- Engine: git dependency on `skeleton-engine`
+- Engine source repo: `/Volumes/SSD/Projects/skeleton-engine`
 - Current game build uses the latest engine commit in `Cargo.lock`.
 
 Validation baseline:
@@ -27,16 +27,59 @@ bash scripts/package_macos.sh
 bash scripts/verify_macos_package.sh
 ```
 
-Latest observed lib test status: 139 passing.
+Latest observed lib test status: 147 passing.
+
+## Latest Title Menu Image UI Pass
+
+- Added AI-generated title menu assets under `assets/textures/survivor/menu/`.
+- Replaced the Title backdrop path with `title_backdrop_v2.png`.
+- Added a text-free logo plaque and Start/Character/Stage/Shop/Settings button art.
+- Loaded the new menu textures through `SurvivorTextureHandles`.
+- Submitted the title logo/button art through `UiImageQueue` in `TitleVisualSystem`.
+- Added opaque dark backing images under title logo/button art after visual QA caught white transparency leakage.
+- Kept localized KO/EN menu labels as engine text to avoid generated-image text errors.
+- Preserved existing `title_button_layout(...)` and hitbox behavior.
+- Documented implementation details in `docs/TITLE_MENU_IMAGE_UI.md`.
+- Latest validation: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (147 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked`, `bash scripts/package_macos.sh`, and `bash scripts/verify_macos_package.sh`.
+
+## Latest Image Based UI Pass
+
+- Added AI-generated UI skin assets under `assets/textures/survivor/ui/`.
+- Added `ui_modal_panel.png` for modal/menu/result panels and `ui_slot_frame.png` for compact HUD/card/selection frames.
+- Loaded the new UI textures through `SurvivorTextureHandles`.
+- Replaced InGame top HUD, boss HP frame, equipment slots, level-up card rows, shop selection rows, and major modal panels with image-based frames.
+- Added opaque dark backing behind modal/slot frame textures so transparent regions do not render as white blocks on macOS.
+- Moved Settings help text below the modal frame after visual QA showed overlap with frame art.
+- Reduced equipment slot text from names to icon + `Lv` labels.
+- Kept dynamic values and KO/EN localized labels in `TextQueue` to avoid generated-image text errors.
+- Documented implementation details in `docs/IMAGE_BASED_UI_PASS.md`.
+- Detailed QA/fix summary: `docs/VISUAL_QA_BACKING_FIX.md`.
+- Latest validation: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (147 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked`, `bash scripts/package_macos.sh`, and `bash scripts/verify_macos_package.sh`.
+
+## Latest Engine Migration Pass
+
+- Updated the game dependency to `skeleton-engine v1.0.0` at `0e01b0f`.
+- Switched survivor crop UVs to `UvRect::from_pixels(...).flipped_y()` and icon sheet UVs to `UvRect::from_grid(...).flipped_y()`.
+- Simplified survivor texture creation through `Sprite::textured_with_handle`, with `SurvivorTextureHandles` still owning game-specific path-to-handle lookup.
+- Moved HUD slot, level-up, and shop icon/background drawing from per-frame world entity spawn/despawn to `UiImageQueue` + `DrawImage`.
+- Latest validation: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (144 passed), `cargo check -p game --all-targets --locked`, and `cargo build -p game --bin survivor --release --locked`.
+
+## Latest QA Fix Pass
+
+- Fixed boss HP label/bar placement so it starts below the top-left HUD panel in default, 800x600, and Detailed HUD modes.
+- Moved HUD slot, level-up card, and shop selection backgrounds that sit behind icons from `UiQueue` rects to screen-space sprites in `UiIconSystem`.
+- Kept text in `TextQueue`; sprite backgrounds/icons now share the same sprite pass and order by `Transform.z`.
+- Guarded HUD slot icon/background spawning to `SurvivorMode::InGame` so Title does not leak gameplay HUD sprites.
+- Latest validation: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (141 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked`, and `bash scripts/package_macos.sh`.
 
 ## Latest Modernization Pass
 
-- Game still uses `skeleton-engine v1.0.0` at `78cebcf`; no engine repo or dependency update was made.
+- At that point, the game still used `skeleton-engine v1.0.0` at `78cebcf`; no engine repo or dependency update was made.
 - Removed old lifecycle workarounds by using public ECS removal APIs for expired `HitFlash` components and consumed `PendingLevelUp` resources.
 - Survivor textures now prefer handle-based sprites through `SurvivorTextureHandles`, with path fallback kept for tests and simple setup paths.
 - Background, world, effect, and UI sprites now receive explicit `RenderLayer` values. Existing `Transform.z` values remain useful for ordering inside a layer.
 - Engine-side desired improvements are tracked in `docs/ENGINE_FOLLOWUPS.md`.
-- Latest validation: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (139 passed), `cargo check -p game --all-targets --locked`, and `cargo build -p game --bin survivor --release --locked`.
+- Latest validation at that point: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (139 passed), `cargo check -p game --all-targets --locked`, and `cargo build -p game --bin survivor --release --locked`.
 
 ## Recently Completed
 
@@ -88,16 +131,13 @@ Safe future improvement:
 ## Immediate Priority
 
 1. Manual visual QA
-   - Title screen
-   - InGame at 800x600 and default resolution
-   - Player/enemy/boss actor animation
-   - Whip/effect sprite visibility
-   - Level-up cards
-   - Shop icons
-   - HUD weapon/passive slots
+   - KO/EN language switching for long strings in Title, Settings, Shop, cards, and results
+   - Mouse hitbox feel for Title image buttons
+   - Character and Stage select image-panel readability
+   - Player/enemy/boss actor animation over longer play sessions
+   - Whip/effect sprite visibility over longer play sessions
 
 2. Responsive UI tuning
-   - Verify icon/text overlap at low resolution.
    - Verify high-DPI/Retina perceived sizes.
    - Keep player visually centered during boss spawn and zoom.
 

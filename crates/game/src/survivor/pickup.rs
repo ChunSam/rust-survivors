@@ -8,10 +8,9 @@ use glam::Vec2;
 use rand::Rng;
 
 use super::boss::CameraShake;
-use super::damage::apply_damage_to_enemy;
+use super::combat::apply_damage_to_targets;
 use super::enemy::Enemy;
 use super::health::Health;
-use super::hud::GameStats;
 use super::player::Player;
 use super::sfx::{SfxEvent, SfxQueue};
 use super::sprites::{add_sprite, SurvivorSprite};
@@ -143,17 +142,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
         PickupKind::Bomb => {
             // 화면 내 모든 적에 100 데미지
             let enemies: Vec<Entity> = world.query::<Enemy>().map(|(e, _)| e).collect();
-            let mut killed: u32 = 0;
-            for e in enemies {
-                if apply_damage_to_enemy(world, e, 100.0) {
-                    killed += 1;
-                }
-            }
-            if killed > 0 {
-                if let Some(stats) = world.resource_mut::<GameStats>() {
-                    stats.kills += killed;
-                }
-            }
+            let killed = apply_damage_to_targets(world, enemies, 100.0);
             if let Some(s) = world.resource_mut::<CameraShake>() {
                 s.trigger(0.40, 14.0);
             }
@@ -165,22 +154,14 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
         PickupKind::Rosary => {
             // 화면 내 모든 적 즉사 — 매우 큰 데미지
             let enemies: Vec<Entity> = world.query::<Enemy>().map(|(e, _)| e).collect();
-            let count = enemies.len() as u32;
-            for e in enemies {
-                apply_damage_to_enemy(world, e, 9999.0);
-            }
-            if count > 0 {
-                if let Some(stats) = world.resource_mut::<GameStats>() {
-                    stats.kills += count;
-                }
-            }
+            let killed = apply_damage_to_targets(world, enemies, 9999.0);
             if let Some(s) = world.resource_mut::<CameraShake>() {
                 s.trigger(0.35, 10.0);
             }
             if let Some(q) = world.resource_mut::<SfxQueue>() {
                 q.push(SfxEvent::Bomb);
             }
-            println!("Rosary picked: {} enemies cleared", count);
+            println!("Rosary picked: {} enemies cleared", killed);
         }
     }
 }

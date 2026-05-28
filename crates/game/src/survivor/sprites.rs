@@ -12,7 +12,17 @@ pub const ACTOR_FRAMES_PATH: &str = "assets/textures/survivor/survivor_actor_fra
 pub const EVOLUTIONS_PATH: &str = "assets/textures/survivor/survivor_evolutions.png";
 pub const PASSIVES_PATH: &str = "assets/textures/survivor/survivor_passives.png";
 pub const POWERUPS_PATH: &str = "assets/textures/survivor/survivor_powerups.png";
-pub const TITLE_BACKDROP_PATH: &str = "assets/textures/survivor/title_backdrop.png";
+pub const TITLE_BACKDROP_PATH: &str = "assets/textures/survivor/menu/title_backdrop_v2.png";
+pub const TITLE_LOGO_PLAQUE_PATH: &str = "assets/textures/survivor/menu/title_logo_plaque.png";
+pub const MENU_BUTTON_START_PATH: &str = "assets/textures/survivor/menu/menu_button_start.png";
+pub const MENU_BUTTON_CHARACTER_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_character.png";
+pub const MENU_BUTTON_STAGE_PATH: &str = "assets/textures/survivor/menu/menu_button_stage.png";
+pub const MENU_BUTTON_SHOP_PATH: &str = "assets/textures/survivor/menu/menu_button_shop.png";
+pub const MENU_BUTTON_SETTINGS_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_settings.png";
+pub const UI_MODAL_PANEL_PATH: &str = "assets/textures/survivor/ui/ui_modal_panel.png";
+pub const UI_SLOT_FRAME_PATH: &str = "assets/textures/survivor/ui/ui_slot_frame.png";
 pub const PLAYER_VISUAL_SIZE: f32 = 150.0;
 pub const ENEMY_VISUAL_SCALE: f32 = 3.75;
 pub const BOSS_VISUAL_SCALE: f32 = 1.5;
@@ -49,6 +59,14 @@ pub struct SurvivorTextureHandles {
     pub passives: Handle<ImageAsset>,
     pub powerups: Handle<ImageAsset>,
     pub title_backdrop: Handle<ImageAsset>,
+    pub title_logo_plaque: Handle<ImageAsset>,
+    pub menu_button_start: Handle<ImageAsset>,
+    pub menu_button_character: Handle<ImageAsset>,
+    pub menu_button_stage: Handle<ImageAsset>,
+    pub menu_button_shop: Handle<ImageAsset>,
+    pub menu_button_settings: Handle<ImageAsset>,
+    pub ui_modal_panel: Handle<ImageAsset>,
+    pub ui_slot_frame: Handle<ImageAsset>,
 }
 
 impl SurvivorTextureHandles {
@@ -62,18 +80,28 @@ impl SurvivorTextureHandles {
             PASSIVES_PATH => Some(&self.passives),
             POWERUPS_PATH => Some(&self.powerups),
             TITLE_BACKDROP_PATH => Some(&self.title_backdrop),
+            TITLE_LOGO_PLAQUE_PATH => Some(&self.title_logo_plaque),
+            MENU_BUTTON_START_PATH => Some(&self.menu_button_start),
+            MENU_BUTTON_CHARACTER_PATH => Some(&self.menu_button_character),
+            MENU_BUTTON_STAGE_PATH => Some(&self.menu_button_stage),
+            MENU_BUTTON_SHOP_PATH => Some(&self.menu_button_shop),
+            MENU_BUTTON_SETTINGS_PATH => Some(&self.menu_button_settings),
+            UI_MODAL_PANEL_PATH => Some(&self.ui_modal_panel),
+            UI_SLOT_FRAME_PATH => Some(&self.ui_slot_frame),
             _ => None,
         }
     }
 }
 
 pub fn survivor_textured_sprite(world: &World, path: &str) -> Sprite {
+    Sprite::textured_with_handle(path, survivor_texture_handle(world, path))
+}
+
+pub fn survivor_texture_handle(world: &World, path: &str) -> Option<Handle<ImageAsset>> {
     world
         .resource::<SurvivorTextureHandles>()
         .and_then(|textures| textures.handle_for(path))
         .cloned()
-        .map(Sprite::with_handle)
-        .unwrap_or_else(|| Sprite::textured(path))
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -91,16 +119,15 @@ struct SpriteFrame {
 
 impl SpriteFrame {
     fn uv(self) -> UvRect {
-        let u_offset = (self.base_x + self.x) / self.atlas_width;
-        let v_top = (self.base_y + self.y) / self.atlas_height;
-        let v_size = self.height / self.atlas_height;
-
-        UvRect {
-            u_offset,
-            v_offset: v_top + v_size,
-            u_size: self.width / self.atlas_width,
-            v_size: -v_size,
-        }
+        UvRect::from_pixels(
+            self.base_x + self.x,
+            self.base_y + self.y,
+            self.width,
+            self.height,
+            self.atlas_width,
+            self.atlas_height,
+        )
+        .flipped_y()
     }
 
     fn fit_scale(self, max_size: f32) -> glam::Vec2 {
@@ -328,10 +355,7 @@ impl SurvivorSprite {
 }
 
 pub fn vertically_flipped_full_uv() -> UvRect {
-    let mut uv = UvRect::FULL;
-    uv.v_offset += uv.v_size;
-    uv.v_size = -uv.v_size;
-    uv
+    UvRect::FULL.flipped_y()
 }
 
 pub fn add_sprite(world: &mut World, entity: Entity, sprite: SurvivorSprite) {
@@ -435,6 +459,38 @@ mod tests {
 
         assert_eq!(sprite.texture.as_deref(), Some(ATLAS_PATH));
         assert!(sprite.image_handle.is_none());
+    }
+
+    #[test]
+    fn textured_sprite_prefers_handle_while_keeping_path_fallback() {
+        let mut world = World::new();
+        let handle = engine::AssetServer::new().load_image(ATLAS_PATH);
+        world.insert_resource(SurvivorTextureHandles {
+            atlas: handle.clone(),
+            effects: handle.clone(),
+            actor_frames: handle.clone(),
+            evolutions: handle.clone(),
+            icons: handle.clone(),
+            passives: handle.clone(),
+            powerups: handle.clone(),
+            title_backdrop: handle.clone(),
+            title_logo_plaque: handle.clone(),
+            menu_button_start: handle.clone(),
+            menu_button_character: handle.clone(),
+            menu_button_stage: handle.clone(),
+            menu_button_shop: handle.clone(),
+            menu_button_settings: handle.clone(),
+            ui_modal_panel: handle.clone(),
+            ui_slot_frame: handle,
+        });
+
+        let sprite = survivor_textured_sprite(&world, ATLAS_PATH);
+
+        assert_eq!(sprite.texture.as_deref(), Some(ATLAS_PATH));
+        assert_eq!(
+            sprite.image_handle.as_ref().map(|handle| handle.path()),
+            Some(ATLAS_PATH)
+        );
     }
 
     #[test]

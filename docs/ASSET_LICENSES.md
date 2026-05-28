@@ -1,7 +1,7 @@
 # Rust Survivors Asset Licenses
 
 작성일: 2026-05-23
-갱신일: 2026-05-24
+갱신일: 2026-05-28
 
 출시 빌드에는 모든 외부 자산의 출처와 라이선스를 이 문서에 남긴다.
 출처가 불명확한 파일은 release package에 포함하지 않는다.
@@ -25,6 +25,8 @@
 | `assets/textures/survivor/survivor_passives.png` | local generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256 `b53e24428528c51350defcb430debdbb018d932ee5ae3933569ef89dc07678e6` |
 | `assets/textures/survivor/survivor_powerups.png` | local generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256 `d266df248806cdf966ba199d30acfaf7867d0978a868f0b0c844936da5d12634` |
 | `assets/textures/survivor/title_backdrop.png` | local generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256 `ff42551fbfb38339d2c02e0dd8cf650d8908ee59050ec08853498c637e3120a1` |
+| `assets/textures/survivor/menu/*.png` | local AI generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256: `title_backdrop_v2.png` `07ed6357d9efc45fd4c32c957809962a0cfd5ccd35cca94d66389070fa9c927e`, `title_logo_plaque.png` `e045f92c75e2e9aeab2967bb7804008a2601cad1064144ce0e13af51431e7142`, `menu_button_start.png` `b1e298e154238ba44455ece90ef2ed1a8410a04b972f681ee50af95edaea9568`, `menu_button_character.png` `c87e67c802b64bdb28fd69cadde82b990df52d510ada25a8812262e5160275bd`, `menu_button_stage.png` `953931d4ae9c9493e7d451cfee5ad077b3d797519fd952a8330d2aa3d13a9d03`, `menu_button_shop.png` `557eb847f2ec7221e48b7e5534bb31ce0a26dfde36d6db92fa148904009e598f`, `menu_button_settings.png` `fd5b5c571f766d7a0c3e7003bd226d87a1e63d795989e52289d78b120c58caa4` |
+| `assets/textures/survivor/ui/*.png` | local AI generated asset | 프로젝트 내부 placeholder | 필요 없음 | Image generation + local chroma-key alpha cleanup. SHA-256: `ui_modal_panel.png` `464cf041bd2565f60a49f8eec73c1dc4b22509675b4584adeae7c3c0446044ec`, `ui_slot_frame.png` `8235dcbcf0155f5a8a1146d039eaabf05316e2551d6c6d155f8f5056a1a5e41b` |
 
 ## Audio
 

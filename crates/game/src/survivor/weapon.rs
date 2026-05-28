@@ -3,16 +3,15 @@ use engine::{
     World,
 };
 use glam::Vec2;
-use rand::seq::SliceRandom;
 
-use super::damage::apply_damage_to_enemy;
-use super::hud::GameStats;
+use super::combat::{
+    apply_damage_to_targets, direction_or_right, nearest_enemy_in_radius, random_enemy_in_radius,
+    weapon_fire_context,
+};
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::lightning::spawn_timed_effect;
-use super::player::Player;
 use super::projectile::{spawn_projectile, spawn_projectile_ex, ProjectileBehavior};
 use super::sprites::SurvivorSprite;
-use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
 /// 히트 플래시 총 지속 시간(초). 흰색 → 원래 색으로 페이드하는 구간.
@@ -109,17 +108,12 @@ impl System for WhipSystem {
             return;
         }
 
-        // 1) Player 위치 캐시 (borrow 를 즉시 끊음)
-        let player_e_and_pos = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position));
-        let Some((player_entity, player_pos)) = player_e_and_pos else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // 2) stats 캐시 (불변 빌림만 → 이후 get_mut 과 충돌 없음)
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         // 3) WeaponInventory 의 Whip 슬롯 tick + 파라미터 복사
         //    (get_mut borrow 를 블록 안에서 끊어야 이후 world 접근 가능)
@@ -199,17 +193,7 @@ impl System for WhipSystem {
         hits.sort_by_key(|e| e.0);
         hits.dedup();
 
-        let mut killed: u32 = 0;
-        for entity in hits {
-            if apply_damage_to_enemy(world, entity, damage) {
-                killed += 1;
-            }
-        }
-        if killed > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() {
-                stats.kills += killed;
-            }
-        }
+        apply_damage_to_targets(world, hits, damage);
     }
 }
 
@@ -238,17 +222,12 @@ impl System for MagicWandSystem {
             return;
         }
 
-        // 1) Player 위치 + entity 캐시 (borrow 를 즉시 끊음)
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // 2) stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         // 3) MagicWand 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8)> = {
@@ -284,32 +263,14 @@ impl System for MagicWandSystem {
 
         // 4) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
-        let candidates =
-            self.grid
-                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
-        if candidates.is_empty() {
-            return;
-        }
-
-        let nearest = candidates
-            .into_iter()
-            .filter_map(|e| world.get::<Transform>(e).map(|t| (e, t.position)))
-            .min_by(|a, b| {
-                let da = (a.1 - player_pos).length_squared();
-                let db = (b.1 - player_pos).length_squared();
-                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-            });
-        let Some((_target_entity, target_pos)) = nearest else {
+        let Some((_target_entity, target_pos)) =
+            nearest_enemy_in_radius(world, &self.grid, player_pos, self.target_radius)
+        else {
             return;
         };
 
         // 4) 방향 벡터 정규화 + 투사체 스폰 (연보라색)
-        let dir = target_pos - player_pos;
-        let dir = if dir.length_squared() > 0.0 {
-            dir.normalize()
-        } else {
-            Vec2::new(1.0, 0.0)
-        };
+        let dir = direction_or_right(player_pos, target_pos);
         let velocity = dir * projectile_speed;
 
         spawn_projectile(
@@ -348,17 +309,12 @@ impl System for KnifeSystem {
             return;
         }
 
-        // 1) Player 위치 + entity 캐시
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // 2) stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         // 3) Knife 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
@@ -406,32 +362,14 @@ impl System for KnifeSystem {
 
         // 3) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
-        let candidates =
-            self.grid
-                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
-        if candidates.is_empty() {
-            return; // 적 없으면 발사 skip
-        }
-
-        let nearest = candidates
-            .into_iter()
-            .filter_map(|e| world.get::<Transform>(e).map(|t| (e, t.position)))
-            .min_by(|a, b| {
-                let da = (a.1 - player_pos).length_squared();
-                let db = (b.1 - player_pos).length_squared();
-                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-            });
-        let Some((_target_entity, target_pos)) = nearest else {
+        let Some((_target_entity, target_pos)) =
+            nearest_enemy_in_radius(world, &self.grid, player_pos, self.target_radius)
+        else {
             return;
         };
 
         // 4) 방향 벡터 계산
-        let dir = target_pos - player_pos;
-        let base_dir = if dir.length_squared() > 0.0 {
-            dir.normalize()
-        } else {
-            Vec2::new(1.0, 0.0)
-        };
+        let base_dir = direction_or_right(player_pos, target_pos);
         let base_angle = base_dir.y.atan2(base_dir.x);
 
         // 5) amount 개 투사체 발사 (흰색) — spread_radians 부채꼴 분산
@@ -481,17 +419,12 @@ impl System for AxeSystem {
             return;
         }
 
-        // 1) Player 위치 + entity 캐시
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // 2) stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         // 3) Axe 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, f32, u8, u8)> = {
@@ -578,17 +511,12 @@ impl System for CrossSystem {
             return;
         }
 
-        // 1) Player 위치 + entity 캐시
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // 2) stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         // 3) Cross 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8, u8, f32)> = {
@@ -636,32 +564,14 @@ impl System for CrossSystem {
 
         // 3) grid rebuild + 가장 가까운 적 탐색
         self.grid.rebuild(world);
-        let candidates =
-            self.grid
-                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
-        if candidates.is_empty() {
-            return;
-        }
-
-        let nearest = candidates
-            .into_iter()
-            .filter_map(|e| world.get::<Transform>(e).map(|t| (e, t.position)))
-            .min_by(|a, b| {
-                let da = (a.1 - player_pos).length_squared();
-                let db = (b.1 - player_pos).length_squared();
-                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-            });
-        let Some((_target_entity, target_pos)) = nearest else {
+        let Some((_target_entity, target_pos)) =
+            nearest_enemy_in_radius(world, &self.grid, player_pos, self.target_radius)
+        else {
             return;
         };
 
         // 4) 방향 벡터 계산
-        let dir = target_pos - player_pos;
-        let base_dir = if dir.length_squared() > 0.0 {
-            dir.normalize()
-        } else {
-            Vec2::new(1.0, 0.0)
-        };
+        let base_dir = direction_or_right(player_pos, target_pos);
         let base_angle = base_dir.y.atan2(base_dir.x);
 
         // 5) amount 개 부메랑 투사체 발사 (황금색)
@@ -717,17 +627,12 @@ impl System for FireWandSystem {
             return;
         }
 
-        // 1) Player 위치 + entity 캐시
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // 2) stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         // 3) FireWand 슬롯 tick — cooldown 미달이면 즉시 반환
         let fire_info: Option<(f32, f32, f32, u8)> = {
@@ -763,29 +668,14 @@ impl System for FireWandSystem {
 
         // 3) grid rebuild + 후보 적 수집
         self.grid.rebuild(world);
-        let candidates =
-            self.grid
-                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
-        if candidates.is_empty() {
-            return;
-        }
-
-        // 4) 후보 중 랜덤 1마리 선택
-        let mut rng = rand::thread_rng();
-        let Some(&target_entity) = candidates.choose(&mut rng) else {
-            return;
-        };
-        let Some(target_pos) = world.get::<Transform>(target_entity).map(|t| t.position) else {
+        let Some((_target_entity, target_pos)) =
+            random_enemy_in_radius(world, &self.grid, player_pos, self.target_radius)
+        else {
             return;
         };
 
         // 5) 방향 벡터 정규화 + 투사체 스폰 (주황색)
-        let dir = target_pos - player_pos;
-        let dir = if dir.length_squared() > 0.0 {
-            dir.normalize()
-        } else {
-            Vec2::new(1.0, 0.0)
-        };
+        let dir = direction_or_right(player_pos, target_pos);
         let velocity = dir * projectile_speed;
 
         spawn_projectile_ex(

@@ -6,8 +6,8 @@ This file mirrors the active agent context in `AGENTS.md` and is intentionally k
 
 - Game repo: `/Volumes/SSD/Projects/rust-survivors`
 - Main crate: `crates/game`
-- Engine repo: `/Volumes/SSD/Projects/rust-2d-engine`
-- Engine dependency: `engine = { git = "https://github.com/ChunSam/rust-2d-engine" }`
+- Engine repo: `/Volumes/SSD/Projects/skeleton-engine`
+- Engine dependency: `engine = { package = "skeleton-engine", git = "https://github.com/ChunSam/skeleton-engine" }`
 
 Do game/content/UI/asset work in this repo. Do renderer/ECS/input/audio/save engine work in the engine repo, then update the git dependency here.
 

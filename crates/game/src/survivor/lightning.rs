@@ -1,13 +1,9 @@
 use engine::{CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
-use rand::seq::SliceRandom;
 
-use super::damage::apply_damage_to_enemy;
-use super::hud::GameStats;
+use super::combat::{apply_damage_to_targets, random_enemies_in_radius, weapon_fire_context};
 use super::inventory::{WeaponInventory, WeaponKind};
-use super::player::Player;
 use super::sprites::{add_tinted_sprite, SurvivorSprite};
-use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
 /// 짧게 보이는 번개 시각 효과. lifetime 감소 → despawn.
@@ -37,16 +33,12 @@ impl System for LightningRingSystem {
             return;
         }
 
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         let fire_info = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
@@ -80,43 +72,23 @@ impl System for LightningRingSystem {
 
         // 후보 zombie 들
         self.grid.rebuild(world);
-        let candidates =
-            self.grid
-                .query_radius(player_pos, self.target_radius, CollisionLayer(LAYER_ENEMY));
-        if candidates.is_empty() {
-            return;
-        }
-
         // strike_count 마리 랜덤 선택
-        let mut rng = rand::thread_rng();
-        let targets: Vec<Entity> = candidates
-            .choose_multiple(&mut rng, strike_count as usize)
-            .copied()
-            .collect();
+        let targets = random_enemies_in_radius(
+            world,
+            &self.grid,
+            player_pos,
+            self.target_radius,
+            strike_count as usize,
+        );
 
-        let mut killed: u32 = 0;
-        for target in targets {
-            let target_pos = match world.get::<Transform>(target) {
-                Some(t) => t.position,
-                None => continue,
-            };
+        for (_target, target_pos) in targets {
             // 시각 flash 잠깐
             spawn_lightning_flash(world, target_pos);
             // area damage at target_pos
             let hits = self
                 .grid
                 .query_radius(target_pos, hit_radius, CollisionLayer(LAYER_ENEMY));
-            for z in hits {
-                if apply_damage_to_enemy(world, z, damage) {
-                    killed += 1;
-                }
-            }
-        }
-
-        if killed > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() {
-                stats.kills += killed;
-            }
+            apply_damage_to_targets(world, hits, damage);
         }
     }
 }

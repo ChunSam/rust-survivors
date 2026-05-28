@@ -4,11 +4,11 @@ use super::levelup::{CardKind, PendingLevelUp};
 use super::meta::SurvivorMode;
 use super::passive::{PassiveInventory, PassiveKind};
 use super::player::Player;
-use super::powerup::PowerUpKind;
-use super::sprites::{survivor_textured_sprite, PASSIVES_PATH, POWERUPS_PATH, RENDER_LAYER_UI};
-use engine::{
-    Camera, Entity, GameState, RenderLayer, System, Transform, UvRect, ViewportSize, World,
+use super::powerup::{PowerUpKind, ShopCursor};
+use super::sprites::{
+    survivor_texture_handle, PASSIVES_PATH, POWERUPS_PATH, UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
 };
+use engine::{DrawImage, GameState, System, UiImageQueue, UvRect, ViewportSize, World};
 use glam::Vec2;
 
 const SLOT_COLS: usize = 6;
@@ -19,15 +19,16 @@ const XP_BAR_H: f32 = 14.0;
 const ICON_SIZE: f32 = 28.0;
 const LEVEL_ICON_SIZE: f32 = 34.0;
 const SHOP_ICON_SIZE: f32 = 22.0;
+const UI_BACKGROUND_Z: f32 = 30.0;
+const UI_ROW_Z: f32 = 34.0;
+const UI_ACCENT_Z: f32 = 36.0;
+const UI_ICON_Z: f32 = 45.0;
 #[cfg(test)]
 const SLOT_TEXT_INSET: f32 = 42.0;
 #[cfg(test)]
 const SHOP_TEXT_X_OFFSET: f32 = -306.0;
 #[cfg(test)]
 const LEVELUP_TEXT_X_OFFSET: f32 = -178.0;
-
-#[derive(Debug, Clone, Copy)]
-pub struct UiIconSprite;
 
 #[derive(Debug, Clone, Copy)]
 struct HudIconLayout {
@@ -42,6 +43,14 @@ struct HudIconLayout {
 }
 
 #[derive(Debug, Clone, Copy)]
+struct ScreenRect {
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+}
+
+#[derive(Debug, Clone, Copy)]
 enum IconSource {
     Icons { col: u32, row: u32 },
     Passive(PassiveKind),
@@ -53,12 +62,7 @@ pub struct UiIconSystem;
 
 impl System for UiIconSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
-        despawn_previous_icons(world);
-
         let Some(viewport) = world.resource::<ViewportSize>().copied() else {
-            return;
-        };
-        let Some(camera) = world.resource::<Camera>().copied() else {
             return;
         };
         let mode = world
@@ -67,24 +71,19 @@ impl System for UiIconSystem {
             .unwrap_or_default();
         let is_levelup = matches!(world.resource::<GameState>(), Some(GameState::Paused));
 
-        spawn_hud_slot_icons(world, camera, viewport);
+        if matches!(mode, SurvivorMode::InGame) {
+            queue_hud_slot_icons(world, viewport);
+        }
         if is_levelup {
-            spawn_levelup_icons(world, camera, viewport);
+            queue_levelup_icons(world, viewport);
         }
         if matches!(mode, SurvivorMode::Shop) {
-            spawn_shop_icons(world, camera, viewport);
+            queue_shop_icons(world, viewport);
         }
     }
 }
 
-fn despawn_previous_icons(world: &mut World) {
-    let entities: Vec<Entity> = world.query::<UiIconSprite>().map(|(e, _)| e).collect();
-    for entity in entities {
-        world.despawn(entity);
-    }
-}
-
-fn spawn_hud_slot_icons(world: &mut World, camera: Camera, viewport: ViewportSize) {
+fn queue_hud_slot_icons(world: &mut World, viewport: ViewportSize) {
     let weapon_slots: Vec<(WeaponKind, bool)> = world
         .query2::<Player, WeaponInventory>()
         .next()
@@ -102,6 +101,11 @@ fn spawn_hud_slot_icons(world: &mut World, camera: Camera, viewport: ViewportSiz
         .unwrap_or_default();
 
     let layout = hud_icon_layout(viewport.width, viewport.height);
+    if weapon_slots.is_empty() && passive_slots.is_empty() {
+        return;
+    }
+
+    queue_hud_slot_backgrounds(world, &layout, &weapon_slots, &passive_slots);
 
     for (i, (kind, evolved)) in weapon_slots.iter().enumerate().take(SLOT_COLS) {
         let icon = if *evolved {
@@ -109,29 +113,27 @@ fn spawn_hud_slot_icons(world: &mut World, camera: Camera, viewport: ViewportSiz
         } else {
             weapon_source(kind)
         };
-        spawn_icon(
+        queue_icon(
             world,
-            camera,
             hud_icon_center(&layout, i, 0),
             layout.icon_size,
             icon,
-            40.0,
+            UI_ICON_Z,
         );
     }
 
     for (i, kind) in passive_slots.iter().enumerate().take(SLOT_COLS) {
-        spawn_icon(
+        queue_icon(
             world,
-            camera,
             hud_icon_center(&layout, i, 1),
             layout.icon_size,
             IconSource::Passive(*kind),
-            40.0,
+            UI_ICON_Z,
         );
     }
 }
 
-fn spawn_levelup_icons(world: &mut World, camera: Camera, viewport: ViewportSize) {
+fn queue_levelup_icons(world: &mut World, viewport: ViewportSize) {
     let Some(offered) = world
         .resource::<PendingLevelUp>()
         .map(|pending| pending.offered)
@@ -139,19 +141,20 @@ fn spawn_levelup_icons(world: &mut World, camera: Camera, viewport: ViewportSize
         return;
     };
 
+    queue_levelup_backgrounds(world, viewport);
+
     for (i, card) in offered.iter().enumerate() {
-        spawn_icon(
+        queue_icon(
             world,
-            camera,
             levelup_icon_center(viewport.width, viewport.height, i),
             levelup_icon_size(viewport.width, viewport.height),
             card_icon(*card),
-            45.0,
+            UI_ICON_Z,
         );
     }
 }
 
-fn spawn_shop_icons(world: &mut World, camera: Camera, viewport: ViewportSize) {
+fn queue_shop_icons(world: &mut World, viewport: ViewportSize) {
     let mode = world
         .resource::<SurvivorMode>()
         .copied()
@@ -160,43 +163,239 @@ fn spawn_shop_icons(world: &mut World, camera: Camera, viewport: ViewportSize) {
         return;
     }
 
+    let cursor_idx = world.resource::<ShopCursor>().map(|c| c.index).unwrap_or(0);
+    queue_screen_colored_rect(
+        world,
+        shop_selection_rect(viewport.width, viewport.height, cursor_idx),
+        [0.25, 0.22, 0.05, 0.75],
+        UI_ROW_Z,
+    );
+    queue_screen_texture(
+        world,
+        shop_selection_skin_rect(viewport.width, viewport.height, cursor_idx),
+        UI_SLOT_FRAME_PATH,
+        UI_ROW_Z + 1.0,
+    );
+
     for (i, kind) in PowerUpKind::ALL.iter().enumerate() {
-        spawn_icon(
+        queue_icon(
             world,
-            camera,
             shop_icon_center(viewport.width, viewport.height, i),
             shop_icon_size(viewport.width, viewport.height),
             IconSource::PowerUp(*kind),
-            45.0,
+            UI_ICON_Z,
         );
     }
 }
 
-fn spawn_icon(
+fn queue_screen_colored_rect(world: &mut World, rect: ScreenRect, color: [f32; 4], z: f32) {
+    if let Some(queue) = world.resource_mut::<UiImageQueue>() {
+        queue.push(DrawImage::colored(rect.x, rect.y, rect.w, rect.h, color).with_z(z));
+    }
+}
+
+fn queue_screen_texture(world: &mut World, rect: ScreenRect, path: &str, z: f32) {
+    let handle = survivor_texture_handle(world, path);
+    if let Some(queue) = world.resource_mut::<UiImageQueue>() {
+        let backing = if path == UI_MODAL_PANEL_PATH {
+            [0.022, 0.019, 0.021, 1.0]
+        } else {
+            [0.024, 0.022, 0.024, 1.0]
+        };
+        queue.push(DrawImage::colored(rect.x, rect.y, rect.w, rect.h, backing).with_z(z - 0.1));
+        queue.push(
+            DrawImage::textured_with_handle(rect.x, rect.y, rect.w, rect.h, path, handle).with_z(z),
+        );
+    }
+}
+
+fn queue_hud_slot_backgrounds(
     world: &mut World,
-    camera: Camera,
+    layout: &HudIconLayout,
+    weapon_slots: &[(WeaponKind, bool)],
+    passive_slots: &[PassiveKind],
+) {
+    queue_screen_colored_rect(
+        world,
+        hud_panel_rect(layout),
+        [0.015, 0.015, 0.025, 0.84],
+        UI_BACKGROUND_Z,
+    );
+
+    for row in 0..2 {
+        for i in 0..SLOT_COLS {
+            queue_screen_texture(
+                world,
+                hud_slot_skin_rect(layout, i, row),
+                UI_SLOT_FRAME_PATH,
+                UI_ROW_Z,
+            );
+            queue_screen_colored_rect(
+                world,
+                hud_stripe_rect(layout, i, row),
+                hud_stripe_color(row, i, weapon_slots, passive_slots),
+                UI_ACCENT_Z,
+            );
+        }
+    }
+}
+
+fn queue_levelup_backgrounds(world: &mut World, viewport: ViewportSize) {
+    let viewport_w = viewport.width;
+    let viewport_h = viewport.height;
+    queue_screen_colored_rect(
+        world,
+        ScreenRect {
+            x: 0.0,
+            y: 0.0,
+            w: viewport_w,
+            h: viewport_h,
+        },
+        [0.0, 0.0, 0.0, 0.55],
+        UI_BACKGROUND_Z,
+    );
+    queue_screen_texture(
+        world,
+        levelup_panel_skin_rect(viewport_w, viewport_h),
+        UI_MODAL_PANEL_PATH,
+        UI_BACKGROUND_Z,
+    );
+
+    for card_index in 0..3 {
+        queue_screen_texture(
+            world,
+            levelup_card_skin_rect(viewport_w, viewport_h, card_index),
+            UI_SLOT_FRAME_PATH,
+            UI_ROW_Z,
+        );
+    }
+}
+
+fn queue_icon(
+    world: &mut World,
     screen_center: Vec2,
     screen_size: f32,
     source: IconSource,
     z: f32,
 ) {
     let (texture, uv) = source.texture_and_uv();
-    let world_center = camera.screen_to_world(screen_center);
-    let world_size = screen_size / camera.zoom.max(0.01);
-    let entity = world.spawn();
-    world.add_component(
-        entity,
-        Transform {
-            position: world_center,
-            scale: Vec2::splat(world_size),
-            rotation: 0.0,
-            z,
+    let handle = survivor_texture_handle(world, texture);
+    if let Some(queue) = world.resource_mut::<UiImageQueue>() {
+        queue.push(
+            DrawImage::textured_with_handle(
+                screen_center.x - screen_size * 0.5,
+                screen_center.y - screen_size * 0.5,
+                screen_size,
+                screen_size,
+                texture,
+                handle,
+            )
+            .with_uv(uv)
+            .with_z(z),
+        );
+    }
+}
+
+fn hud_panel_width(layout: &HudIconLayout) -> f32 {
+    SLOT_COLS as f32 * layout.slot_w + (SLOT_COLS - 1) as f32 * layout.slot_gap
+}
+
+fn hud_panel_rect(layout: &HudIconLayout) -> ScreenRect {
+    ScreenRect {
+        x: layout.slot_x0 - 4.0,
+        y: layout.weapon_y - 26.0 * layout.ui_scale,
+        w: hud_panel_width(layout) + 8.0,
+        h: layout.slot_h * 2.0 + layout.slot_gap + 36.0 * layout.ui_scale,
+    }
+}
+
+fn hud_slot_rect(layout: &HudIconLayout, slot_index: usize, row: usize) -> ScreenRect {
+    let sx = layout.slot_x0 + slot_index as f32 * (layout.slot_w + layout.slot_gap);
+    ScreenRect {
+        x: sx,
+        y: if row == 0 {
+            layout.weapon_y
+        } else {
+            layout.passive_y
         },
-    );
-    world.add_component(entity, survivor_textured_sprite(world, texture));
-    world.add_component(entity, RenderLayer(RENDER_LAYER_UI));
-    world.add_component(entity, uv);
-    world.add_component(entity, UiIconSprite);
+        w: layout.slot_w,
+        h: layout.slot_h,
+    }
+}
+
+fn hud_slot_skin_rect(layout: &HudIconLayout, slot_index: usize, row: usize) -> ScreenRect {
+    let slot = hud_slot_rect(layout, slot_index, row);
+    ScreenRect {
+        x: slot.x - 4.0 * layout.ui_scale,
+        y: slot.y - 5.0 * layout.ui_scale,
+        w: slot.w + 8.0 * layout.ui_scale,
+        h: slot.h + 10.0 * layout.ui_scale,
+    }
+}
+
+fn hud_stripe_rect(layout: &HudIconLayout, slot_index: usize, row: usize) -> ScreenRect {
+    let slot = hud_slot_rect(layout, slot_index, row);
+    ScreenRect {
+        x: slot.x,
+        y: slot.y,
+        w: 7.0 * layout.ui_scale,
+        h: slot.h,
+    }
+}
+
+fn hud_stripe_color(
+    row: usize,
+    slot_index: usize,
+    weapon_slots: &[(WeaponKind, bool)],
+    passive_slots: &[PassiveKind],
+) -> [f32; 4] {
+    if row == 0 {
+        weapon_slots
+            .get(slot_index)
+            .map(|(kind, _)| weapon_icon_color(kind))
+            .unwrap_or([0.18, 0.18, 0.22, 1.0])
+    } else {
+        passive_slots
+            .get(slot_index)
+            .map(|kind| passive_icon_color(*kind))
+            .unwrap_or([0.18, 0.18, 0.22, 1.0])
+    }
+}
+
+fn weapon_icon_color(kind: &WeaponKind) -> [f32; 4] {
+    match kind {
+        WeaponKind::Whip { .. } => [0.5, 0.9, 0.3, 1.0],
+        WeaponKind::MagicWand { .. } => [0.3, 0.5, 1.0, 1.0],
+        WeaponKind::Knife { .. } => [0.7, 0.7, 0.7, 1.0],
+        WeaponKind::Axe { .. } => [0.8, 0.5, 0.2, 1.0],
+        WeaponKind::Cross { .. } => [1.0, 1.0, 0.8, 1.0],
+        WeaponKind::FireWand { .. } => [1.0, 0.4, 0.1, 1.0],
+        WeaponKind::Garlic { .. } => [0.9, 0.9, 0.4, 1.0],
+        WeaponKind::HolyWater { .. } => [0.4, 0.7, 1.0, 1.0],
+        WeaponKind::KingBible { .. } => [0.9, 0.7, 0.2, 1.0],
+        WeaponKind::LightningRing { .. } => [1.0, 1.0, 0.3, 1.0],
+    }
+}
+
+fn passive_icon_color(kind: PassiveKind) -> [f32; 4] {
+    match kind {
+        PassiveKind::Spinach => [0.3, 0.8, 0.3, 1.0],
+        PassiveKind::Armor => [0.6, 0.6, 0.7, 1.0],
+        PassiveKind::HollowHeart => [0.9, 0.3, 0.3, 1.0],
+        PassiveKind::Pummarola => [1.0, 0.4, 0.6, 1.0],
+        PassiveKind::EmptyTome => [0.7, 0.5, 0.9, 1.0],
+        PassiveKind::Candelabrador => [1.0, 0.8, 0.2, 1.0],
+        PassiveKind::Bracer => [0.8, 0.6, 0.4, 1.0],
+        PassiveKind::Spellbinder => [0.5, 0.5, 0.9, 1.0],
+        PassiveKind::Duplicator => [0.6, 0.9, 0.6, 1.0],
+        PassiveKind::Wings => [0.9, 0.7, 1.0, 1.0],
+        PassiveKind::Attractorb => [0.3, 0.9, 0.9, 1.0],
+        PassiveKind::Clover => [0.2, 0.8, 0.4, 1.0],
+        PassiveKind::Crown => [1.0, 0.8, 0.1, 1.0],
+        PassiveKind::StoneMask => [0.5, 0.5, 0.5, 1.0],
+        PassiveKind::SkullOManiac => [0.4, 0.2, 0.4, 1.0],
+        PassiveKind::Tiragisu => [1.0, 0.5, 0.5, 1.0],
+    }
 }
 
 fn responsive_ui_scale(viewport_w: f32, viewport_h: f32) -> f32 {
@@ -249,6 +448,48 @@ fn levelup_icon_center(viewport_w: f32, viewport_h: f32, card_index: usize) -> V
     Vec2::new(cx - 206.0, cy - 35.0 + card_index as f32 * 56.0)
 }
 
+fn levelup_panel_rect(viewport_w: f32, viewport_h: f32) -> ScreenRect {
+    let cx = viewport_w / 2.0;
+    let cy = viewport_h / 2.0;
+    ScreenRect {
+        x: cx - 250.0,
+        y: cy - 150.0,
+        w: 500.0,
+        h: 300.0,
+    }
+}
+
+fn levelup_panel_skin_rect(viewport_w: f32, viewport_h: f32) -> ScreenRect {
+    let panel = levelup_panel_rect(viewport_w, viewport_h);
+    ScreenRect {
+        x: panel.x - 24.0,
+        y: panel.y - 20.0,
+        w: panel.w + 48.0,
+        h: panel.h + 40.0,
+    }
+}
+
+fn levelup_card_rect(viewport_w: f32, viewport_h: f32, card_index: usize) -> ScreenRect {
+    let cx = viewport_w / 2.0;
+    let cy = viewport_h / 2.0;
+    ScreenRect {
+        x: cx - 235.0,
+        y: cy - 58.0 + card_index as f32 * 56.0,
+        w: 470.0,
+        h: 46.0,
+    }
+}
+
+fn levelup_card_skin_rect(viewport_w: f32, viewport_h: f32, card_index: usize) -> ScreenRect {
+    let card = levelup_card_rect(viewport_w, viewport_h, card_index);
+    ScreenRect {
+        x: card.x - 16.0,
+        y: card.y - 10.0,
+        w: card.w + 32.0,
+        h: card.h + 20.0,
+    }
+}
+
 fn levelup_icon_size(viewport_w: f32, viewport_h: f32) -> f32 {
     (LEVEL_ICON_SIZE * responsive_ui_scale(viewport_w, viewport_h)).clamp(28.0, 36.0)
 }
@@ -276,6 +517,27 @@ fn shop_icon_center(viewport_w: f32, viewport_h: f32, row_index: usize) -> Vec2 
 
 fn shop_icon_size(viewport_w: f32, viewport_h: f32) -> f32 {
     (SHOP_ICON_SIZE * responsive_ui_scale(viewport_w, viewport_h)).clamp(18.0, 24.0)
+}
+
+fn shop_selection_rect(viewport_w: f32, viewport_h: f32, row_index: usize) -> ScreenRect {
+    let cx = viewport_w / 2.0;
+    let row_step = shop_row_step(viewport_h);
+    ScreenRect {
+        x: cx - 360.0,
+        y: 74.0 + row_index as f32 * row_step,
+        w: 720.0,
+        h: 26.0,
+    }
+}
+
+fn shop_selection_skin_rect(viewport_w: f32, viewport_h: f32, row_index: usize) -> ScreenRect {
+    let row = shop_selection_rect(viewport_w, viewport_h, row_index);
+    ScreenRect {
+        x: row.x - 12.0,
+        y: row.y - 7.0,
+        w: row.w + 24.0,
+        h: row.h + 14.0,
+    }
 }
 
 #[cfg(test)]
@@ -360,32 +622,25 @@ fn passive_from_card(card: CardKind) -> Option<PassiveKind> {
 impl IconSource {
     fn texture_and_uv(self) -> (&'static str, UvRect) {
         match self {
-            IconSource::Icons { col, row } => {
-                (ICONS_PATH, flipped_grid_uv(col, row, ICON_COLS, ICON_ROWS))
-            }
+            IconSource::Icons { col, row } => (
+                ICONS_PATH,
+                UvRect::from_grid(col, row, ICON_COLS, ICON_ROWS).flipped_y(),
+            ),
             IconSource::Passive(kind) => {
                 let index = passive_index(kind);
-                (PASSIVES_PATH, flipped_grid_uv(index % 8, index / 8, 8, 2))
+                (
+                    PASSIVES_PATH,
+                    UvRect::from_grid(index % 8, index / 8, 8, 2).flipped_y(),
+                )
             }
             IconSource::PowerUp(kind) => {
                 let index = powerup_index(kind);
                 (
                     POWERUPS_PATH,
-                    flipped_grid_uv(index % 10, index / 10, 10, 2),
+                    UvRect::from_grid(index % 10, index / 10, 10, 2).flipped_y(),
                 )
             }
         }
-    }
-}
-
-fn flipped_grid_uv(col: u32, row: u32, cols: u32, rows: u32) -> UvRect {
-    let u_size = 1.0 / cols as f32;
-    let v_size = 1.0 / rows as f32;
-    UvRect {
-        u_offset: col as f32 * u_size,
-        v_offset: (row as f32 + 1.0) * v_size,
-        u_size,
-        v_size: -v_size,
     }
 }
 
@@ -423,13 +678,72 @@ mod tests {
 
     #[test]
     fn flipped_icon_uv_points_inside_grid() {
-        let uv = flipped_grid_uv(5, 1, 6, 6);
+        let uv = UvRect::from_grid(5, 1, 6, 6).flipped_y();
 
         assert!(uv.u_offset >= 0.0);
         assert!(uv.u_offset < 1.0);
         assert!(uv.v_offset > 0.0);
         assert!(uv.v_offset <= 1.0);
         assert!(uv.v_size < 0.0);
+        assert!((uv.u_offset - 5.0 / 6.0).abs() < f32::EPSILON);
+        assert!((uv.v_offset - 2.0 / 6.0).abs() < f32::EPSILON);
+        assert!((uv.u_size - 1.0 / 6.0).abs() < f32::EPSILON);
+        assert!((uv.v_size + 1.0 / 6.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn queue_icon_pushes_screen_space_draw_image() {
+        let mut world = World::new();
+        world.insert_resource(UiImageQueue::default());
+
+        queue_icon(
+            &mut world,
+            Vec2::new(100.0, 80.0),
+            32.0,
+            IconSource::Icons { col: 0, row: 0 },
+            UI_ICON_Z,
+        );
+
+        let queue = world.resource::<UiImageQueue>().unwrap();
+        assert_eq!(queue.items.len(), 1);
+        let image = &queue.items[0];
+        assert_eq!(image.x, 84.0);
+        assert_eq!(image.y, 64.0);
+        assert_eq!(image.w, 32.0);
+        assert_eq!(image.h, 32.0);
+        assert_eq!(image.z, UI_ICON_Z);
+        assert_eq!(image.texture.as_deref(), Some(ICONS_PATH));
+        assert!(image.image_handle.is_none());
+        assert!(image.uv.v_size < 0.0);
+    }
+
+    #[test]
+    fn queue_colored_rect_pushes_ui_image_background() {
+        let mut world = World::new();
+        world.insert_resource(UiImageQueue::default());
+
+        queue_screen_colored_rect(
+            &mut world,
+            ScreenRect {
+                x: 12.0,
+                y: 24.0,
+                w: 48.0,
+                h: 16.0,
+            },
+            [0.1, 0.2, 0.3, 0.4],
+            UI_ROW_Z,
+        );
+
+        let queue = world.resource::<UiImageQueue>().unwrap();
+        assert_eq!(queue.items.len(), 1);
+        let image = &queue.items[0];
+        assert_eq!(image.x, 12.0);
+        assert_eq!(image.y, 24.0);
+        assert_eq!(image.w, 48.0);
+        assert_eq!(image.h, 16.0);
+        assert_eq!(image.color, [0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(image.z, UI_ROW_Z);
+        assert!(image.texture.is_none());
     }
 
     #[test]
@@ -455,13 +769,20 @@ mod tests {
             let center = hud_icon_center(&layout, slot, 0);
             let icon_right = center.x + layout.icon_size / 2.0;
             let text_x = hud_slot_text_x(&layout, slot);
-            let slot_right =
-                layout.slot_x0 + slot as f32 * (layout.slot_w + layout.slot_gap) + layout.slot_w;
+            let slot_rect = hud_slot_rect(&layout, slot, 0);
+            let slot_right = slot_rect.x + slot_rect.w;
 
+            assert!(center.x > slot_rect.x);
+            assert!(center.y > slot_rect.y);
+            assert!(center.y < slot_rect.y + slot_rect.h);
             assert!(icon_right + 4.0 <= text_x);
             assert!(text_x < slot_right);
             assert!(center.y + layout.icon_size / 2.0 <= layout.passive_y);
         }
+
+        assert!(UI_ICON_Z > UI_ROW_Z);
+        assert!(UI_ACCENT_Z > UI_ROW_Z);
+        assert!(UI_ROW_Z > UI_BACKGROUND_Z);
     }
 
     #[test]
@@ -473,10 +794,18 @@ mod tests {
 
         for card in 0..3 {
             let center = levelup_icon_center(viewport_w, viewport_h, card);
+            let row_rect = levelup_card_rect(viewport_w, viewport_h, card);
 
+            assert!(center.x > row_rect.x);
+            assert!(center.y > row_rect.y);
+            assert!(center.y < row_rect.y + row_rect.h);
             assert!(center.x - icon_size / 2.0 >= viewport_w / 2.0 - 235.0);
             assert!(center.x + icon_size / 2.0 + 8.0 <= text_x);
         }
+
+        assert!(UI_ICON_Z > UI_ROW_Z);
+        assert!(UI_ACCENT_Z > UI_ROW_Z);
+        assert!(UI_ROW_Z > UI_BACKGROUND_Z);
     }
 
     #[test]
@@ -488,11 +817,17 @@ mod tests {
 
         for row in 0..PowerUpKind::ALL.len() {
             let center = shop_icon_center(viewport_w, viewport_h, row);
+            let selection_rect = shop_selection_rect(viewport_w, viewport_h, row);
 
+            assert!(center.x > selection_rect.x);
+            assert!(center.y > selection_rect.y);
+            assert!(center.y < selection_rect.y + selection_rect.h);
             assert!(center.x - icon_size / 2.0 >= 0.0);
             assert!(center.x + icon_size / 2.0 + 6.0 <= text_x);
             assert!(center.y + icon_size / 2.0 <= viewport_h - 8.0);
         }
+
+        assert!(UI_ICON_Z > UI_ROW_Z);
     }
 
     #[test]

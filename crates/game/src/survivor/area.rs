@@ -7,13 +7,10 @@
 use engine::{CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 
-use super::damage::apply_damage_to_enemy;
-use super::hud::GameStats;
+use super::combat::{apply_damage_events, apply_damage_to_targets, weapon_fire_context};
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::lightning::spawn_timed_effect;
-use super::player::Player;
 use super::sprites::{add_tinted_sprite, SurvivorSprite};
-use super::stats::read_player_stats;
 use super::LAYER_ENEMY;
 
 // ─── HolyWaterPool 컴포넌트 ──────────────────────────────────────────────────
@@ -50,17 +47,12 @@ impl System for GarlicSystem {
             return;
         }
 
-        // 1) Player + Garlic slot 캐시 (borrow 를 블록 안에서 즉시 끊음)
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         let fire_info: Option<(f32, f32)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
@@ -106,18 +98,7 @@ impl System for GarlicSystem {
         }
 
         // 3) 각 hit zombie 에 데미지 + HitFlash + 사망 처리
-        let mut killed: u32 = 0;
-        for zombie in hits {
-            if apply_damage_to_enemy(world, zombie, damage) {
-                killed += 1;
-            }
-        }
-
-        if killed > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() {
-                stats.kills += killed;
-            }
-        }
+        apply_damage_to_targets(world, hits, damage);
     }
 }
 
@@ -132,16 +113,12 @@ impl System for HolyWaterSystem {
             return;
         }
 
-        let Some((player_entity, player_pos)) = world
-            .query2::<Player, Transform>()
-            .next()
-            .map(|(e, _, t)| (e, t.position))
-        else {
+        let Some(ctx) = weapon_fire_context(world) else {
             return;
         };
-
-        // stats 캐시
-        let stats = read_player_stats(world);
+        let player_entity = ctx.player_entity;
+        let player_pos = ctx.player_pos;
+        let stats = ctx.stats;
 
         let fire_info: Option<(f32, f32, f32, f32, u8)> = {
             let Some(inv) = world.get_mut::<WeaponInventory>(player_entity) else {
@@ -261,21 +238,10 @@ impl System for HolyWaterPoolSystem {
         }
 
         // 2) tick_hits 적용
-        let mut killed: u32 = 0;
-        for (zombie, damage) in tick_hits {
-            if apply_damage_to_enemy(world, zombie, damage) {
-                killed += 1;
-            }
-        }
+        apply_damage_events(world, tick_hits);
 
         for e in to_despawn {
             world.despawn(e);
-        }
-
-        if killed > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() {
-                stats.kills += killed;
-            }
         }
     }
 }

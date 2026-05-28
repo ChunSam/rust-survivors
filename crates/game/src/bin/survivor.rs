@@ -39,8 +39,10 @@ use game::survivor::{
     PlayerMovementSystem, ProjectileSystem, ResolutionPreset, RestartSystem, SfxSystem,
     ShopInputSystem, SpawnDirectorSystem, StageSelectSystem, StatRecalcSystem,
     SurvivorTextureHandles, TitleVisualSystem, UiIconSystem, WhipSystem, ACTOR_FRAMES_PATH,
-    ATLAS_PATH, EFFECTS_PATH, EVOLUTIONS_PATH, ICONS_PATH, PASSIVES_PATH, POWERUPS_PATH,
-    TITLE_BACKDROP_PATH,
+    ATLAS_PATH, EFFECTS_PATH, EVOLUTIONS_PATH, ICONS_PATH, MENU_BUTTON_CHARACTER_PATH,
+    MENU_BUTTON_SETTINGS_PATH, MENU_BUTTON_SHOP_PATH, MENU_BUTTON_STAGE_PATH,
+    MENU_BUTTON_START_PATH, PASSIVES_PATH, POWERUPS_PATH, TITLE_BACKDROP_PATH,
+    TITLE_LOGO_PLAQUE_PATH, UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
 };
 
 fn main() {
@@ -128,6 +130,14 @@ fn main() {
         passives: app.load_image(PASSIVES_PATH),
         powerups: app.load_image(POWERUPS_PATH),
         title_backdrop: app.load_image(TITLE_BACKDROP_PATH),
+        title_logo_plaque: app.load_image(TITLE_LOGO_PLAQUE_PATH),
+        menu_button_start: app.load_image(MENU_BUTTON_START_PATH),
+        menu_button_character: app.load_image(MENU_BUTTON_CHARACTER_PATH),
+        menu_button_stage: app.load_image(MENU_BUTTON_STAGE_PATH),
+        menu_button_shop: app.load_image(MENU_BUTTON_SHOP_PATH),
+        menu_button_settings: app.load_image(MENU_BUTTON_SETTINGS_PATH),
+        ui_modal_panel: app.load_image(UI_MODAL_PANEL_PATH),
+        ui_slot_frame: app.load_image(UI_SLOT_FRAME_PATH),
     };
     app.world.insert_resource(survivor_textures);
 

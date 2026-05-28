@@ -7,6 +7,7 @@ pub mod boss;
 pub mod camera_follow;
 pub mod character;
 pub mod chest;
+pub(crate) mod combat;
 pub mod damage;
 pub mod damage_number;
 pub mod data;
@@ -33,6 +34,8 @@ pub mod spawn;
 pub mod sprites;
 pub mod stage;
 pub mod stats;
+#[cfg(test)]
+pub(crate) mod test_support;
 pub mod title_visual;
 pub mod ui_icons;
 pub mod weapon;
@@ -99,14 +102,16 @@ pub use spawn::{
 pub use sprites::{
     add_sprite, add_tinted_sprite, survivor_textured_sprite, SurvivorSprite,
     SurvivorTextureHandles, ACTOR_FRAMES_PATH, ATLAS_PATH, BOSS_VISUAL_SCALE, EFFECTS_PATH,
-    ENEMY_VISUAL_SCALE, EVOLUTIONS_PATH, PASSIVES_PATH, PLAYER_VISUAL_SIZE, POWERUPS_PATH,
-    RENDER_LAYER_BACKGROUND, RENDER_LAYER_EFFECTS, RENDER_LAYER_UI, RENDER_LAYER_WORLD,
-    TITLE_BACKDROP_PATH,
+    ENEMY_VISUAL_SCALE, EVOLUTIONS_PATH, MENU_BUTTON_CHARACTER_PATH, MENU_BUTTON_SETTINGS_PATH,
+    MENU_BUTTON_SHOP_PATH, MENU_BUTTON_STAGE_PATH, MENU_BUTTON_START_PATH, PASSIVES_PATH,
+    PLAYER_VISUAL_SIZE, POWERUPS_PATH, RENDER_LAYER_BACKGROUND, RENDER_LAYER_EFFECTS,
+    RENDER_LAYER_UI, RENDER_LAYER_WORLD, TITLE_BACKDROP_PATH, TITLE_LOGO_PLAQUE_PATH,
+    UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
 };
 pub use stage::{SelectedStage, StageCursor, StageKind, StageSelectSystem};
 pub use stats::{read_player_stats, StatRecalcSystem};
 pub use title_visual::{TitleBackdrop, TitleVisualSystem};
-pub use ui_icons::{UiIconSprite, UiIconSystem};
+pub use ui_icons::UiIconSystem;
 pub use weapon::{
     AxeSystem, CrossSystem, FireWandSystem, HitFlash, HitFlashSystem, KnifeSystem, MagicWandSystem,
     WhipSystem, FLASH_DURATION, SCALE_BUMP,

@@ -1,9 +1,8 @@
 use engine::{Collider, CollisionLayer, Entity, GameState, SpatialGrid, System, Transform, World};
 use glam::Vec2;
 
-use super::damage::apply_damage_to_enemy;
+use super::combat::apply_damage_events;
 use super::enemy::Enemy;
-use super::hud::GameStats;
 use super::sprites::{add_sprite, SurvivorSprite};
 use super::LAYER_ENEMY;
 
@@ -193,23 +192,11 @@ impl System for ProjectileSystem {
         }
 
         // 3) 데미지 적용 + 사망 처리 + XpGem 드롭 + HitFlash + 처치 카운터
-        let mut killed_count: u32 = 0;
-        for (enemy, damage) in self.hits_buffer.drain(..) {
-            if apply_damage_to_enemy(world, enemy, damage) {
-                killed_count += 1;
-            }
-        }
+        apply_damage_events(world, self.hits_buffer.drain(..));
 
         // 4) 수명 소진·관통 소진 투사체 despawn
         for proj_e in self.to_despawn.drain(..) {
             world.despawn(proj_e);
-        }
-
-        // 5) GameStats.kills 갱신
-        if killed_count > 0 {
-            if let Some(stats) = world.resource_mut::<GameStats>() {
-                stats.kills += killed_count;
-            }
         }
     }
 }
@@ -319,6 +306,7 @@ fn projectile_sprite(color: [f32; 3], behavior: ProjectileBehavior) -> SurvivorS
 #[cfg(test)]
 mod tests {
     use super::super::health::Health;
+    use super::super::hud::GameStats;
     use super::super::spawn::spawn_zombie;
     use super::*;
     use engine::{GameState, World};
