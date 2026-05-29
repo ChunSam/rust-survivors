@@ -4,7 +4,13 @@ This file keeps historical context for engine follow-ups that were needed before
 the game migrated to `skeleton-engine` commit `0e01b0f`.
 
 Status: the items below were implemented in the engine and consumed by the game
-on 2026-05-28.
+on 2026-05-28, with the sprite quad UV orientation follow-up consumed on 2026-05-29.
+
+## Sprite Quad Top-left UV Orientation
+
+- 구현: shared sprite quad top edge now uses `v = 0.0` and bottom edge uses `v = 1.0`.
+- 게임 적용: survivor crop, icon, title, and full-image UI paths no longer need engine-direction Y-flip compensation.
+- `flipped_y()` remains available only for intentional vertical mirroring.
 
 ## AtlasSprite UV Orientation And Custom Crops
 

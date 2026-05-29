@@ -13,16 +13,62 @@ pub const EVOLUTIONS_PATH: &str = "assets/textures/survivor/survivor_evolutions.
 pub const PASSIVES_PATH: &str = "assets/textures/survivor/survivor_passives.png";
 pub const POWERUPS_PATH: &str = "assets/textures/survivor/survivor_powerups.png";
 pub const TITLE_BACKDROP_PATH: &str = "assets/textures/survivor/menu/title_backdrop_v2.png";
-pub const TITLE_LOGO_PLAQUE_PATH: &str = "assets/textures/survivor/menu/title_logo_plaque.png";
-pub const MENU_BUTTON_START_PATH: &str = "assets/textures/survivor/menu/menu_button_start.png";
-pub const MENU_BUTTON_CHARACTER_PATH: &str =
-    "assets/textures/survivor/menu/menu_button_character.png";
-pub const MENU_BUTTON_STAGE_PATH: &str = "assets/textures/survivor/menu/menu_button_stage.png";
-pub const MENU_BUTTON_SHOP_PATH: &str = "assets/textures/survivor/menu/menu_button_shop.png";
-pub const MENU_BUTTON_SETTINGS_PATH: &str =
-    "assets/textures/survivor/menu/menu_button_settings.png";
+pub const TITLE_LOGO_PLAQUE_PATH: &str = "assets/textures/survivor/menu/title_logo_plaque_v3.png";
+pub const MENU_BUTTON_START_KO_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_start_ko.png";
+pub const MENU_BUTTON_START_EN_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_start_en.png";
+pub const MENU_BUTTON_CHARACTER_KO_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_character_ko.png";
+pub const MENU_BUTTON_CHARACTER_EN_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_character_en.png";
+pub const MENU_BUTTON_STAGE_KO_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_stage_ko.png";
+pub const MENU_BUTTON_STAGE_EN_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_stage_en.png";
+pub const MENU_BUTTON_SHOP_KO_PATH: &str = "assets/textures/survivor/menu/menu_button_shop_ko.png";
+pub const MENU_BUTTON_SHOP_EN_PATH: &str = "assets/textures/survivor/menu/menu_button_shop_en.png";
+pub const MENU_BUTTON_ACHIEVEMENTS_KO_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_achievements_ko.png";
+pub const MENU_BUTTON_ACHIEVEMENTS_EN_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_achievements_en.png";
+pub const MENU_BUTTON_SETTINGS_KO_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_settings_ko.png";
+pub const MENU_BUTTON_SETTINGS_EN_PATH: &str =
+    "assets/textures/survivor/menu/menu_button_settings_en.png";
+pub const MENU_BUTTON_START_PATH: &str = MENU_BUTTON_START_EN_PATH;
+pub const MENU_BUTTON_CHARACTER_PATH: &str = MENU_BUTTON_CHARACTER_EN_PATH;
+pub const MENU_BUTTON_STAGE_PATH: &str = MENU_BUTTON_STAGE_EN_PATH;
+pub const MENU_BUTTON_SHOP_PATH: &str = MENU_BUTTON_SHOP_EN_PATH;
+pub const MENU_BUTTON_SETTINGS_PATH: &str = MENU_BUTTON_SETTINGS_EN_PATH;
 pub const UI_MODAL_PANEL_PATH: &str = "assets/textures/survivor/ui/ui_modal_panel.png";
 pub const UI_SLOT_FRAME_PATH: &str = "assets/textures/survivor/ui/ui_slot_frame.png";
+pub const INGAME_LABEL_LV_KO_PATH: &str = "assets/textures/survivor/ui/ingame_label_lv_ko.png";
+pub const INGAME_LABEL_LV_EN_PATH: &str = "assets/textures/survivor/ui/ingame_label_lv_en.png";
+pub const INGAME_LABEL_HP_KO_PATH: &str = "assets/textures/survivor/ui/ingame_label_hp_ko.png";
+pub const INGAME_LABEL_HP_EN_PATH: &str = "assets/textures/survivor/ui/ingame_label_hp_en.png";
+pub const INGAME_LABEL_XP_KO_PATH: &str = "assets/textures/survivor/ui/ingame_label_xp_ko.png";
+pub const INGAME_LABEL_XP_EN_PATH: &str = "assets/textures/survivor/ui/ingame_label_xp_en.png";
+pub const INGAME_LABEL_GOLD_KO_PATH: &str = "assets/textures/survivor/ui/ingame_label_gold_ko.png";
+pub const INGAME_LABEL_GOLD_EN_PATH: &str = "assets/textures/survivor/ui/ingame_label_gold_en.png";
+pub const INGAME_LABEL_KILLS_KO_PATH: &str =
+    "assets/textures/survivor/ui/ingame_label_kills_ko.png";
+pub const INGAME_LABEL_KILLS_EN_PATH: &str =
+    "assets/textures/survivor/ui/ingame_label_kills_en.png";
+pub const INGAME_LABEL_PASSIVES_KO_PATH: &str =
+    "assets/textures/survivor/ui/ingame_label_passives_ko.png";
+pub const INGAME_LABEL_PASSIVES_EN_PATH: &str =
+    "assets/textures/survivor/ui/ingame_label_passives_en.png";
+pub const LEVELUP_TITLE_KO_PATH: &str = "assets/textures/survivor/ui/levelup_title_ko.png";
+pub const LEVELUP_TITLE_EN_PATH: &str = "assets/textures/survivor/ui/levelup_title_en.png";
+pub const GAMEOVER_TITLE_KO_PATH: &str = "assets/textures/survivor/ui/gameover_title_ko.png";
+pub const GAMEOVER_TITLE_EN_PATH: &str = "assets/textures/survivor/ui/gameover_title_en.png";
+pub const RESTART_HINT_KO_PATH: &str = "assets/textures/survivor/ui/restart_hint_ko.png";
+pub const RESTART_HINT_EN_PATH: &str = "assets/textures/survivor/ui/restart_hint_en.png";
+pub const SECTION_WEAPONS_KO_PATH: &str = "assets/textures/survivor/ui/section_weapons_ko.png";
+pub const SECTION_WEAPONS_EN_PATH: &str = "assets/textures/survivor/ui/section_weapons_en.png";
+pub const SECTION_PASSIVES_KO_PATH: &str = "assets/textures/survivor/ui/section_passives_ko.png";
+pub const SECTION_PASSIVES_EN_PATH: &str = "assets/textures/survivor/ui/section_passives_en.png";
 pub const PLAYER_VISUAL_SIZE: f32 = 150.0;
 pub const ENEMY_VISUAL_SCALE: f32 = 3.75;
 pub const BOSS_VISUAL_SCALE: f32 = 1.5;
@@ -60,13 +106,42 @@ pub struct SurvivorTextureHandles {
     pub powerups: Handle<ImageAsset>,
     pub title_backdrop: Handle<ImageAsset>,
     pub title_logo_plaque: Handle<ImageAsset>,
-    pub menu_button_start: Handle<ImageAsset>,
-    pub menu_button_character: Handle<ImageAsset>,
-    pub menu_button_stage: Handle<ImageAsset>,
-    pub menu_button_shop: Handle<ImageAsset>,
-    pub menu_button_settings: Handle<ImageAsset>,
+    pub menu_button_start_ko: Handle<ImageAsset>,
+    pub menu_button_start_en: Handle<ImageAsset>,
+    pub menu_button_character_ko: Handle<ImageAsset>,
+    pub menu_button_character_en: Handle<ImageAsset>,
+    pub menu_button_stage_ko: Handle<ImageAsset>,
+    pub menu_button_stage_en: Handle<ImageAsset>,
+    pub menu_button_shop_ko: Handle<ImageAsset>,
+    pub menu_button_shop_en: Handle<ImageAsset>,
+    pub menu_button_achievements_ko: Handle<ImageAsset>,
+    pub menu_button_achievements_en: Handle<ImageAsset>,
+    pub menu_button_settings_ko: Handle<ImageAsset>,
+    pub menu_button_settings_en: Handle<ImageAsset>,
     pub ui_modal_panel: Handle<ImageAsset>,
     pub ui_slot_frame: Handle<ImageAsset>,
+    pub ingame_label_lv_ko: Handle<ImageAsset>,
+    pub ingame_label_lv_en: Handle<ImageAsset>,
+    pub ingame_label_hp_ko: Handle<ImageAsset>,
+    pub ingame_label_hp_en: Handle<ImageAsset>,
+    pub ingame_label_xp_ko: Handle<ImageAsset>,
+    pub ingame_label_xp_en: Handle<ImageAsset>,
+    pub ingame_label_gold_ko: Handle<ImageAsset>,
+    pub ingame_label_gold_en: Handle<ImageAsset>,
+    pub ingame_label_kills_ko: Handle<ImageAsset>,
+    pub ingame_label_kills_en: Handle<ImageAsset>,
+    pub ingame_label_passives_ko: Handle<ImageAsset>,
+    pub ingame_label_passives_en: Handle<ImageAsset>,
+    pub levelup_title_ko: Handle<ImageAsset>,
+    pub levelup_title_en: Handle<ImageAsset>,
+    pub gameover_title_ko: Handle<ImageAsset>,
+    pub gameover_title_en: Handle<ImageAsset>,
+    pub restart_hint_ko: Handle<ImageAsset>,
+    pub restart_hint_en: Handle<ImageAsset>,
+    pub section_weapons_ko: Handle<ImageAsset>,
+    pub section_weapons_en: Handle<ImageAsset>,
+    pub section_passives_ko: Handle<ImageAsset>,
+    pub section_passives_en: Handle<ImageAsset>,
 }
 
 impl SurvivorTextureHandles {
@@ -81,13 +156,42 @@ impl SurvivorTextureHandles {
             POWERUPS_PATH => Some(&self.powerups),
             TITLE_BACKDROP_PATH => Some(&self.title_backdrop),
             TITLE_LOGO_PLAQUE_PATH => Some(&self.title_logo_plaque),
-            MENU_BUTTON_START_PATH => Some(&self.menu_button_start),
-            MENU_BUTTON_CHARACTER_PATH => Some(&self.menu_button_character),
-            MENU_BUTTON_STAGE_PATH => Some(&self.menu_button_stage),
-            MENU_BUTTON_SHOP_PATH => Some(&self.menu_button_shop),
-            MENU_BUTTON_SETTINGS_PATH => Some(&self.menu_button_settings),
+            MENU_BUTTON_START_KO_PATH => Some(&self.menu_button_start_ko),
+            MENU_BUTTON_START_EN_PATH => Some(&self.menu_button_start_en),
+            MENU_BUTTON_CHARACTER_KO_PATH => Some(&self.menu_button_character_ko),
+            MENU_BUTTON_CHARACTER_EN_PATH => Some(&self.menu_button_character_en),
+            MENU_BUTTON_STAGE_KO_PATH => Some(&self.menu_button_stage_ko),
+            MENU_BUTTON_STAGE_EN_PATH => Some(&self.menu_button_stage_en),
+            MENU_BUTTON_SHOP_KO_PATH => Some(&self.menu_button_shop_ko),
+            MENU_BUTTON_SHOP_EN_PATH => Some(&self.menu_button_shop_en),
+            MENU_BUTTON_ACHIEVEMENTS_KO_PATH => Some(&self.menu_button_achievements_ko),
+            MENU_BUTTON_ACHIEVEMENTS_EN_PATH => Some(&self.menu_button_achievements_en),
+            MENU_BUTTON_SETTINGS_KO_PATH => Some(&self.menu_button_settings_ko),
+            MENU_BUTTON_SETTINGS_EN_PATH => Some(&self.menu_button_settings_en),
             UI_MODAL_PANEL_PATH => Some(&self.ui_modal_panel),
             UI_SLOT_FRAME_PATH => Some(&self.ui_slot_frame),
+            INGAME_LABEL_LV_KO_PATH => Some(&self.ingame_label_lv_ko),
+            INGAME_LABEL_LV_EN_PATH => Some(&self.ingame_label_lv_en),
+            INGAME_LABEL_HP_KO_PATH => Some(&self.ingame_label_hp_ko),
+            INGAME_LABEL_HP_EN_PATH => Some(&self.ingame_label_hp_en),
+            INGAME_LABEL_XP_KO_PATH => Some(&self.ingame_label_xp_ko),
+            INGAME_LABEL_XP_EN_PATH => Some(&self.ingame_label_xp_en),
+            INGAME_LABEL_GOLD_KO_PATH => Some(&self.ingame_label_gold_ko),
+            INGAME_LABEL_GOLD_EN_PATH => Some(&self.ingame_label_gold_en),
+            INGAME_LABEL_KILLS_KO_PATH => Some(&self.ingame_label_kills_ko),
+            INGAME_LABEL_KILLS_EN_PATH => Some(&self.ingame_label_kills_en),
+            INGAME_LABEL_PASSIVES_KO_PATH => Some(&self.ingame_label_passives_ko),
+            INGAME_LABEL_PASSIVES_EN_PATH => Some(&self.ingame_label_passives_en),
+            LEVELUP_TITLE_KO_PATH => Some(&self.levelup_title_ko),
+            LEVELUP_TITLE_EN_PATH => Some(&self.levelup_title_en),
+            GAMEOVER_TITLE_KO_PATH => Some(&self.gameover_title_ko),
+            GAMEOVER_TITLE_EN_PATH => Some(&self.gameover_title_en),
+            RESTART_HINT_KO_PATH => Some(&self.restart_hint_ko),
+            RESTART_HINT_EN_PATH => Some(&self.restart_hint_en),
+            SECTION_WEAPONS_KO_PATH => Some(&self.section_weapons_ko),
+            SECTION_WEAPONS_EN_PATH => Some(&self.section_weapons_en),
+            SECTION_PASSIVES_KO_PATH => Some(&self.section_passives_ko),
+            SECTION_PASSIVES_EN_PATH => Some(&self.section_passives_en),
             _ => None,
         }
     }
@@ -101,7 +205,62 @@ pub fn survivor_texture_handle(world: &World, path: &str) -> Option<Handle<Image
     world
         .resource::<SurvivorTextureHandles>()
         .and_then(|textures| textures.handle_for(path))
-        .cloned()
+        .and_then(|handle| renderer_compatible_texture_handle(path, handle))
+}
+
+pub fn survivor_texture_aspect(path: &str) -> Option<f32> {
+    let (w, h) = match path {
+        TITLE_BACKDROP_PATH => (1672.0, 941.0),
+        TITLE_LOGO_PLAQUE_PATH => (2172.0, 724.0),
+        MENU_BUTTON_START_KO_PATH
+        | MENU_BUTTON_START_EN_PATH
+        | MENU_BUTTON_CHARACTER_KO_PATH
+        | MENU_BUTTON_CHARACTER_EN_PATH
+        | MENU_BUTTON_STAGE_KO_PATH
+        | MENU_BUTTON_STAGE_EN_PATH
+        | MENU_BUTTON_SHOP_KO_PATH
+        | MENU_BUTTON_SHOP_EN_PATH
+        | MENU_BUTTON_ACHIEVEMENTS_KO_PATH
+        | MENU_BUTTON_ACHIEVEMENTS_EN_PATH
+        | MENU_BUTTON_SETTINGS_KO_PATH
+        | MENU_BUTTON_SETTINGS_EN_PATH => (1600.0, 520.0),
+        UI_MODAL_PANEL_PATH => (1478.0, 756.0),
+        UI_SLOT_FRAME_PATH => (2125.0, 473.0),
+        INGAME_LABEL_LV_KO_PATH
+        | INGAME_LABEL_LV_EN_PATH
+        | INGAME_LABEL_HP_KO_PATH
+        | INGAME_LABEL_HP_EN_PATH
+        | INGAME_LABEL_XP_KO_PATH
+        | INGAME_LABEL_XP_EN_PATH
+        | INGAME_LABEL_GOLD_KO_PATH
+        | INGAME_LABEL_GOLD_EN_PATH
+        | INGAME_LABEL_KILLS_KO_PATH
+        | INGAME_LABEL_KILLS_EN_PATH
+        | INGAME_LABEL_PASSIVES_KO_PATH
+        | INGAME_LABEL_PASSIVES_EN_PATH => (240.0, 78.0),
+        LEVELUP_TITLE_KO_PATH
+        | LEVELUP_TITLE_EN_PATH
+        | GAMEOVER_TITLE_KO_PATH
+        | GAMEOVER_TITLE_EN_PATH => (760.0, 190.0),
+        RESTART_HINT_KO_PATH | RESTART_HINT_EN_PATH => (620.0, 126.0),
+        SECTION_WEAPONS_KO_PATH
+        | SECTION_WEAPONS_EN_PATH
+        | SECTION_PASSIVES_KO_PATH
+        | SECTION_PASSIVES_EN_PATH => (340.0, 86.0),
+        _ => return None,
+    };
+    Some(w / h)
+}
+
+fn renderer_compatible_texture_handle(
+    requested_path: &str,
+    handle: &Handle<ImageAsset>,
+) -> Option<Handle<ImageAsset>> {
+    if handle.path() == requested_path {
+        Some(handle.clone())
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -127,7 +286,6 @@ impl SpriteFrame {
             self.atlas_width,
             self.atlas_height,
         )
-        .flipped_y()
     }
 
     fn fit_scale(self, max_size: f32) -> glam::Vec2 {
@@ -135,6 +293,16 @@ impl SpriteFrame {
             glam::Vec2::new(max_size, max_size * self.height / self.width)
         } else {
             glam::Vec2::new(max_size * self.width / self.height, max_size)
+        }
+    }
+
+    fn fit_inside(self, bounds: glam::Vec2) -> glam::Vec2 {
+        let aspect = self.width / self.height.max(1.0);
+        let bounds_aspect = bounds.x / bounds.y.max(1.0);
+        if bounds_aspect > aspect {
+            glam::Vec2::new(bounds.y * aspect, bounds.y)
+        } else {
+            glam::Vec2::new(bounds.x, bounds.x / aspect.max(0.001))
         }
     }
 }
@@ -279,7 +447,11 @@ impl SurvivorSprite {
     }
 
     pub fn fit_scale(self, max_size: f32) -> glam::Vec2 {
-        self.frame().fit_scale(max_size)
+        self.render_frame().fit_scale(max_size)
+    }
+
+    pub fn fit_inside(self, bounds: glam::Vec2) -> glam::Vec2 {
+        self.render_frame().fit_inside(bounds)
     }
 
     fn actor_row(self) -> Option<u32> {
@@ -354,10 +526,6 @@ impl SurvivorSprite {
     }
 }
 
-pub fn vertically_flipped_full_uv() -> UvRect {
-    UvRect::FULL.flipped_y()
-}
-
 pub fn add_sprite(world: &mut World, entity: Entity, sprite: SurvivorSprite) {
     add_tinted_sprite(world, entity, sprite, [1.0, 1.0, 1.0, 1.0]);
 }
@@ -395,11 +563,116 @@ fn single_frame(sprite: SurvivorSprite) -> AnimationPlayer {
 mod tests {
     use super::*;
 
+    const ACTOR_SPRITES: &[SurvivorSprite] = &[
+        SurvivorSprite::Hero,
+        SurvivorSprite::Zombie,
+        SurvivorSprite::Bat,
+        SurvivorSprite::Ghost,
+        SurvivorSprite::Skeleton,
+        SurvivorSprite::Mage,
+        SurvivorSprite::Mantis,
+        SurvivorSprite::Plant,
+        SurvivorSprite::Slime,
+        SurvivorSprite::Mummy,
+        SurvivorSprite::Knight,
+        SurvivorSprite::GiantSlime,
+        SurvivorSprite::GhostKing,
+        SurvivorSprite::Death,
+    ];
+    const ALL_SURVIVOR_SPRITES: &[SurvivorSprite] = &[
+        SurvivorSprite::Hero,
+        SurvivorSprite::Zombie,
+        SurvivorSprite::Bat,
+        SurvivorSprite::Ghost,
+        SurvivorSprite::Skeleton,
+        SurvivorSprite::Mage,
+        SurvivorSprite::Mantis,
+        SurvivorSprite::Plant,
+        SurvivorSprite::Slime,
+        SurvivorSprite::Mummy,
+        SurvivorSprite::Knight,
+        SurvivorSprite::GiantSlime,
+        SurvivorSprite::GhostKing,
+        SurvivorSprite::Death,
+        SurvivorSprite::XpGem,
+        SurvivorSprite::Coin,
+        SurvivorSprite::Chicken,
+        SurvivorSprite::Vacuum,
+        SurvivorSprite::Bomb,
+        SurvivorSprite::Rosary,
+        SurvivorSprite::Chest,
+        SurvivorSprite::MagicBolt,
+        SurvivorSprite::Knife,
+        SurvivorSprite::Axe,
+        SurvivorSprite::WhipSlash,
+        SurvivorSprite::WhipSlashLeft,
+        SurvivorSprite::WhipSlashRight,
+        SurvivorSprite::WhipSlashUp,
+        SurvivorSprite::WhipSlashDown,
+        SurvivorSprite::Fireball,
+        SurvivorSprite::CrossProjectile,
+        SurvivorSprite::HolyWaterPool,
+        SurvivorSprite::HolyBook,
+        SurvivorSprite::LightningStrike,
+        SurvivorSprite::GarlicAura,
+        SurvivorSprite::ImpactSpark,
+    ];
+
+    fn texture_handles_with(handle: Handle<ImageAsset>) -> SurvivorTextureHandles {
+        SurvivorTextureHandles {
+            atlas: handle.clone(),
+            effects: handle.clone(),
+            actor_frames: handle.clone(),
+            evolutions: handle.clone(),
+            icons: handle.clone(),
+            passives: handle.clone(),
+            powerups: handle.clone(),
+            title_backdrop: handle.clone(),
+            title_logo_plaque: handle.clone(),
+            menu_button_start_ko: handle.clone(),
+            menu_button_start_en: handle.clone(),
+            menu_button_character_ko: handle.clone(),
+            menu_button_character_en: handle.clone(),
+            menu_button_stage_ko: handle.clone(),
+            menu_button_stage_en: handle.clone(),
+            menu_button_shop_ko: handle.clone(),
+            menu_button_shop_en: handle.clone(),
+            menu_button_achievements_ko: handle.clone(),
+            menu_button_achievements_en: handle.clone(),
+            menu_button_settings_ko: handle.clone(),
+            menu_button_settings_en: handle.clone(),
+            ui_modal_panel: handle.clone(),
+            ui_slot_frame: handle.clone(),
+            ingame_label_lv_ko: handle.clone(),
+            ingame_label_lv_en: handle.clone(),
+            ingame_label_hp_ko: handle.clone(),
+            ingame_label_hp_en: handle.clone(),
+            ingame_label_xp_ko: handle.clone(),
+            ingame_label_xp_en: handle.clone(),
+            ingame_label_gold_ko: handle.clone(),
+            ingame_label_gold_en: handle.clone(),
+            ingame_label_kills_ko: handle.clone(),
+            ingame_label_kills_en: handle.clone(),
+            ingame_label_passives_ko: handle.clone(),
+            ingame_label_passives_en: handle.clone(),
+            levelup_title_ko: handle.clone(),
+            levelup_title_en: handle.clone(),
+            gameover_title_ko: handle.clone(),
+            gameover_title_en: handle.clone(),
+            restart_hint_ko: handle.clone(),
+            restart_hint_en: handle.clone(),
+            section_weapons_ko: handle.clone(),
+            section_weapons_en: handle.clone(),
+            section_passives_ko: handle.clone(),
+            section_passives_en: handle,
+        }
+    }
+
     #[test]
-    fn survivor_sprite_uvs_are_vertically_flipped_for_engine_quad() {
+    fn survivor_sprite_uvs_use_top_left_engine_uvs() {
         let uv = SurvivorSprite::Hero.uv();
 
-        assert!(uv.v_size < 0.0);
+        assert!(uv.v_size > 0.0);
         assert!(uv.v_offset > 0.0);
         assert!(uv.v_offset <= 1.0 / ATLAS_ROWS as f32);
     }
@@ -409,13 +682,61 @@ mod tests {
         let scale = SurvivorSprite::Hero.fit_scale(PLAYER_VISUAL_SIZE);
 
         assert_eq!(scale.y, PLAYER_VISUAL_SIZE);
-        assert!((scale.x - 138.10976).abs() < 0.0001);
+        assert!((scale.x - 112.5).abs() < 0.0001);
+    }
+
+    #[test]
+    fn actor_sprite_scales_match_actor_frame_aspect() {
+        let expected = ACTOR_FRAME_WIDTH / ACTOR_FRAME_HEIGHT;
+
+        for &sprite in ACTOR_SPRITES {
+            let scale = sprite.fit_scale(PLAYER_VISUAL_SIZE);
+            assert!(
+                (scale.x / scale.y - expected).abs() < 0.0001,
+                "{sprite:?} should render at actor frame aspect"
+            );
+        }
+    }
+
+    #[test]
+    fn all_survivor_sprite_fit_scales_match_render_frame_aspect() {
+        for &sprite in ALL_SURVIVOR_SPRITES {
+            let scale = sprite.fit_scale(PLAYER_VISUAL_SIZE);
+            let frame = sprite.render_frame();
+            assert!(
+                (scale.x / scale.y - frame.width / frame.height).abs() < 0.0001,
+                "{sprite:?} fit scale should match rendered frame aspect"
+            );
+        }
+    }
+
+    #[test]
+    fn add_sprite_preserves_render_frame_aspect() {
+        for &sprite in ALL_SURVIVOR_SPRITES {
+            let mut world = World::new();
+            let entity = world.spawn();
+            world.add_component(
+                entity,
+                Transform {
+                    scale: glam::Vec2::splat(PLAYER_VISUAL_SIZE),
+                    ..Default::default()
+                },
+            );
+            add_sprite(&mut world, entity, sprite);
+
+            let transform = world.get::<Transform>(entity).unwrap();
+            let frame = sprite.render_frame();
+            assert!(
+                (transform.scale.x / transform.scale.y - frame.width / frame.height).abs() < 0.0001,
+                "{sprite:?} transform should match rendered frame aspect"
+            );
+        }
     }
 
     #[test]
     fn visual_size_constants_keep_characters_readable() {
         assert_eq!(PLAYER_VISUAL_SIZE, 150.0);
-        assert!(40.0 * ENEMY_VISUAL_SCALE >= 150.0);
+        assert_eq!(ENEMY_VISUAL_SCALE, 3.75);
     }
 
     #[test]
@@ -465,31 +786,86 @@ mod tests {
     fn textured_sprite_prefers_handle_while_keeping_path_fallback() {
         let mut world = World::new();
         let handle = engine::AssetServer::new().load_image(ATLAS_PATH);
-        world.insert_resource(SurvivorTextureHandles {
-            atlas: handle.clone(),
-            effects: handle.clone(),
-            actor_frames: handle.clone(),
-            evolutions: handle.clone(),
-            icons: handle.clone(),
-            passives: handle.clone(),
-            powerups: handle.clone(),
-            title_backdrop: handle.clone(),
-            title_logo_plaque: handle.clone(),
-            menu_button_start: handle.clone(),
-            menu_button_character: handle.clone(),
-            menu_button_stage: handle.clone(),
-            menu_button_shop: handle.clone(),
-            menu_button_settings: handle.clone(),
-            ui_modal_panel: handle.clone(),
-            ui_slot_frame: handle,
-        });
+        world.insert_resource(texture_handles_with(handle.clone()));
 
         let sprite = survivor_textured_sprite(&world, ATLAS_PATH);
+        let textures = world.resource::<SurvivorTextureHandles>().unwrap();
 
         assert_eq!(sprite.texture.as_deref(), Some(ATLAS_PATH));
         assert_eq!(
             sprite.image_handle.as_ref().map(|handle| handle.path()),
-            Some(ATLAS_PATH)
+            (handle.path() == ATLAS_PATH).then_some(ATLAS_PATH)
+        );
+        assert!(textures.handle_for(INGAME_LABEL_LV_KO_PATH).is_some());
+        assert!(textures.handle_for(INGAME_LABEL_KILLS_EN_PATH).is_some());
+        assert!(textures.handle_for(LEVELUP_TITLE_EN_PATH).is_some());
+        assert!(textures.handle_for(GAMEOVER_TITLE_KO_PATH).is_some());
+        assert!(textures.handle_for(RESTART_HINT_EN_PATH).is_some());
+        assert!(textures.handle_for(SECTION_WEAPONS_KO_PATH).is_some());
+        assert!(textures.handle_for(SECTION_PASSIVES_EN_PATH).is_some());
+    }
+
+    #[test]
+    fn renderer_compatible_texture_handle_requires_same_renderer_key() {
+        let mut server = engine::AssetServer::new();
+        let matching = server.load_image("__missing_relative_renderer_key.png");
+        assert_eq!(
+            renderer_compatible_texture_handle("__missing_relative_renderer_key.png", &matching)
+                .as_ref()
+                .map(|handle| handle.path()),
+            Some("__missing_relative_renderer_key.png")
+        );
+
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let absolute_atlas = manifest_dir
+            .join("../../assets/textures/survivor/survivor_atlas.png")
+            .canonicalize()
+            .expect("test atlas path should exist");
+        let canonical = server.load_image(absolute_atlas);
+        assert!(renderer_compatible_texture_handle(ATLAS_PATH, &canonical).is_none());
+    }
+
+    #[test]
+    fn textured_sprite_uses_path_fallback_for_canonicalized_handle_key() {
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let absolute_atlas = manifest_dir
+            .join("../../assets/textures/survivor/survivor_atlas.png")
+            .canonicalize()
+            .expect("test atlas path should exist");
+        let handle = engine::AssetServer::new().load_image(absolute_atlas);
+        assert_ne!(handle.path(), ATLAS_PATH);
+
+        let mut world = World::new();
+        world.insert_resource(texture_handles_with(handle));
+        let sprite = survivor_textured_sprite(&world, ATLAS_PATH);
+
+        assert_eq!(sprite.texture.as_deref(), Some(ATLAS_PATH));
+        assert!(sprite.image_handle.is_none());
+    }
+
+    #[test]
+    fn whole_ui_texture_aspects_are_registered() {
+        assert!(
+            (survivor_texture_aspect(TITLE_LOGO_PLAQUE_PATH).unwrap() - 2172.0 / 724.0).abs()
+                < 0.001
+        );
+        assert!(
+            (survivor_texture_aspect(MENU_BUTTON_START_EN_PATH).unwrap() - 1600.0 / 520.0).abs()
+                < 0.001
+        );
+        assert!(
+            (survivor_texture_aspect(INGAME_LABEL_LV_KO_PATH).unwrap() - 240.0 / 78.0).abs()
+                < 0.001
+        );
+        assert!(
+            (survivor_texture_aspect(LEVELUP_TITLE_EN_PATH).unwrap() - 760.0 / 190.0).abs() < 0.001
+        );
+        assert!(
+            (survivor_texture_aspect(RESTART_HINT_KO_PATH).unwrap() - 620.0 / 126.0).abs() < 0.001
+        );
+        assert!(
+            (survivor_texture_aspect(SECTION_WEAPONS_EN_PATH).unwrap() - 340.0 / 86.0).abs()
+                < 0.001
         );
     }
 

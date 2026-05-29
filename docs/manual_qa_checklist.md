@@ -118,10 +118,22 @@
 ## 2026-05-28 Engine Migration Pass
 
 - 엔진 의존성을 `skeleton-engine #0e01b0f`로 갱신.
-- Survivor sprite UV 생성은 엔진 `UvRect::from_pixels(...).flipped_y()` / `UvRect::from_grid(...).flipped_y()` helper를 사용.
+- 당시 Survivor sprite UV 생성은 엔진 helper와 임시 Y-flip 보정을 같이 사용.
 - HUD/Level-up/Shop icon과 관련 배경은 per-frame entity spawn/despawn 대신 `UiImageQueue`의 screen-space `DrawImage`로 제출.
 - 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (144 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked` 통과.
 - 수동 smoke 권장: 기본 해상도와 800x600에서 Title, InGame HUD slots, Level-up cards, Shop icons, pickup/effect sprite 방향 확인.
+
+## 2026-05-29 UV Orientation Migration Pass
+
+- sibling `skeleton-engine` checkout의 shared sprite quad가 top-left UV origin으로 수정된 상태를 기준으로 게임 코드를 마이그레이션.
+- 엔진 방향 차이 때문에 넣었던 survivor crop/icon/full-image UI Y-flip 보정을 제거.
+- `SpriteFrame::uv()`는 `UvRect::from_pixels(...)`를 직접 사용하고, `UiIconSystem`은 `UvRect::from_grid(...)`를 직접 사용.
+- Title backdrop과 Title/Menu/HUD/Level-up/Shop full-image `DrawImage`는 기본 `UvRect::FULL`을 사용.
+- 자동 검증: `cargo fmt --check`, `cargo clippy --all-targets --locked -- -D warnings`, `cargo test -p game --lib --locked -- --test-threads=1` (151 passed), `cargo build -p game --bin survivor --release --locked` 통과.
+- macOS package/verify: `bash scripts/package_macos.sh` 통과.
+- 패키지 앱 smoke: Title backdrop/buttons, InGame actor/HUD/slot icon, debug boss spawn bossbar, GameOver modal, Shop frame/power-up icons가 정방향으로 표시됨.
+- 추가 QA: InGame `L` 디버그 입력으로 Level-up 카드 화면에 즉시 진입 가능하게 하고, 1280x720 및 800x600에서 카드 프레임/패시브 아이콘이 정방향으로 표시됨을 확인.
+- 미확인 유지: 장시간 actor/effect animation, 실제 스피커 출력 기준 BGM/SFX 청취.
 
 ## 2026-05-28 Title Menu Image UI Pass
 
@@ -150,6 +162,23 @@
 - QA 중 800x600으로 바꾼 해상도 설정은 1280x720 기본값으로 되돌리고 앱 종료.
 - 미확인 유지: 실제 스피커 출력 기준 BGM/SFX 청취, 장시간 플레이 기반 StageClear.
 
+## 2026-05-29 UI Icon Spacing Pass
+
+- 상세 문서: `docs/UI_ICON_SPACING_PASS.md`
+- 대상: HUD 슬롯, Level-up 카드, Shop 아이콘 배치.
+- 수정: Level-up 카드 아이콘과 Shop 파워업 아이콘을 텍스트 시작점에서 조금 더 떨어지도록 왼쪽으로 조정.
+- 수정: HUD 슬롯 레벨 텍스트 시작 위치와 테스트 기준을 실제 렌더 좌표에 맞춤.
+- 자동 검증 추가: 800x600과 3840x2160에서 Level-up/Shop 아이콘이 텍스트 여백을 침범하지 않고, 프레임 이미지가 화면 안에 남는지 단위 테스트로 확인.
+- 수동 QA 권장: 800x600과 HiDPI/고해상도 창에서 Level-up 카드 3장, Shop 파워업 목록, 하단 HUD 슬롯 아이콘/레벨 텍스트 겹침 여부 확인.
+
+## 2026-05-29 Title Image Text / Achievements Pass
+
+- Title 화면은 런타임 텍스트 없이 로고/버튼 이미지로만 표시되어야 한다.
+- 한국어/영어 설정에서 Start/Character/Stage/Shop/Achievements/Settings 버튼 이미지가 언어에 맞게 바뀌는지 확인.
+- Title에서 `A` 또는 업적 버튼 클릭으로 Achievements 화면에 진입하고, `A/D` 페이지 전환과 `ESC` 복귀가 동작하는지 확인.
+- Achievements 화면은 Best/Kills/달성 수를 보여주고 Gold는 보여주지 않아야 한다.
+- Shop 화면은 Gold와 파워업 목록을 보여주고 업적 요약은 더 이상 표시하지 않아야 한다.
+
 ## 실행
 
 ```bash
@@ -173,7 +202,8 @@ cargo run -p game --bin survivor --release
 
 ## Title / Settings
 
-- Title 배경 이미지가 보이고 제목/메뉴 텍스트가 배경 위에서 읽힌다.
+- Title 배경 이미지와 글자가 포함된 로고/버튼 이미지가 보이고 런타임 텍스트는 보이지 않는다.
+- `A`로 Achievements에 진입하고 `ESC`로 Title에 돌아온다.
 - `O`로 Settings에 진입한다.
 - 언어를 System/한국어/English로 바꾸면 화면 문자열이 즉시 바뀐다.
 - HUD 정보량 최소/중간/상세가 저장되고 게임 화면에 반영된다.
@@ -183,15 +213,19 @@ cargo run -p game --bin survivor --release
 ## InGame HUD
 
 - 800x600에서 HP/XP/Level/Time/Kills가 겹치지 않는다.
+- 상단 HUD의 Lv/HP/XP/Gold/Kills/Passives 라벨은 이미지로 보이고, 시간/수치 값은 텍스트로 계속 갱신된다.
 - 무기 슬롯 6칸과 패시브 슬롯 6칸이 두 줄로 고정 표시된다.
+- Weapons/Passives 섹션 라벨은 언어별 이미지로 보이고, 슬롯 안의 `Lv N`/`Lv N E` 텍스트는 유지된다.
 - 장비 아이콘/레벨/빈 슬롯 상태가 구분된다.
 - 상세 HUD에서 공격력/쿨다운/범위/투사체 수/이동속도 줄이 상단 UI와 겹치지 않는다.
+- 레벨업 오버레이의 제목과 게임오버 제목/재시작 안내는 언어별 이미지로 보이며 카드명/결과 수치는 텍스트로 유지된다.
 
 ## Menu Screens
 
 - CharacterSelect에서 해금/잠김 상태가 읽힌다.
 - StageSelect에서 잠긴 스테이지와 선택 커서가 구분된다.
-- Shop에서 파워업 목록과 업적 요약이 서로 겹치지 않는다.
+- Shop에서 Gold와 파워업 목록이 읽히고 업적 요약은 보이지 않는다.
+- Achievements에서 10개씩 2페이지 업적 목록과 Best/Kills가 읽힌다.
 - PauseMenu에서 Resume/Return to Title/Quit 선택이 정상 동작한다.
 
 ## Gameplay

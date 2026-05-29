@@ -195,17 +195,17 @@ pub fn try_evolve(world: &mut World, player: Entity) -> Option<&'static str> {
 
 /// rule.weapon 문자열과 WeaponKind variant 매칭.
 fn matches_weapon_kind(weapon_name: &str, kind: &WeaponKind) -> bool {
-    match (weapon_name, kind) {
-        ("Whip", WeaponKind::Whip { .. }) => true,
-        ("MagicWand", WeaponKind::MagicWand { .. }) => true,
-        ("Knife", WeaponKind::Knife { .. }) => true,
-        ("Axe", WeaponKind::Axe { .. }) => true,
-        ("Cross", WeaponKind::Cross { .. }) => true,
-        ("FireWand", WeaponKind::FireWand { .. }) => true,
-        ("Garlic", WeaponKind::Garlic { .. }) => true,
-        ("HolyWater", WeaponKind::HolyWater { .. }) => true,
-        _ => false,
-    }
+    matches!(
+        (weapon_name, kind),
+        ("Whip", WeaponKind::Whip { .. })
+            | ("MagicWand", WeaponKind::MagicWand { .. })
+            | ("Knife", WeaponKind::Knife { .. })
+            | ("Axe", WeaponKind::Axe { .. })
+            | ("Cross", WeaponKind::Cross { .. })
+            | ("FireWand", WeaponKind::FireWand { .. })
+            | ("Garlic", WeaponKind::Garlic { .. })
+            | ("HolyWater", WeaponKind::HolyWater { .. })
+    )
 }
 
 /// 진화 스탯 강화 — 각 variant 별 수치 적용.

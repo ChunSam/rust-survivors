@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use winit::event::MouseButton;
 use winit::keyboard::KeyCode;
 
+use super::achievement::AchievementKind;
 use super::character::CharacterCursor;
 use super::hud::GameStats;
 use super::locale::Lang;
@@ -22,6 +23,7 @@ use super::stage::{SelectedStage, StageCursor, StageKind};
 const APP_NAME: &str = "rust-vampire-survivors";
 const SAVE_FILE: &str = "save.ron";
 pub const SETTINGS_ITEMS: usize = 5;
+pub const ACHIEVEMENTS_PER_PAGE: usize = 10;
 
 // ─── MetaSave ────────────────────────────────────────────────────────────────
 
@@ -38,17 +40,12 @@ pub fn step_volume(volume: f32, delta: i32) -> f32 {
 }
 
 /// 저장되는 언어 선택값. System 은 실행 환경의 LANG 계열 환경변수를 따른다.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum LanguageSetting {
+    #[default]
     System,
     Ko,
     En,
-}
-
-impl Default for LanguageSetting {
-    fn default() -> Self {
-        Self::System
-    }
 }
 
 impl LanguageSetting {
@@ -93,17 +90,12 @@ fn detect_system_lang() -> Lang {
 }
 
 /// 인게임 HUD 정보량 설정.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HudDetail {
     Minimal,
+    #[default]
     Normal,
     Detailed,
-}
-
-impl Default for HudDetail {
-    fn default() -> Self {
-        Self::Normal
-    }
 }
 
 impl HudDetail {
@@ -174,22 +166,18 @@ impl MetaSave {
 ///
 /// `GameState` (Playing/Paused/GameOver) 는 InGame 중 *서브* 상태.
 /// 메뉴/상점/스테이지 선택 등은 `SurvivorMode` 로 표현.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum SurvivorMode {
-    Title,           // 시작 화면 — ENTER 로 InGame 진입
+    #[default]
+    Title, // 시작 화면 — ENTER 로 InGame 진입
     CharacterSelect, // 캐릭터 선택 화면 (Phase 9)
     StageSelect,     // 스테이지 선택 화면 (Phase 10)
     Shop,            // PowerUp 매장 (Phase 8-B)
+    Achievements,    // 업적관리 화면
     InGame,          // 실제 게임 진행
     StageClear,      // 스테이지 클리어
     PauseMenu,       // 일시정지 메뉴 — ESC 로 진입, 계속/타이틀/종료 선택
     Settings,        // 설정 화면 — 해상도 선택
-}
-
-impl Default for SurvivorMode {
-    fn default() -> Self {
-        Self::Title
-    }
 }
 
 /// 일시정지 메뉴 커서 (0=계속하기, 1=타이틀로, 2=게임 종료)
@@ -274,10 +262,16 @@ pub struct SettingsCursor {
     pub index: usize,
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct AchievementCursor {
+    pub index: usize,
+    pub page: usize,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct TitleButtonLayout {
     pub start: (f32, f32, f32, f32),
-    pub buttons: [(f32, f32, f32, f32); 4],
+    pub buttons: [(f32, f32, f32, f32); 5],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -286,42 +280,52 @@ enum TitleAction {
     Character,
     Stage,
     Shop,
+    Achievements,
     Settings,
 }
 
 pub fn title_button_layout(vw: f32, vh: f32) -> TitleButtonLayout {
     let cx = vw / 2.0;
     let cy = vh / 2.0;
-    let start_w = (vw * 0.68).clamp(620.0, 860.0).min(vw - 64.0);
-    let start_h = 104.0_f32.min(vh * 0.16);
+    let compact = vw <= 900.0 || vh <= 640.0;
+    let start_w = (vw * 0.68)
+        .clamp(if compact { 520.0 } else { 620.0 }, 860.0)
+        .min(vw - 64.0);
+    let start_h = (if compact { 82.0_f32 } else { 104.0_f32 }).min(vh * 0.16);
     let button_gap = if vw <= 900.0 { 10.0 } else { 18.0 };
-    let button_w = ((vw - 96.0 - button_gap * 3.0) / 4.0)
+    let row_gap = if compact { 8.0 } else { 14.0 };
+    let button_w = ((vw - 96.0 - button_gap * 2.0) / 3.0)
         .clamp(150.0, 280.0)
-        .min((vw - 48.0 - button_gap * 3.0) / 4.0);
-    let button_h = 104.0_f32.min(vh * 0.16);
-    let total_w = button_w * 4.0 + button_gap * 3.0;
-    let button_y = cy + vh * 0.16;
-    let first_x = cx - total_w / 2.0;
+        .min((vw - 48.0 - button_gap * 2.0) / 3.0);
+    let button_h = (if compact { 70.0_f32 } else { 92.0_f32 }).min(vh * 0.13);
+    let first_row_w = button_w * 3.0 + button_gap * 2.0;
+    let second_row_w = button_w * 2.0 + button_gap;
+    let first_row_x = cx - first_row_w / 2.0;
+    let second_row_x = cx - second_row_w / 2.0;
+    let start_y = cy - vh * 0.08;
+    let first_row_y = start_y + start_h + if compact { 34.0 } else { 68.0 };
+    let second_row_y = first_row_y + button_h + row_gap;
 
     TitleButtonLayout {
-        start: (cx - start_w / 2.0, cy - vh * 0.08, start_w, start_h),
+        start: (cx - start_w / 2.0, start_y, start_w, start_h),
         buttons: [
-            (first_x, button_y, button_w, button_h),
+            (first_row_x, first_row_y, button_w, button_h),
             (
-                first_x + (button_w + button_gap),
-                button_y,
+                first_row_x + (button_w + button_gap),
+                first_row_y,
                 button_w,
                 button_h,
             ),
             (
-                first_x + (button_w + button_gap) * 2.0,
-                button_y,
+                first_row_x + (button_w + button_gap) * 2.0,
+                first_row_y,
                 button_w,
                 button_h,
             ),
+            (second_row_x, second_row_y, button_w, button_h),
             (
-                first_x + (button_w + button_gap) * 3.0,
-                button_y,
+                second_row_x + (button_w + button_gap),
+                second_row_y,
                 button_w,
                 button_h,
             ),
@@ -340,6 +344,7 @@ fn title_action_at(x: f32, y: f32, vw: f32, vh: f32) -> Option<TitleAction> {
         TitleAction::Character,
         TitleAction::Stage,
         TitleAction::Shop,
+        TitleAction::Achievements,
         TitleAction::Settings,
     ]
     .into_iter()
@@ -375,6 +380,7 @@ fn handle_title_input(world: &mut World) {
         shop_pressed,
         char_sel_pressed,
         stage_sel_pressed,
+        achievements_pressed,
         settings_pressed,
         mouse_action,
     ) = {
@@ -401,6 +407,7 @@ fn handle_title_input(world: &mut World) {
             i.just_pressed(KeyCode::KeyS),
             i.just_pressed(KeyCode::KeyC),
             i.just_pressed(KeyCode::KeyT),
+            i.just_pressed(KeyCode::KeyA),
             i.just_pressed(KeyCode::KeyO),
             mouse_action,
         )
@@ -436,6 +443,13 @@ fn handle_title_input(world: &mut World) {
         }
         println!("Entered shop");
     }
+    if achievements_pressed || mouse_action == Some(TitleAction::Achievements) {
+        world.insert_resource(AchievementCursor::default());
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::Achievements;
+        }
+        println!("Entered achievements");
+    }
     if char_sel_pressed || mouse_action == Some(TitleAction::Character) {
         if let Some(m) = world.resource_mut::<SurvivorMode>() {
             *m = SurvivorMode::CharacterSelect;
@@ -462,6 +476,76 @@ fn handle_title_input(world: &mut World) {
         }
         println!("Entered settings");
     }
+}
+
+pub fn achievement_page_count() -> usize {
+    let total = AchievementKind::ALL.len();
+    (total + ACHIEVEMENTS_PER_PAGE - 1) / ACHIEVEMENTS_PER_PAGE
+}
+
+pub fn achievement_items_on_page(page: usize) -> usize {
+    let start = page.saturating_mul(ACHIEVEMENTS_PER_PAGE);
+    AchievementKind::ALL
+        .len()
+        .saturating_sub(start)
+        .min(ACHIEVEMENTS_PER_PAGE)
+}
+
+fn clamp_achievement_cursor(cursor: &mut AchievementCursor) {
+    let page_count = achievement_page_count().max(1);
+    cursor.page = cursor.page.min(page_count - 1);
+    let items = achievement_items_on_page(cursor.page).max(1);
+    cursor.index = cursor.index.min(items - 1);
+}
+
+fn handle_achievement_input(world: &mut World) {
+    let (esc_pressed, up_pressed, down_pressed, left_pressed, right_pressed) = {
+        let i = match world.resource::<InputState>() {
+            Some(i) => i,
+            None => return,
+        };
+        (
+            i.just_pressed(KeyCode::Escape),
+            i.just_pressed(KeyCode::KeyW) || i.just_pressed(KeyCode::ArrowUp),
+            i.just_pressed(KeyCode::KeyS) || i.just_pressed(KeyCode::ArrowDown),
+            i.just_pressed(KeyCode::KeyA) || i.just_pressed(KeyCode::ArrowLeft),
+            i.just_pressed(KeyCode::KeyD) || i.just_pressed(KeyCode::ArrowRight),
+        )
+    };
+
+    if esc_pressed {
+        if let Some(m) = world.resource_mut::<SurvivorMode>() {
+            *m = SurvivorMode::Title;
+        }
+        return;
+    }
+
+    let mut cursor = world
+        .resource::<AchievementCursor>()
+        .copied()
+        .unwrap_or_default();
+    clamp_achievement_cursor(&mut cursor);
+
+    if left_pressed || right_pressed {
+        let page_count = achievement_page_count().max(1);
+        if left_pressed {
+            cursor.page = (cursor.page + page_count - 1) % page_count;
+        } else {
+            cursor.page = (cursor.page + 1) % page_count;
+        }
+        cursor.index = cursor
+            .index
+            .min(achievement_items_on_page(cursor.page).max(1) - 1);
+    }
+
+    let items = achievement_items_on_page(cursor.page).max(1);
+    if up_pressed {
+        cursor.index = (cursor.index + items - 1) % items;
+    } else if down_pressed {
+        cursor.index = (cursor.index + 1) % items;
+    }
+
+    world.insert_resource(cursor);
 }
 
 fn handle_pause_menu_input(world: &mut World) {
@@ -652,6 +736,7 @@ impl System for ModeTransitionSystem {
             | SurvivorMode::CharacterSelect
             | SurvivorMode::StageSelect
             | SurvivorMode::Shop
+            | SurvivorMode::Achievements
             | SurvivorMode::StageClear
             | SurvivorMode::PauseMenu
             | SurvivorMode::Settings => {
@@ -771,6 +856,7 @@ impl System for ModeTransitionSystem {
             SurvivorMode::Shop => {
                 // Phase 8-B 에서 구현
             }
+            SurvivorMode::Achievements => handle_achievement_input(world),
             SurvivorMode::Settings => handle_settings_input(world),
         }
     }
@@ -904,9 +990,16 @@ mod tests {
 
     #[test]
     fn title_settings_hitbox_matches_rendered_button() {
-        let action = title_action_at(710.0, 425.0, 800.0, 600.0);
+        let action = title_action_at(520.0, 475.0, 800.0, 600.0);
 
         assert_eq!(action, Some(TitleAction::Settings));
+    }
+
+    #[test]
+    fn title_achievements_hitbox_matches_rendered_button() {
+        let action = title_action_at(280.0, 475.0, 800.0, 600.0);
+
+        assert_eq!(action, Some(TitleAction::Achievements));
     }
 
     #[test]
@@ -915,18 +1008,30 @@ mod tests {
 
         assert!(layout.start.0 >= 0.0);
         assert!(layout.start.0 + layout.start.2 <= 800.0);
+        assert!(layout.start.1 >= 0.0);
+        assert!(layout.start.1 + layout.start.3 <= 600.0);
         for rect in layout.buttons {
             assert!(rect.0 >= 0.0);
             assert!(rect.0 + rect.2 <= 800.0);
+            assert!(rect.1 >= 0.0);
+            assert!(rect.1 + rect.3 <= 600.0);
         }
     }
 
     #[test]
     fn physical_cursor_is_converted_to_logical_for_retina_clicks() {
-        let logical = logical_cursor_position(glam::Vec2::new(1420.0, 850.0), 2.0);
+        let logical = logical_cursor_position(glam::Vec2::new(1040.0, 950.0), 2.0);
         let action = title_action_at(logical.x, logical.y, 800.0, 600.0);
 
         assert_eq!(action, Some(TitleAction::Settings));
+    }
+
+    #[test]
+    fn achievements_are_paged_in_tens() {
+        assert_eq!(achievement_page_count(), 2);
+        assert_eq!(achievement_items_on_page(0), 10);
+        assert_eq!(achievement_items_on_page(1), 10);
+        assert_eq!(achievement_items_on_page(2), 0);
     }
 
     #[test]

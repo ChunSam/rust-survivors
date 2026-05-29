@@ -123,6 +123,7 @@ impl System for PlatformerSystem {
 }
 
 // ─── 편의 함수: 정적 오브젝트(바닥·플랫폼) 생성 ─────────────────────────────
+#[allow(clippy::too_many_arguments)]
 fn spawn_static(
     world: &mut World,
     physics: &mut engine::PhysicsWorld,

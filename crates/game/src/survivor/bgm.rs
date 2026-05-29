@@ -54,15 +54,10 @@ fn find_audio_file(key: &str) -> Option<String> {
 /// SurvivorMode 전환 시 BGM 파일을 자동 교체.
 ///
 /// `GameState::GameOver` 에서도 gameover 트랙으로 전환한다.
+#[derive(Default)]
 pub struct BgmSystem {
     /// 현재 재생 중인 BGM 키 ("bgm_title" 등). None 이면 아직 미재생.
     current: Option<&'static str>,
-}
-
-impl Default for BgmSystem {
-    fn default() -> Self {
-        Self { current: None }
-    }
 }
 
 impl System for BgmSystem {

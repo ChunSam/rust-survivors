@@ -154,7 +154,33 @@ pub fn spawn_timed_effect(
     );
     add_tinted_sprite(world, e, sprite, color);
     if let Some(t) = world.get_mut::<Transform>(e) {
-        t.scale = scale;
+        t.scale = sprite.fit_inside(scale);
     }
     world.add_component(e, LightningFlash { lifetime });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn timed_effect_preserves_sprite_aspect_inside_requested_bounds() {
+        let mut world = World::new();
+        let requested = Vec2::new(72.0, 108.0);
+
+        spawn_timed_effect(
+            &mut world,
+            Vec2::ZERO,
+            requested,
+            SurvivorSprite::LightningStrike,
+            [1.0, 1.0, 1.0, 1.0],
+            0.2,
+            0.7,
+        );
+
+        let (_, transform) = world.query::<Transform>().next().unwrap();
+        assert!(transform.scale.x <= requested.x);
+        assert!(transform.scale.y <= requested.y);
+        assert!((transform.scale.x / transform.scale.y - 1.0).abs() < 0.0001);
+    }
 }

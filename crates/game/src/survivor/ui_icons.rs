@@ -6,7 +6,8 @@ use super::passive::{PassiveInventory, PassiveKind};
 use super::player::Player;
 use super::powerup::{PowerUpKind, ShopCursor};
 use super::sprites::{
-    survivor_texture_handle, PASSIVES_PATH, POWERUPS_PATH, UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
+    survivor_texture_aspect, survivor_texture_handle, PASSIVES_PATH, POWERUPS_PATH,
+    UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
 };
 use engine::{DrawImage, GameState, System, UiImageQueue, UvRect, ViewportSize, World};
 use glam::Vec2;
@@ -19,12 +20,14 @@ const XP_BAR_H: f32 = 14.0;
 const ICON_SIZE: f32 = 28.0;
 const LEVEL_ICON_SIZE: f32 = 34.0;
 const SHOP_ICON_SIZE: f32 = 22.0;
+const LEVELUP_ICON_X_OFFSET: f32 = -214.0;
+const SHOP_ICON_X_OFFSET: f32 = -334.0;
 const UI_BACKGROUND_Z: f32 = 30.0;
 const UI_ROW_Z: f32 = 34.0;
 const UI_ACCENT_Z: f32 = 36.0;
 const UI_ICON_Z: f32 = 45.0;
 #[cfg(test)]
-const SLOT_TEXT_INSET: f32 = 42.0;
+const SLOT_TEXT_INSET: f32 = 46.0;
 #[cfg(test)]
 const SHOP_TEXT_X_OFFSET: f32 = -306.0;
 #[cfg(test)]
@@ -48,6 +51,27 @@ struct ScreenRect {
     y: f32,
     w: f32,
     h: f32,
+}
+
+impl ScreenRect {
+    fn aspect_fit(self, aspect: f32) -> Self {
+        let rect_aspect = self.w / self.h.max(1.0);
+        if rect_aspect > aspect {
+            let w = self.h * aspect;
+            Self {
+                x: self.x + (self.w - w) * 0.5,
+                w,
+                ..self
+            }
+        } else {
+            let h = self.w / aspect.max(0.001);
+            Self {
+                y: self.y + (self.h - h) * 0.5,
+                h,
+                ..self
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -195,6 +219,9 @@ fn queue_screen_colored_rect(world: &mut World, rect: ScreenRect, color: [f32; 4
 }
 
 fn queue_screen_texture(world: &mut World, rect: ScreenRect, path: &str, z: f32) {
+    let image_rect = survivor_texture_aspect(path)
+        .map(|aspect| rect.aspect_fit(aspect))
+        .unwrap_or(rect);
     let handle = survivor_texture_handle(world, path);
     if let Some(queue) = world.resource_mut::<UiImageQueue>() {
         let backing = if path == UI_MODAL_PANEL_PATH {
@@ -202,9 +229,26 @@ fn queue_screen_texture(world: &mut World, rect: ScreenRect, path: &str, z: f32)
         } else {
             [0.024, 0.022, 0.024, 1.0]
         };
-        queue.push(DrawImage::colored(rect.x, rect.y, rect.w, rect.h, backing).with_z(z - 0.1));
         queue.push(
-            DrawImage::textured_with_handle(rect.x, rect.y, rect.w, rect.h, path, handle).with_z(z),
+            DrawImage::colored(
+                image_rect.x,
+                image_rect.y,
+                image_rect.w,
+                image_rect.h,
+                backing,
+            )
+            .with_z(z - 0.1),
+        );
+        queue.push(
+            DrawImage::textured_with_handle(
+                image_rect.x,
+                image_rect.y,
+                image_rect.w,
+                image_rect.h,
+                path,
+                handle,
+            )
+            .with_z(z),
         );
     }
 }
@@ -445,7 +489,10 @@ fn hud_slot_text_x(layout: &HudIconLayout, slot_index: usize) -> f32 {
 fn levelup_icon_center(viewport_w: f32, viewport_h: f32, card_index: usize) -> Vec2 {
     let cx = viewport_w / 2.0;
     let cy = viewport_h / 2.0;
-    Vec2::new(cx - 206.0, cy - 35.0 + card_index as f32 * 56.0)
+    Vec2::new(
+        cx + LEVELUP_ICON_X_OFFSET,
+        cy - 35.0 + card_index as f32 * 56.0,
+    )
 }
 
 fn levelup_panel_rect(viewport_w: f32, viewport_h: f32) -> ScreenRect {
@@ -510,7 +557,7 @@ fn shop_row_step(viewport_h: f32) -> f32 {
 fn shop_icon_center(viewport_w: f32, viewport_h: f32, row_index: usize) -> Vec2 {
     let cx = viewport_w / 2.0;
     Vec2::new(
-        cx - 326.0,
+        cx + SHOP_ICON_X_OFFSET,
         90.0 + row_index as f32 * shop_row_step(viewport_h),
     )
 }
@@ -624,20 +671,17 @@ impl IconSource {
         match self {
             IconSource::Icons { col, row } => (
                 ICONS_PATH,
-                UvRect::from_grid(col, row, ICON_COLS, ICON_ROWS).flipped_y(),
+                UvRect::from_grid(col, row, ICON_COLS, ICON_ROWS),
             ),
             IconSource::Passive(kind) => {
                 let index = passive_index(kind);
-                (
-                    PASSIVES_PATH,
-                    UvRect::from_grid(index % 8, index / 8, 8, 2).flipped_y(),
-                )
+                (PASSIVES_PATH, UvRect::from_grid(index % 8, index / 8, 8, 2))
             }
             IconSource::PowerUp(kind) => {
                 let index = powerup_index(kind);
                 (
                     POWERUPS_PATH,
-                    UvRect::from_grid(index % 10, index / 10, 10, 2).flipped_y(),
+                    UvRect::from_grid(index % 10, index / 10, 10, 2),
                 )
             }
         }
@@ -676,19 +720,30 @@ fn powerup_index(kind: PowerUpKind) -> u32 {
 mod tests {
     use super::*;
 
+    fn assert_ui_z_order() {
+        let background = std::hint::black_box(UI_BACKGROUND_Z);
+        let row = std::hint::black_box(UI_ROW_Z);
+        let accent = std::hint::black_box(UI_ACCENT_Z);
+        let icon = std::hint::black_box(UI_ICON_Z);
+
+        assert!(icon > row);
+        assert!(accent > row);
+        assert!(row > background);
+    }
+
     #[test]
-    fn flipped_icon_uv_points_inside_grid() {
-        let uv = UvRect::from_grid(5, 1, 6, 6).flipped_y();
+    fn icon_uv_points_inside_grid_with_top_left_origin() {
+        let uv = UvRect::from_grid(5, 1, 6, 6);
 
         assert!(uv.u_offset >= 0.0);
         assert!(uv.u_offset < 1.0);
         assert!(uv.v_offset > 0.0);
         assert!(uv.v_offset <= 1.0);
-        assert!(uv.v_size < 0.0);
+        assert!(uv.v_size > 0.0);
         assert!((uv.u_offset - 5.0 / 6.0).abs() < f32::EPSILON);
-        assert!((uv.v_offset - 2.0 / 6.0).abs() < f32::EPSILON);
+        assert!((uv.v_offset - 1.0 / 6.0).abs() < f32::EPSILON);
         assert!((uv.u_size - 1.0 / 6.0).abs() < f32::EPSILON);
-        assert!((uv.v_size + 1.0 / 6.0).abs() < f32::EPSILON);
+        assert!((uv.v_size - 1.0 / 6.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -714,7 +769,7 @@ mod tests {
         assert_eq!(image.z, UI_ICON_Z);
         assert_eq!(image.texture.as_deref(), Some(ICONS_PATH));
         assert!(image.image_handle.is_none());
-        assert!(image.uv.v_size < 0.0);
+        assert!(image.uv.v_size > 0.0);
     }
 
     #[test]
@@ -744,6 +799,53 @@ mod tests {
         assert_eq!(image.color, [0.1, 0.2, 0.3, 0.4]);
         assert_eq!(image.z, UI_ROW_Z);
         assert!(image.texture.is_none());
+    }
+
+    #[test]
+    fn queued_screen_texture_uses_default_full_uv() {
+        let mut world = World::new();
+        world.insert_resource(UiImageQueue::default());
+
+        queue_screen_texture(
+            &mut world,
+            ScreenRect {
+                x: 12.0,
+                y: 24.0,
+                w: 48.0,
+                h: 16.0,
+            },
+            UI_SLOT_FRAME_PATH,
+            UI_ROW_Z,
+        );
+
+        let queue = world.resource::<UiImageQueue>().unwrap();
+        assert_eq!(queue.items.len(), 2);
+        let image = &queue.items[1];
+        assert_eq!(image.texture.as_deref(), Some(UI_SLOT_FRAME_PATH));
+        assert_eq!(image.uv, UvRect::FULL);
+    }
+
+    #[test]
+    fn queued_screen_texture_preserves_source_aspect() {
+        let mut world = World::new();
+        world.insert_resource(UiImageQueue::default());
+
+        queue_screen_texture(
+            &mut world,
+            ScreenRect {
+                x: 12.0,
+                y: 24.0,
+                w: 48.0,
+                h: 16.0,
+            },
+            UI_SLOT_FRAME_PATH,
+            UI_ROW_Z,
+        );
+
+        let queue = world.resource::<UiImageQueue>().unwrap();
+        let image = &queue.items[1];
+        let aspect = survivor_texture_aspect(UI_SLOT_FRAME_PATH).unwrap();
+        assert!((image.w / image.h - aspect).abs() < 0.001);
     }
 
     #[test]
@@ -780,54 +882,58 @@ mod tests {
             assert!(center.y + layout.icon_size / 2.0 <= layout.passive_y);
         }
 
-        assert!(UI_ICON_Z > UI_ROW_Z);
-        assert!(UI_ACCENT_Z > UI_ROW_Z);
-        assert!(UI_ROW_Z > UI_BACKGROUND_Z);
+        assert_ui_z_order();
     }
 
     #[test]
-    fn levelup_icons_stay_inside_card_text_margin() {
-        let viewport_w = 800.0;
-        let viewport_h = 600.0;
-        let icon_size = levelup_icon_size(viewport_w, viewport_h);
-        let text_x = levelup_text_x(viewport_w);
+    fn levelup_icons_stay_inside_card_text_margin_at_common_resolutions() {
+        for (viewport_w, viewport_h) in [(800.0, 600.0), (3840.0, 2160.0)] {
+            let icon_size = levelup_icon_size(viewport_w, viewport_h);
+            let text_x = levelup_text_x(viewport_w);
+            let panel_skin = levelup_panel_skin_rect(viewport_w, viewport_h);
 
-        for card in 0..3 {
-            let center = levelup_icon_center(viewport_w, viewport_h, card);
-            let row_rect = levelup_card_rect(viewport_w, viewport_h, card);
+            assert!(panel_skin.x >= 0.0);
+            assert!(panel_skin.x + panel_skin.w <= viewport_w);
 
-            assert!(center.x > row_rect.x);
-            assert!(center.y > row_rect.y);
-            assert!(center.y < row_rect.y + row_rect.h);
-            assert!(center.x - icon_size / 2.0 >= viewport_w / 2.0 - 235.0);
-            assert!(center.x + icon_size / 2.0 + 8.0 <= text_x);
+            for card in 0..3 {
+                let center = levelup_icon_center(viewport_w, viewport_h, card);
+                let row_rect = levelup_card_rect(viewport_w, viewport_h, card);
+
+                assert!(center.x > row_rect.x);
+                assert!(center.y > row_rect.y);
+                assert!(center.y < row_rect.y + row_rect.h);
+                assert!(center.x - icon_size / 2.0 >= row_rect.x);
+                assert!(center.x + icon_size / 2.0 + 10.0 <= text_x);
+            }
         }
 
-        assert!(UI_ICON_Z > UI_ROW_Z);
-        assert!(UI_ACCENT_Z > UI_ROW_Z);
-        assert!(UI_ROW_Z > UI_BACKGROUND_Z);
+        assert_ui_z_order();
     }
 
     #[test]
-    fn shop_icons_do_not_overlap_powerup_text_at_800x600() {
-        let viewport_w = 800.0;
-        let viewport_h = 600.0;
-        let icon_size = shop_icon_size(viewport_w, viewport_h);
-        let text_x = shop_text_x(viewport_w);
+    fn shop_icons_do_not_overlap_powerup_text_at_common_resolutions() {
+        for (viewport_w, viewport_h) in [(800.0, 600.0), (3840.0, 2160.0)] {
+            let icon_size = shop_icon_size(viewport_w, viewport_h);
+            let text_x = shop_text_x(viewport_w);
+            let first_selection_skin = shop_selection_skin_rect(viewport_w, viewport_h, 0);
 
-        for row in 0..PowerUpKind::ALL.len() {
-            let center = shop_icon_center(viewport_w, viewport_h, row);
-            let selection_rect = shop_selection_rect(viewport_w, viewport_h, row);
+            assert!(first_selection_skin.x >= 0.0);
+            assert!(first_selection_skin.x + first_selection_skin.w <= viewport_w);
 
-            assert!(center.x > selection_rect.x);
-            assert!(center.y > selection_rect.y);
-            assert!(center.y < selection_rect.y + selection_rect.h);
-            assert!(center.x - icon_size / 2.0 >= 0.0);
-            assert!(center.x + icon_size / 2.0 + 6.0 <= text_x);
-            assert!(center.y + icon_size / 2.0 <= viewport_h - 8.0);
+            for row in 0..PowerUpKind::ALL.len() {
+                let center = shop_icon_center(viewport_w, viewport_h, row);
+                let selection_rect = shop_selection_rect(viewport_w, viewport_h, row);
+
+                assert!(center.x > selection_rect.x);
+                assert!(center.y > selection_rect.y);
+                assert!(center.y < selection_rect.y + selection_rect.h);
+                assert!(center.x - icon_size / 2.0 >= 0.0);
+                assert!(center.x + icon_size / 2.0 + 10.0 <= text_x);
+                assert!(center.y + icon_size / 2.0 <= viewport_h - 8.0);
+            }
         }
 
-        assert!(UI_ICON_Z > UI_ROW_Z);
+        assert_ui_z_order();
     }
 
     #[test]

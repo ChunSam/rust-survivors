@@ -197,6 +197,7 @@ impl System for OrbitingBookSystem {
 }
 
 /// 지정 위치에 OrbitingBook 엔티티를 스폰한다.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_book(
     world: &mut World,
     player_pos: Vec2,

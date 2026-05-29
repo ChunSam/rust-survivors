@@ -794,7 +794,6 @@ impl System for LevelUpSystem {
                         );
                     } else {
                         eprintln!("Ignored invalid LevelUp card: {:?}", card);
-                        return;
                     }
                 }
             }

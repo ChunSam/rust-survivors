@@ -8,14 +8,9 @@ const TILE_SIZE: f32 = 96.0;
 const TILE_Z: f32 = -10.0;
 
 /// Camera 주변에 저채도 월드 타일을 깔아 단색 배경을 피한다.
+#[derive(Default)]
 pub struct BackgroundSystem {
     tiles: Vec<Entity>,
-}
-
-impl Default for BackgroundSystem {
-    fn default() -> Self {
-        Self { tiles: Vec::new() }
-    }
 }
 
 impl System for BackgroundSystem {

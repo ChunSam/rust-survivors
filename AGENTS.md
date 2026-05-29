@@ -6,7 +6,8 @@
 
 - Main work target: `crates/game`
 - Engine: separate git dependency, `https://github.com/ChunSam/skeleton-engine`
-- Do not edit deleted/legacy `crates/engine` paths in this repo. Engine changes belong in `/Volumes/SSD/Projects/skeleton-engine`.
+- Do not edit deleted/legacy `crates/engine` paths in this repo.
+- Do not directly edit external `skeleton-engine` checkouts from this repo. If an engine change is needed, leave an engine change request prompt in `docs/ENGINE_CHANGE_REQUESTS.md`.
 - Preserve the platformer demo binary unless the user explicitly asks otherwise.
 
 ## Structure
@@ -54,10 +55,11 @@ Game code should use public engine APIs such as:
 
 If an engine API change is needed:
 
-1. Change and test `/Volumes/SSD/Projects/skeleton-engine`.
-2. Push/update the git dependency.
-3. Update this repo's lockfile.
-4. Run game tests and survivor build.
+1. Do not directly modify the `skeleton-engine` checkout.
+2. Add a dated request prompt to `docs/ENGINE_CHANGE_REQUESTS.md`.
+3. Include the problem, expected engine behavior/API, reproduction steps, affected game files, and validation commands.
+4. Continue only with game-side changes that do not require engine edits.
+5. After the engine change is completed externally, update the dependency or lockfile if needed, then run game tests and survivor build.
 
 ## Current State - 2026-05-25
 
@@ -125,6 +127,7 @@ Key assets loaded by `src/bin/survivor.rs`:
 - Use `rg`/`rg --files` first for searches.
 - Use `apply_patch` for manual edits.
 - Keep changes scoped to `crates/game` unless the user asks for docs/assets/package scripts.
+- When an engine issue blocks game work, document it as an engine request prompt instead of editing the engine directly.
 - Add tests when changing shared game behavior.
 - For visual changes, run tests/build and update manual QA notes when relevant.
 - Explain borrow checker/lifetime workarounds briefly; the user is a Rust beginner.

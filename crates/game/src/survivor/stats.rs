@@ -1,10 +1,11 @@
 //! PlayerStats 재계산 시스템 및 헬퍼.
 //!
-//! Phase 3-A: StatRecalcSystem 은 stub (no-op). 패시브가 없으므로 default 값 그대로.
+//! Phase 3-A: StatRecalcSystem 기본 골격 추가.
 //! Phase 3-B: PassiveInventory 합산 로직 추가.
 //!   1) default 로 시작
 //!   2) 각 패시브 효과 누적
 //!   3) PlayerStats 컴포넌트에 write
+//!
 //! Phase 8-B: PowerUp 효과 합산 추가.
 //!   패시브 합산 후 MetaSave.powerup_levels 기반으로 apply_powerups 호출.
 

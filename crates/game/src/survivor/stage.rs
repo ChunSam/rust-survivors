@@ -15,17 +15,12 @@ use super::meta::{MetaSave, SurvivorMode};
 // ─── StageKind ───────────────────────────────────────────────────────────────
 
 /// 스테이지 3종.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum StageKind {
+    #[default]
     MadForest,
     InlaidLibrary,
     DairyPlant,
-}
-
-impl Default for StageKind {
-    fn default() -> Self {
-        Self::MadForest
-    }
 }
 
 impl StageKind {

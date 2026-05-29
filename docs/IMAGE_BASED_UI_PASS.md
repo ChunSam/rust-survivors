@@ -157,6 +157,36 @@ bash scripts/verify_macos_package.sh
 
 ## 후속 작업
 
+## 2026-05-29 InGame Static Text Image Follow-up
+
+상세 문서: `docs/INGAME_STATIC_TEXT_IMAGE_UI.md`
+
+추가 완료:
+
+- 상단 HUD 고정 라벨 `Lv/HP/XP/Gold/Kills/Passives`를 언어별 PNG 이미지로 교체했다.
+- 장비 섹션 `Weapons/Passives` 라벨을 언어별 PNG 이미지로 교체했다.
+- 레벨업 제목, 게임오버 제목, 재시작 안내를 언어별 PNG 이미지로 교체했다.
+- 시간, HP/XP/Gold/Kills/Passives 수치, 슬롯 `Lv N`, 카드명, 결과 통계는 텍스트로 유지했다.
+- 새 PNG 자산은 `SurvivorTextureHandles`로 로드하고, `MetaSave::effective_lang()` 기준으로 `{ko,en}` 경로를 선택한다.
+
+검증:
+
+```bash
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo build -p game --bin survivor --release --locked
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
+```
+
+결과:
+
+- game lib tests: 157 passed
+- release survivor build 통과
+- macOS folder package와 `.app` package 모두 새 ingame static text PNG 포함 확인
+
+## 후속 작업
+
 1. 선택/hover/focus 상태용 프레임 변형 이미지를 추가한다.
 2. 숫자 전용 bitmap font 또는 digit atlas를 검토해 HP/XP/Gold 같은 수치를 더 이미지 기반으로 전환한다.
 3. Settings/Shop/Achievement 화면은 텍스트 밀도가 높으므로 별도 레이아웃 정리를 한다.

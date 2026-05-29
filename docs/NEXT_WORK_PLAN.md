@@ -1,21 +1,23 @@
 # Rust Survivors Next Work Plan
 
-Updated: 2026-05-28
+Updated: 2026-05-29
 
 This is the short agent-facing work plan. Long historical notes belong in `docs/PHASE_LOG.md`.
 
 ## Current Baseline
 
-- Repo: `/Volumes/SSD/Projects/rust-survivors`
+- Repo: `/Users/jkl/Projects/rust-survivors`
 - Main work target: `crates/game`
-- Engine: git dependency on `skeleton-engine`
-- Engine source repo: `/Volumes/SSD/Projects/skeleton-engine`
-- Current game build uses the latest engine commit in `Cargo.lock`.
+- Engine: local path dependency on `../../../skeleton-engine`
+- Engine source repo: `/Users/jkl/Projects/skeleton-engine`
+- Current game build resolves `skeleton-engine` from the sibling checkout for immediate engine/game co-development feedback.
+- Engine dependency workflow: `docs/ENGINE_DEPENDENCY_WORKFLOW.md`
 
 Validation baseline:
 
 ```bash
 cargo fmt --check
+cargo clippy --all-targets --locked -- -D warnings
 cargo test -p game --lib --locked -- --test-threads=1
 cargo build -p game --bin survivor --release --locked
 ```
@@ -27,7 +29,31 @@ bash scripts/package_macos.sh
 bash scripts/verify_macos_package.sh
 ```
 
-Latest observed lib test status: 147 passing.
+Latest observed lib test status: 157 passing.
+
+## Latest InGame Static Text Image UI Pass
+
+- Added language-specific PNG assets for fixed in-game UI text under `assets/textures/survivor/ui/`.
+- Replaced top HUD fixed labels `Lv/HP/XP/Gold/Kills/Passives` with image labels.
+- Replaced equipment section labels `Weapons/Passives` with image labels.
+- Replaced Level-up title, GameOver title, and restart hint with image assets.
+- Kept dynamic values in `TextQueue`: time, level number, HP/XP values, gold, kills, passive count, slot `Lv N`, card labels, and result stats.
+- Loaded the new assets through `SurvivorTextureHandles` and selected `{ko,en}` paths using `MetaSave::effective_lang()`.
+- Documented implementation details in `docs/INGAME_STATIC_TEXT_IMAGE_UI.md`.
+- Latest validation: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (157 passed), `cargo build -p game --bin survivor --release --locked`, `bash scripts/package_macos.sh`, and `bash scripts/verify_macos_package.sh`.
+
+## Latest UV Orientation Migration Pass
+
+- Consumed the sibling `skeleton-engine` checkout where the shared sprite quad now uses top-left UV origin.
+- Removed game-side engine-direction Y-flip compensation from survivor crop UVs, icon grid UVs, title backdrop, and full-image UI textures.
+- `SpriteFrame::uv()` now uses `UvRect::from_pixels(...)` directly, and `UiIconSystem` icon sheets now use `UvRect::from_grid(...)` directly.
+- Full-image `DrawImage` paths now rely on default `UvRect::FULL`.
+- Regression tests now assert positive/top-left UV sizes and default full UV for full-image UI queues.
+- `rg -n "flipped_y\\(|vertically_flipped_full_uv" crates/game/src` returns no matches.
+- Latest validation: `cargo fmt --check`, `cargo clippy --all-targets --locked -- -D warnings`, `cargo test -p game --lib --locked -- --test-threads=1` (151 passed), `cargo build -p game --bin survivor --release --locked`, and `bash scripts/package_macos.sh`.
+- Packaged app smoke: Title, InGame HUD/actor, debug boss spawn, GameOver modal, Shop power-up icons, and Level-up cards render upright.
+- Added InGame `L` debug input to force the next Level-up screen for repeatable visual QA.
+- 800x600 smoke now covers Title, Settings, InGame HUD/slots, and Level-up cards.
 
 ## Latest Title Menu Image UI Pass
 
@@ -59,7 +85,7 @@ Latest observed lib test status: 147 passing.
 ## Latest Engine Migration Pass
 
 - Updated the game dependency to `skeleton-engine v1.0.0` at `0e01b0f`.
-- Switched survivor crop UVs to `UvRect::from_pixels(...).flipped_y()` and icon sheet UVs to `UvRect::from_grid(...).flipped_y()`.
+- Earlier migration switched survivor crop/icon UVs to engine helpers with temporary Y-flip compensation; this was superseded by the UV Orientation Migration Pass.
 - Simplified survivor texture creation through `Sprite::textured_with_handle`, with `SurvivorTextureHandles` still owning game-specific path-to-handle lookup.
 - Moved HUD slot, level-up, and shop icon/background drawing from per-frame world entity spawn/despawn to `UiImageQueue` + `DrawImage`.
 - Latest validation: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (144 passed), `cargo check -p game --all-targets --locked`, and `cargo build -p game --bin survivor --release --locked`.
@@ -85,7 +111,7 @@ Latest observed lib test status: 147 passing.
 
 - Sprite atlas crop/UV fix: actor/item sprites no longer use only head crops.
 - Character/enemy size tuning: readable but reduced from the too-large 150px pass.
-- Vertical UV flip applied where needed for engine quad orientation.
+- Engine top-left UV orientation is now consumed directly; game-side direction compensation has been removed.
 - Generated and documented new sprite sheets:
   - `survivor_effects.png`
   - `survivor_actor_frames.png`
@@ -120,9 +146,9 @@ Do not do a broad `AtlasSprite` migration yet.
 
 Reason:
 
-- Several sheets need vertical UV flip.
 - `survivor_atlas.png` uses custom non-uniform crop rectangles.
-- Engine `AtlasSprite` is better for future clean uniform grids, but direct migration can reintroduce sprite flipping/cropping bugs.
+- Icon, passive, power-up, actor, and effect sheets still carry survivor-specific row/column/index metadata in game code.
+- Engine `AtlasSprite` is better for future clean uniform grids, but direct migration still needs visual regression coverage for crop/index behavior.
 
 Safe future improvement:
 
@@ -130,26 +156,33 @@ Safe future improvement:
 
 ## Immediate Priority
 
-1. Manual visual QA
+1. Gameplay feature debt
+   - Implement or intentionally remove currently inert stat effects: `luck`, `greed`, `curse`, and `revival`.
+   - Implement Level-up `Reroll`/`Skip`/`Banish` behavior or stop selling/rewarding those upgrades.
+
+2. Manual visual QA
    - KO/EN language switching for long strings in Title, Settings, Shop, cards, and results
    - Mouse hitbox feel for Title image buttons
    - Character and Stage select image-panel readability
    - Player/enemy/boss actor animation over longer play sessions
    - Whip/effect sprite visibility over longer play sessions
 
-2. Responsive UI tuning
+3. Responsive UI tuning
    - Verify high-DPI/Retina perceived sizes.
    - Keep player visually centered during boss spawn and zoom.
 
-3. Localization expansion
+4. Localization expansion
    - Ensure Korean/English strings cover Settings, achievements, shop, cards, stages, and game over.
 
-4. Asset polish
+5. Asset polish
    - Replace local generated placeholder art/audio with final licensed assets when available.
    - Keep `docs/ASSET_LICENSES.md` updated with paths and hashes.
 
-5. Release hardening
+6. Release hardening
    - Re-run macOS package verification after every asset list change.
+   - Confirm real speaker playback for BGM/SFX and boss/chest transitions.
+   - Confirm StageClear through a long-play/manual release smoke pass.
+   - Decide whether release/CI should keep the local `skeleton-engine` path dependency or switch back to a pinned git revision.
    - Keep save/meta changes simple; save compatibility is not required during active development unless requested.
 
 ## Working Rules

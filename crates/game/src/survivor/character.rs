@@ -16,20 +16,15 @@ use super::player::PlayerStats;
 // ─── CharacterKind ────────────────────────────────────────────────────────────
 
 /// 캐릭터 6종 (Vampire Survivors 풍).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CharacterKind {
-    Antonio,    // 시작 Whip — 가장 기본
+    #[default]
+    Antonio, // 시작 Whip — 가장 기본
     Imelda,     // 시작 MagicWand
     Pasqualina, // 시작 Knife — amount +1
     Gennaro,    // 시작 Axe — might +1
     Arca,       // 시작 FireWand — might +2
     Porta,      // 시작 LightningRing — luck *1.2
-}
-
-impl Default for CharacterKind {
-    fn default() -> Self {
-        Self::Antonio
-    }
 }
 
 impl CharacterKind {

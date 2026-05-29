@@ -248,6 +248,7 @@ pub fn spawn_projectile(
 /// - `damage`   : 타격 데미지
 /// - `color`    : RGB 색 (Sprite::colored 에 전달)
 /// - `behavior` : 이동 방식 (`Straight`, `Arc { gravity }`, `Boomerang { return_at, elapsed, returned }`)
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_projectile_ex(
     world: &mut World,
     pos: Vec2,

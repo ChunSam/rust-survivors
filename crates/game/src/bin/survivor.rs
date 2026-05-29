@@ -24,8 +24,8 @@
 //!            HP <= 0 → GameOver. R 키 → 재시작.
 //!            PlayerStats 16 필드 (might, area, projectile_speed, duration, amount, cooldown,
 //!            max_health, recovery, armor, move_speed, magnet, luck, growth, greed, curse, revival).
-//! **Phase 3-A 완료** — PlayerStats 16 필드 + StatRecalcSystem(stub) + HealthRegenSystem
-//!                     + 모든 무기/시스템(10종)에 stats 적용.
+//! **Phase 3-A 이후** — PlayerStats 16 필드 + StatRecalcSystem + HealthRegenSystem
+//!                    + 모든 무기/시스템(10종)에 stats 적용.
 
 use engine::{AnimationSystem, App, FontData, WindowConfig};
 use game::survivor::{
@@ -39,10 +39,19 @@ use game::survivor::{
     PlayerMovementSystem, ProjectileSystem, ResolutionPreset, RestartSystem, SfxSystem,
     ShopInputSystem, SpawnDirectorSystem, StageSelectSystem, StatRecalcSystem,
     SurvivorTextureHandles, TitleVisualSystem, UiIconSystem, WhipSystem, ACTOR_FRAMES_PATH,
-    ATLAS_PATH, EFFECTS_PATH, EVOLUTIONS_PATH, ICONS_PATH, MENU_BUTTON_CHARACTER_PATH,
-    MENU_BUTTON_SETTINGS_PATH, MENU_BUTTON_SHOP_PATH, MENU_BUTTON_STAGE_PATH,
-    MENU_BUTTON_START_PATH, PASSIVES_PATH, POWERUPS_PATH, TITLE_BACKDROP_PATH,
-    TITLE_LOGO_PLAQUE_PATH, UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
+    ATLAS_PATH, EFFECTS_PATH, EVOLUTIONS_PATH, GAMEOVER_TITLE_EN_PATH, GAMEOVER_TITLE_KO_PATH,
+    ICONS_PATH, INGAME_LABEL_GOLD_EN_PATH, INGAME_LABEL_GOLD_KO_PATH, INGAME_LABEL_HP_EN_PATH,
+    INGAME_LABEL_HP_KO_PATH, INGAME_LABEL_KILLS_EN_PATH, INGAME_LABEL_KILLS_KO_PATH,
+    INGAME_LABEL_LV_EN_PATH, INGAME_LABEL_LV_KO_PATH, INGAME_LABEL_PASSIVES_EN_PATH,
+    INGAME_LABEL_PASSIVES_KO_PATH, INGAME_LABEL_XP_EN_PATH, INGAME_LABEL_XP_KO_PATH,
+    LEVELUP_TITLE_EN_PATH, LEVELUP_TITLE_KO_PATH, MENU_BUTTON_ACHIEVEMENTS_EN_PATH,
+    MENU_BUTTON_ACHIEVEMENTS_KO_PATH, MENU_BUTTON_CHARACTER_EN_PATH, MENU_BUTTON_CHARACTER_KO_PATH,
+    MENU_BUTTON_SETTINGS_EN_PATH, MENU_BUTTON_SETTINGS_KO_PATH, MENU_BUTTON_SHOP_EN_PATH,
+    MENU_BUTTON_SHOP_KO_PATH, MENU_BUTTON_STAGE_EN_PATH, MENU_BUTTON_STAGE_KO_PATH,
+    MENU_BUTTON_START_EN_PATH, MENU_BUTTON_START_KO_PATH, PASSIVES_PATH, POWERUPS_PATH,
+    RESTART_HINT_EN_PATH, RESTART_HINT_KO_PATH, SECTION_PASSIVES_EN_PATH, SECTION_PASSIVES_KO_PATH,
+    SECTION_WEAPONS_EN_PATH, SECTION_WEAPONS_KO_PATH, TITLE_BACKDROP_PATH, TITLE_LOGO_PLAQUE_PATH,
+    UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
 };
 
 fn main() {
@@ -59,13 +68,13 @@ fn main() {
     //       → KingBible(책 스폰) → OrbitingBook(책 회전+tick) → LightningRing(번개) → LightningFlash(flash lifetime)
     // → ProjectileSystem(이동·충돌·데미지)
     // → 자석(픽업/끌어당김) → 히트플래시 → HUD (TextQueue push — 마지막)
-    app.add_system(DebugInputSystem); // 시각검증: H=도움말 F5=Bomb F6=Rosary B=보스 소환
+    app.add_system(DebugInputSystem); // 시각검증: H=도움말 F5=Bomb F6=Rosary B=보스 L=LevelUp
     app.add_system(ModeTransitionSystem); // Phase 8-A: 최상단 — SurvivorMode 전환 + GameState 동기화
     app.add_system(BgmSystem::default()); // Phase 11-H: BGM 자동 전환
     app.add_system(ShopInputSystem); // Phase 8-B: Shop 입력 처리
     app.add_system(CharacterSelectSystem); // Phase 9: 캐릭터 선택 입력 처리
     app.add_system(StageSelectSystem); // Phase 10: 스테이지 선택 입력 처리
-    app.add_system(StatRecalcSystem); // Phase 3-A: 패시브 합산해 PlayerStats 갱신 (현재 no-op)
+    app.add_system(StatRecalcSystem); // 패시브/파워업/캐릭터 보정을 합산해 PlayerStats 갱신
     app.add_system(LevelUpSystem);
     app.add_system(PlayerMovementSystem::default());
     app.add_system(EnemyAiSystem::default());
@@ -131,13 +140,42 @@ fn main() {
         powerups: app.load_image(POWERUPS_PATH),
         title_backdrop: app.load_image(TITLE_BACKDROP_PATH),
         title_logo_plaque: app.load_image(TITLE_LOGO_PLAQUE_PATH),
-        menu_button_start: app.load_image(MENU_BUTTON_START_PATH),
-        menu_button_character: app.load_image(MENU_BUTTON_CHARACTER_PATH),
-        menu_button_stage: app.load_image(MENU_BUTTON_STAGE_PATH),
-        menu_button_shop: app.load_image(MENU_BUTTON_SHOP_PATH),
-        menu_button_settings: app.load_image(MENU_BUTTON_SETTINGS_PATH),
+        menu_button_start_ko: app.load_image(MENU_BUTTON_START_KO_PATH),
+        menu_button_start_en: app.load_image(MENU_BUTTON_START_EN_PATH),
+        menu_button_character_ko: app.load_image(MENU_BUTTON_CHARACTER_KO_PATH),
+        menu_button_character_en: app.load_image(MENU_BUTTON_CHARACTER_EN_PATH),
+        menu_button_stage_ko: app.load_image(MENU_BUTTON_STAGE_KO_PATH),
+        menu_button_stage_en: app.load_image(MENU_BUTTON_STAGE_EN_PATH),
+        menu_button_shop_ko: app.load_image(MENU_BUTTON_SHOP_KO_PATH),
+        menu_button_shop_en: app.load_image(MENU_BUTTON_SHOP_EN_PATH),
+        menu_button_achievements_ko: app.load_image(MENU_BUTTON_ACHIEVEMENTS_KO_PATH),
+        menu_button_achievements_en: app.load_image(MENU_BUTTON_ACHIEVEMENTS_EN_PATH),
+        menu_button_settings_ko: app.load_image(MENU_BUTTON_SETTINGS_KO_PATH),
+        menu_button_settings_en: app.load_image(MENU_BUTTON_SETTINGS_EN_PATH),
         ui_modal_panel: app.load_image(UI_MODAL_PANEL_PATH),
         ui_slot_frame: app.load_image(UI_SLOT_FRAME_PATH),
+        ingame_label_lv_ko: app.load_image(INGAME_LABEL_LV_KO_PATH),
+        ingame_label_lv_en: app.load_image(INGAME_LABEL_LV_EN_PATH),
+        ingame_label_hp_ko: app.load_image(INGAME_LABEL_HP_KO_PATH),
+        ingame_label_hp_en: app.load_image(INGAME_LABEL_HP_EN_PATH),
+        ingame_label_xp_ko: app.load_image(INGAME_LABEL_XP_KO_PATH),
+        ingame_label_xp_en: app.load_image(INGAME_LABEL_XP_EN_PATH),
+        ingame_label_gold_ko: app.load_image(INGAME_LABEL_GOLD_KO_PATH),
+        ingame_label_gold_en: app.load_image(INGAME_LABEL_GOLD_EN_PATH),
+        ingame_label_kills_ko: app.load_image(INGAME_LABEL_KILLS_KO_PATH),
+        ingame_label_kills_en: app.load_image(INGAME_LABEL_KILLS_EN_PATH),
+        ingame_label_passives_ko: app.load_image(INGAME_LABEL_PASSIVES_KO_PATH),
+        ingame_label_passives_en: app.load_image(INGAME_LABEL_PASSIVES_EN_PATH),
+        levelup_title_ko: app.load_image(LEVELUP_TITLE_KO_PATH),
+        levelup_title_en: app.load_image(LEVELUP_TITLE_EN_PATH),
+        gameover_title_ko: app.load_image(GAMEOVER_TITLE_KO_PATH),
+        gameover_title_en: app.load_image(GAMEOVER_TITLE_EN_PATH),
+        restart_hint_ko: app.load_image(RESTART_HINT_KO_PATH),
+        restart_hint_en: app.load_image(RESTART_HINT_EN_PATH),
+        section_weapons_ko: app.load_image(SECTION_WEAPONS_KO_PATH),
+        section_weapons_en: app.load_image(SECTION_WEAPONS_EN_PATH),
+        section_passives_ko: app.load_image(SECTION_PASSIVES_KO_PATH),
+        section_passives_en: app.load_image(SECTION_PASSIVES_EN_PATH),
     };
     app.world.insert_resource(survivor_textures);
 

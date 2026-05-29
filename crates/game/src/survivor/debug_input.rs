@@ -3,11 +3,13 @@
 //! F5 = Bomb 픽업 플레이어 앞 스폰
 //! F6 = Rosary 픽업 플레이어 앞 스폰
 //! B  = GiantSlime 보스 즉시 소환 (F7은 macOS 미디어키 충돌)
+//! L  = Level-up 카드 화면 즉시 진입
 
 use super::boss::{spawn_boss, BossKind};
 use super::health::Health;
 use super::pickup::{Pickup, PickupKind};
 use super::player::Player;
+use super::xp::XpAccumulator;
 use engine::{Entity, InputState, Sprite, System, Transform, World};
 use glam::Vec2;
 use winit::keyboard::KeyCode;
@@ -22,7 +24,7 @@ pub struct DebugInputSystem;
 
 impl System for DebugInputSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
-        let (help_key, f5, f6, boss_key) = {
+        let (help_key, f5, f6, boss_key, level_key) = {
             let Some(input) = world.resource::<InputState>() else {
                 return;
             };
@@ -31,10 +33,11 @@ impl System for DebugInputSystem {
                 input.just_pressed(KeyCode::F5),
                 input.just_pressed(KeyCode::F6),
                 input.just_pressed(KeyCode::KeyB),
+                input.just_pressed(KeyCode::KeyL),
             )
         };
 
-        if !help_key && !f5 && !f6 && !boss_key {
+        if !help_key && !f5 && !f6 && !boss_key && !level_key {
             return;
         }
 
@@ -63,7 +66,22 @@ impl System for DebugInputSystem {
             }
             println!("[DEBUG] GiantSlime 보스 즉시 소환 (HP 3000)");
         }
+        if level_key && force_next_level_up(world) {
+            println!("[DEBUG] Level-up 카드 화면 즉시 진입");
+        }
     }
+}
+
+fn force_next_level_up(world: &mut World) -> bool {
+    let Some(player_entity) = world.query::<Player>().next().map(|(e, _)| e) else {
+        return false;
+    };
+    let Some(xp) = world.get_mut::<XpAccumulator>(player_entity) else {
+        return false;
+    };
+
+    xp.current = xp.current.max(xp.next_threshold);
+    true
 }
 
 fn find_player_pos(world: &World) -> Vec2 {
@@ -110,6 +128,7 @@ pub fn toggle_debug_overlay(world: &mut World) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::survivor::world_setup::spawn_player;
 
     #[test]
     fn debug_overlay_toggles_on_and_off() {
@@ -126,5 +145,17 @@ mod tests {
             world.resource::<DebugOverlay>(),
             Some(&DebugOverlay { visible: false })
         );
+    }
+
+    #[test]
+    fn force_next_level_up_sets_xp_to_threshold() {
+        let mut world = World::new();
+        spawn_player(&mut world);
+
+        assert!(force_next_level_up(&mut world));
+
+        let player_entity = world.query::<Player>().next().map(|(e, _)| e).unwrap();
+        let xp = world.get::<XpAccumulator>(player_entity).unwrap();
+        assert_eq!(xp.current, xp.next_threshold);
     }
 }

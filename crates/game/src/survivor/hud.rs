@@ -8,14 +8,23 @@ use super::inventory::{WeaponInventory, WeaponKind};
 use super::levelup::PendingLevelUp;
 use super::locale::{loc, text, Lang, UiText};
 use super::meta::{
-    title_button_layout, HudDetail, MetaSave, PauseMenuCursor, ResolutionPreset, SettingsCursor,
-    SurvivorMode, PAUSE_MENU_ITEMS, SETTINGS_ITEMS,
+    AchievementCursor, HudDetail, MetaSave, PauseMenuCursor, ResolutionPreset, SettingsCursor,
+    SurvivorMode, ACHIEVEMENTS_PER_PAGE, PAUSE_MENU_ITEMS, SETTINGS_ITEMS,
 };
 use super::passive::{PassiveInventory, PassiveKind};
 use super::pickup::GoldWallet;
 use super::player::{Player, PlayerStats};
 use super::powerup::{PowerUpKind, ShopCursor};
-use super::sprites::{survivor_texture_handle, UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH};
+use super::sprites::{
+    survivor_texture_aspect, survivor_texture_handle, GAMEOVER_TITLE_EN_PATH,
+    GAMEOVER_TITLE_KO_PATH, INGAME_LABEL_GOLD_EN_PATH, INGAME_LABEL_GOLD_KO_PATH,
+    INGAME_LABEL_HP_EN_PATH, INGAME_LABEL_HP_KO_PATH, INGAME_LABEL_KILLS_EN_PATH,
+    INGAME_LABEL_KILLS_KO_PATH, INGAME_LABEL_LV_EN_PATH, INGAME_LABEL_LV_KO_PATH,
+    INGAME_LABEL_PASSIVES_EN_PATH, INGAME_LABEL_PASSIVES_KO_PATH, INGAME_LABEL_XP_EN_PATH,
+    INGAME_LABEL_XP_KO_PATH, LEVELUP_TITLE_EN_PATH, LEVELUP_TITLE_KO_PATH, RESTART_HINT_EN_PATH,
+    RESTART_HINT_KO_PATH, SECTION_PASSIVES_EN_PATH, SECTION_PASSIVES_KO_PATH,
+    SECTION_WEAPONS_EN_PATH, SECTION_WEAPONS_KO_PATH, UI_MODAL_PANEL_PATH, UI_SLOT_FRAME_PATH,
+};
 use super::stage::{StageCursor, StageKind};
 use super::xp::XpAccumulator;
 use engine::renderer::text::{DrawText, TextQueue};
@@ -43,6 +52,142 @@ const LOCKED_TEXT_COLOR: [u8; 4] = [165, 165, 175, 255];
 const HELP_TEXT_COLOR: [u8; 4] = [190, 190, 195, 255];
 const UI_PANEL_IMAGE_Z: f32 = 24.0;
 const UI_ROW_IMAGE_Z: f32 = 34.0;
+const HUD_LABEL_BASE_H: f32 = 24.0;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IngameLabelKind {
+    Lv,
+    Hp,
+    Xp,
+    Gold,
+    Kills,
+    Passives,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IngameSectionKind {
+    Weapons,
+    Passives,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct HudLabelValue {
+    label: IngameLabelKind,
+    value: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct HudLabelLayout {
+    label_x: f32,
+    value_x: f32,
+    width: f32,
+}
+
+fn ingame_label_path(kind: IngameLabelKind, lang: Lang) -> &'static str {
+    match (kind, lang) {
+        (IngameLabelKind::Lv, Lang::Ko) => INGAME_LABEL_LV_KO_PATH,
+        (IngameLabelKind::Lv, Lang::En) => INGAME_LABEL_LV_EN_PATH,
+        (IngameLabelKind::Hp, Lang::Ko) => INGAME_LABEL_HP_KO_PATH,
+        (IngameLabelKind::Hp, Lang::En) => INGAME_LABEL_HP_EN_PATH,
+        (IngameLabelKind::Xp, Lang::Ko) => INGAME_LABEL_XP_KO_PATH,
+        (IngameLabelKind::Xp, Lang::En) => INGAME_LABEL_XP_EN_PATH,
+        (IngameLabelKind::Gold, Lang::Ko) => INGAME_LABEL_GOLD_KO_PATH,
+        (IngameLabelKind::Gold, Lang::En) => INGAME_LABEL_GOLD_EN_PATH,
+        (IngameLabelKind::Kills, Lang::Ko) => INGAME_LABEL_KILLS_KO_PATH,
+        (IngameLabelKind::Kills, Lang::En) => INGAME_LABEL_KILLS_EN_PATH,
+        (IngameLabelKind::Passives, Lang::Ko) => INGAME_LABEL_PASSIVES_KO_PATH,
+        (IngameLabelKind::Passives, Lang::En) => INGAME_LABEL_PASSIVES_EN_PATH,
+    }
+}
+
+fn ingame_label_width(_kind: IngameLabelKind, _lang: Lang, scale: f32) -> f32 {
+    let aspect = survivor_texture_aspect(INGAME_LABEL_LV_KO_PATH).unwrap_or(240.0 / 78.0);
+    HUD_LABEL_BASE_H * aspect * scale
+}
+
+fn estimated_text_width(value: &str, font_size: f32) -> f32 {
+    value.chars().count() as f32 * font_size * 0.54
+}
+
+fn hud_label_layouts(
+    start_x: f32,
+    lang: Lang,
+    scale: f32,
+    font_size: f32,
+    values: &[HudLabelValue],
+) -> Vec<HudLabelLayout> {
+    let gap = 12.0 * scale;
+    let label_value_gap = 5.0 * scale;
+    let mut x = start_x;
+    values
+        .iter()
+        .map(|item| {
+            let label_w = ingame_label_width(item.label, lang, scale);
+            let value_w = estimated_text_width(&item.value, font_size);
+            let width = label_w + label_value_gap + value_w + gap;
+            let layout = HudLabelLayout {
+                label_x: x,
+                value_x: x + label_w + label_value_gap,
+                width,
+            };
+            x += width;
+            layout
+        })
+        .collect()
+}
+
+#[cfg(test)]
+fn hud_label_row_width(lang: Lang, scale: f32, font_size: f32, values: &[HudLabelValue]) -> f32 {
+    hud_label_layouts(0.0, lang, scale, font_size, values)
+        .last()
+        .map(|layout| layout.label_x + layout.width)
+        .unwrap_or(0.0)
+}
+
+fn queue_ingame_ui_image(world: &mut World, rect: (f32, f32, f32, f32), path: &str, z: f32) {
+    queue_ui_texture(world, rect.0, rect.1, rect.2, rect.3, path, z);
+}
+
+fn aspect_fit_rect((x, y, w, h): (f32, f32, f32, f32), aspect: f32) -> (f32, f32, f32, f32) {
+    let rect_aspect = w / h.max(1.0);
+    if rect_aspect > aspect {
+        let fitted_w = h * aspect;
+        (x + (w - fitted_w) * 0.5, y, fitted_w, h)
+    } else {
+        let fitted_h = w / aspect.max(0.001);
+        (x, y + (h - fitted_h) * 0.5, w, fitted_h)
+    }
+}
+
+fn section_label_path(kind: IngameSectionKind, lang: Lang) -> &'static str {
+    match (kind, lang) {
+        (IngameSectionKind::Weapons, Lang::Ko) => SECTION_WEAPONS_KO_PATH,
+        (IngameSectionKind::Weapons, Lang::En) => SECTION_WEAPONS_EN_PATH,
+        (IngameSectionKind::Passives, Lang::Ko) => SECTION_PASSIVES_KO_PATH,
+        (IngameSectionKind::Passives, Lang::En) => SECTION_PASSIVES_EN_PATH,
+    }
+}
+
+fn levelup_title_path(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Ko => LEVELUP_TITLE_KO_PATH,
+        Lang::En => LEVELUP_TITLE_EN_PATH,
+    }
+}
+
+fn gameover_title_path(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Ko => GAMEOVER_TITLE_KO_PATH,
+        Lang::En => GAMEOVER_TITLE_EN_PATH,
+    }
+}
+
+fn restart_hint_path(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Ko => RESTART_HINT_KO_PATH,
+        Lang::En => RESTART_HINT_EN_PATH,
+    }
+}
 
 fn responsive_ui_scale(viewport_w: f32, viewport_h: f32) -> f32 {
     (viewport_w / 1280.0)
@@ -51,6 +196,9 @@ fn responsive_ui_scale(viewport_w: f32, viewport_h: f32) -> f32 {
 }
 
 fn queue_ui_texture(world: &mut World, x: f32, y: f32, w: f32, h: f32, path: &str, z: f32) {
+    let (x, y, w, h) = survivor_texture_aspect(path)
+        .map(|aspect| aspect_fit_rect((x, y, w, h), aspect))
+        .unwrap_or((x, y, w, h));
     let handle = survivor_texture_handle(world, path);
     if let Some(queue) = world.resource_mut::<UiImageQueue>() {
         queue.push(DrawImage::textured_with_handle(x, y, w, h, path, handle).with_z(z));
@@ -72,11 +220,17 @@ fn queue_ui_colored_image(
 }
 
 fn queue_modal_panel(world: &mut World, x: f32, y: f32, w: f32, h: f32, z: f32) {
+    let (x, y, w, h) = survivor_texture_aspect(UI_MODAL_PANEL_PATH)
+        .map(|aspect| aspect_fit_rect((x, y, w, h), aspect))
+        .unwrap_or((x, y, w, h));
     queue_ui_colored_image(world, x, y, w, h, [0.022, 0.019, 0.021, 1.0], z - 0.1);
     queue_ui_texture(world, x, y, w, h, UI_MODAL_PANEL_PATH, z);
 }
 
 fn queue_slot_frame(world: &mut World, x: f32, y: f32, w: f32, h: f32, z: f32) {
+    let (x, y, w, h) = survivor_texture_aspect(UI_SLOT_FRAME_PATH)
+        .map(|aspect| aspect_fit_rect((x, y, w, h), aspect))
+        .unwrap_or((x, y, w, h));
     queue_ui_colored_image(world, x, y, w, h, [0.024, 0.022, 0.024, 1.0], z - 0.1);
     queue_ui_texture(world, x, y, w, h, UI_SLOT_FRAME_PATH, z);
 }
@@ -101,6 +255,170 @@ mod tests {
             wide_short < baseline,
             "short viewport height should shrink UI even when viewport is wide"
         );
+    }
+
+    #[test]
+    fn queued_ui_texture_uses_default_full_uv() {
+        let mut world = World::new();
+        world.insert_resource(UiImageQueue::default());
+
+        queue_ui_texture(
+            &mut world,
+            10.0,
+            20.0,
+            100.0,
+            40.0,
+            UI_MODAL_PANEL_PATH,
+            3.0,
+        );
+
+        let queue = world.resource::<UiImageQueue>().unwrap();
+        assert_eq!(queue.items.len(), 1);
+        assert_eq!(queue.items[0].texture.as_deref(), Some(UI_MODAL_PANEL_PATH));
+        assert_eq!(queue.items[0].uv, engine::UvRect::FULL);
+    }
+
+    #[test]
+    fn queued_ui_texture_preserves_source_aspect() {
+        let mut world = World::new();
+        world.insert_resource(UiImageQueue::default());
+
+        queue_ui_texture(
+            &mut world,
+            10.0,
+            20.0,
+            100.0,
+            40.0,
+            UI_MODAL_PANEL_PATH,
+            3.0,
+        );
+
+        let queue = world.resource::<UiImageQueue>().unwrap();
+        let image = &queue.items[0];
+        let aspect = survivor_texture_aspect(UI_MODAL_PANEL_PATH).unwrap();
+        assert!((image.w / image.h - aspect).abs() < 0.001);
+    }
+
+    #[test]
+    fn ingame_static_ui_paths_follow_language() {
+        assert_eq!(
+            ingame_label_path(IngameLabelKind::Kills, Lang::Ko),
+            INGAME_LABEL_KILLS_KO_PATH
+        );
+        assert_eq!(
+            ingame_label_path(IngameLabelKind::Gold, Lang::En),
+            INGAME_LABEL_GOLD_EN_PATH
+        );
+        assert_eq!(
+            section_label_path(IngameSectionKind::Weapons, Lang::Ko),
+            SECTION_WEAPONS_KO_PATH
+        );
+        assert_eq!(levelup_title_path(Lang::En), LEVELUP_TITLE_EN_PATH);
+        assert_eq!(gameover_title_path(Lang::Ko), GAMEOVER_TITLE_KO_PATH);
+        assert_eq!(restart_hint_path(Lang::En), RESTART_HINT_EN_PATH);
+    }
+
+    #[test]
+    fn hud_label_rows_fit_supported_viewports() {
+        let compact_scale = responsive_ui_scale(800.0, 600.0);
+        let compact_values = vec![
+            HudLabelValue {
+                label: IngameLabelKind::Lv,
+                value: "12".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Hp,
+                value: "83/100".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Xp,
+                value: "12/35".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Kills,
+                value: "999".to_string(),
+            },
+        ];
+        assert!(
+            HUD_X * compact_scale
+                + estimated_text_width("59:59", 20.0 * compact_scale)
+                + 14.0 * compact_scale
+                + hud_label_row_width(
+                    Lang::En,
+                    compact_scale,
+                    20.0 * compact_scale,
+                    &compact_values
+                )
+                < 800.0
+        );
+
+        let wide_scale = responsive_ui_scale(1280.0, 720.0);
+        let wide_values = vec![
+            HudLabelValue {
+                label: IngameLabelKind::Lv,
+                value: "99".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Hp,
+                value: "999/999".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Xp,
+                value: "99/999".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Gold,
+                value: "99999".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Passives,
+                value: "6".to_string(),
+            },
+            HudLabelValue {
+                label: IngameLabelKind::Kills,
+                value: "9999".to_string(),
+            },
+        ];
+        assert!(
+            HUD_X
+                + estimated_text_width("59:59", 19.0 * wide_scale)
+                + 14.0 * wide_scale
+                + hud_label_row_width(Lang::En, wide_scale, 19.0 * wide_scale, &wide_values)
+                < 1280.0
+        );
+    }
+
+    #[test]
+    fn title_hud_does_not_queue_text() {
+        let mut world = World::new();
+        world.insert_resource(TextQueue::default());
+
+        draw_title_hud(&mut world, 800.0, 600.0, Lang::Ko, true);
+
+        let queue = world.resource::<TextQueue>().unwrap();
+        assert!(queue.is_empty());
+    }
+
+    #[test]
+    fn achievements_hud_keeps_gold_out_of_summary() {
+        let mut world = World::new();
+        world.insert_resource(TextQueue::default());
+        world.insert_resource(UiQueue::default());
+        world.insert_resource(UiImageQueue::default());
+        world.insert_resource(MetaSave {
+            gold_total: 999,
+            kills_total: 5,
+            best_time: 61.0,
+            ..Default::default()
+        });
+
+        draw_achievements_hud(&mut world, 800.0, 600.0, Lang::En);
+
+        let queue = world.resource::<TextQueue>().unwrap();
+        assert!(queue.iter().any(|item| item.text.contains("Best 01:01")));
+        assert!(queue.iter().any(|item| item.text.contains("Kills 5")));
+        assert!(!queue.iter().any(|item| item.text.contains("Gold")));
+        assert!(!queue.iter().any(|item| item.text.contains("999")));
     }
 
     #[test]
@@ -202,119 +520,7 @@ fn hp_color(ratio: f32) -> [f32; 4] {
     }
 }
 
-fn draw_title_hud(world: &mut World, vw: f32, vh: f32, lang: Lang, compact_resolution: bool) {
-    let cx = vw / 2.0;
-    let cy = vh / 2.0;
-    let panel_w = (vw - 48.0).max(720.0).min(vw - 24.0);
-    let panel_h = (vh * 0.82).clamp(540.0, 700.0).min(vh - 32.0);
-    let panel_x = cx - panel_w / 2.0;
-    let panel_y = cy - panel_h / 2.0;
-    let title_size = if compact_resolution { 72.0 } else { 122.0 };
-    let title_w = if compact_resolution { 590.0 } else { 990.0 };
-    let title_buttons = title_button_layout(vw, vh);
-    let (start_x, start_y, start_w, start_h) = title_buttons.start;
-    let button_w = title_buttons.buttons[0].2;
-    let button_h = title_buttons.buttons[0].3;
-    if let Some(uq) = world.resource_mut::<UiQueue>() {
-        uq.push(DrawRect::new(0.0, 0.0, vw, vh, [0.0, 0.0, 0.05, 0.35]).with_z(0.0));
-        uq.push(
-            DrawRect::new(
-                panel_x,
-                panel_y,
-                panel_w,
-                panel_h,
-                [0.02, 0.015, 0.03, 0.72],
-            )
-            .with_z(0.08),
-        );
-        uq.push(
-            DrawRect::new(start_x, start_y, start_w, start_h, [0.34, 0.25, 0.06, 0.94])
-                .with_z(0.12),
-        );
-        for i in 0..4 {
-            let (x, y, w, h) = title_buttons.buttons[i];
-            uq.push(DrawRect::new(x, y, w, h, [0.08, 0.075, 0.11, 0.92]).with_z(0.12));
-        }
-        uq.push(
-            DrawRect::new(
-                panel_x + 48.0,
-                panel_y + panel_h - 58.0,
-                panel_w - 96.0,
-                42.0,
-                [0.02, 0.015, 0.03, 0.66],
-            )
-            .with_z(0.08),
-        );
-    }
-    if let Some(q) = world.resource_mut::<TextQueue>() {
-        q.push(DrawText::new(
-            text(lang, UiText::GameTitle).to_string(),
-            Vec2::new(cx - title_w / 2.0 + 5.0, panel_y + 58.0),
-            title_size,
-            [20, 12, 8, 230],
-        ));
-        q.push(DrawText::new(
-            text(lang, UiText::GameTitle).to_string(),
-            Vec2::new(cx - title_w / 2.0, panel_y + 52.0),
-            title_size,
-            [255, 220, 80, 255],
-        ));
-        q.push(DrawText::new(
-            text(lang, UiText::PressEnterStart).to_string(),
-            Vec2::new(start_x + start_w * 0.23, start_y + start_h * 0.25),
-            if vh <= 620.0 { 34.0 } else { 44.0 },
-            [255, 255, 255, 255],
-        ));
-        let button_text_y = title_buttons.buttons[0].1 + button_h * 0.36;
-        let button_text_size = if compact_resolution { 21.0 } else { 30.0 };
-        q.push(DrawText::new(
-            loc(lang, "캐릭터", "Character").to_string(),
-            Vec2::new(title_buttons.buttons[0].0 + button_w * 0.34, button_text_y),
-            button_text_size,
-            [225, 225, 245, 255],
-        ));
-        q.push(DrawText::new(
-            loc(lang, "스테이지", "Stage").to_string(),
-            Vec2::new(title_buttons.buttons[1].0 + button_w * 0.36, button_text_y),
-            button_text_size,
-            [225, 225, 245, 255],
-        ));
-        q.push(DrawText::new(
-            loc(lang, "상점", "Shop").to_string(),
-            Vec2::new(title_buttons.buttons[2].0 + button_w * 0.42, button_text_y),
-            button_text_size,
-            [225, 225, 245, 255],
-        ));
-        q.push(DrawText::new(
-            text(lang, UiText::Settings).to_string(),
-            Vec2::new(title_buttons.buttons[3].0 + button_w * 0.34, button_text_y),
-            button_text_size,
-            [225, 225, 245, 255],
-        ));
-    }
-    let meta_info = world
-        .resource::<MetaSave>()
-        .map(|m| (m.gold_total, m.best_time, m.kills_total));
-    if let Some((gold, best, kills)) = meta_info {
-        if let Some(q) = world.resource_mut::<TextQueue>() {
-            q.push(DrawText::new(
-                format!(
-                    "{} {}  {} {:02}:{:02}  {} {}",
-                    text(lang, UiText::Gold),
-                    gold,
-                    text(lang, UiText::Best),
-                    (best as u32) / 60,
-                    (best as u32) % 60,
-                    text(lang, UiText::Kills),
-                    kills
-                ),
-                Vec2::new(cx - 330.0, panel_y + panel_h - 36.0),
-                22.0,
-                [200, 200, 200, 255],
-            ));
-        }
-    }
-}
+fn draw_title_hud(_world: &mut World, _vw: f32, _vh: f32, _lang: Lang, _compact_resolution: bool) {}
 
 fn draw_character_select_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
     let cx = vw / 2.0;
@@ -516,8 +722,16 @@ fn draw_shop_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
     let cx = vw / 2.0;
     let meta_clone = world.resource::<MetaSave>().cloned();
     let cursor_idx = world.resource::<ShopCursor>().map(|c| c.index).unwrap_or(0);
-    let panel_w = (vw - 28.0).min(980.0).max(620.0).min(vw - 16.0);
-    let panel_h = (vh - 36.0).min(660.0).max(420.0).min(vh - 20.0);
+    let panel_w = if vw - 16.0 < 620.0 {
+        vw - 16.0
+    } else {
+        (vw - 28.0).clamp(620.0, 980.0)
+    };
+    let panel_h = if vh - 20.0 < 420.0 {
+        vh - 20.0
+    } else {
+        (vh - 36.0).clamp(420.0, 660.0)
+    };
     queue_modal_panel(
         world,
         cx - panel_w / 2.0,
@@ -578,55 +792,129 @@ fn draw_shop_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
             18.0,
             HELP_TEXT_COLOR,
         ));
+    }
+}
 
-        if let Some(meta) = &meta_clone {
-            let done = AchievementKind::ALL
-                .iter()
-                .filter(|&&a| achievement_completed(meta, a))
-                .count();
-            let ax = (cx + 150.0).min(vw - 300.0);
-            let compact_achievements = vw <= 900.0;
+fn draw_achievements_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
+    let cx = vw / 2.0;
+    let cursor = world
+        .resource::<AchievementCursor>()
+        .copied()
+        .unwrap_or_default();
+    let page_count =
+        (AchievementKind::ALL.len() + ACHIEVEMENTS_PER_PAGE - 1) / ACHIEVEMENTS_PER_PAGE;
+    let page = cursor.page.min(page_count.saturating_sub(1));
+    let start = page * ACHIEVEMENTS_PER_PAGE;
+    let page_items = AchievementKind::ALL
+        .len()
+        .saturating_sub(start)
+        .min(ACHIEVEMENTS_PER_PAGE);
+    let selected = cursor.index.min(page_items.saturating_sub(1));
+    let meta_snapshot = world.resource::<MetaSave>().cloned().unwrap_or_default();
+    let done = AchievementKind::ALL
+        .iter()
+        .filter(|&&a| achievement_completed(&meta_snapshot, a))
+        .count();
+    let best = meta_snapshot.best_time as u32;
+    let row_step = if vh <= 620.0 { 34.0 } else { 40.0 };
+    let row_y = if vh <= 620.0 { 116.0 } else { 124.0 };
+    let panel_w = if vw - 16.0 < 720.0 {
+        vw - 16.0
+    } else {
+        (vw - 36.0).clamp(720.0, 980.0)
+    };
+    let panel_h = (vh - 30.0).clamp(520.0, 680.0).min(vh - 20.0);
+    let panel_x = cx - panel_w / 2.0;
+
+    queue_modal_panel(world, panel_x, 10.0, panel_w, panel_h, UI_PANEL_IMAGE_Z);
+    queue_slot_frame(
+        world,
+        panel_x + 32.0,
+        row_y - 10.0 + selected as f32 * row_step,
+        panel_w - 64.0,
+        row_step + 8.0,
+        UI_ROW_IMAGE_Z,
+    );
+    if let Some(uq) = world.resource_mut::<UiQueue>() {
+        uq.push(
+            DrawRect::new(
+                panel_x + 46.0,
+                row_y - 2.0 + selected as f32 * row_step,
+                panel_w - 92.0,
+                row_step - 8.0,
+                [0.25, 0.22, 0.05, 0.75],
+            )
+            .with_z(0.2),
+        );
+    }
+
+    if let Some(q) = world.resource_mut::<TextQueue>() {
+        q.push(DrawText::new(
+            text(lang, UiText::Achievements).to_string(),
+            Vec2::new(panel_x + 42.0, 28.0),
+            38.0,
+            [255, 220, 80, 255],
+        ));
+        q.push(DrawText::new(
+            format!(
+                "{} {:02}:{:02}  {} {}  {}/{}  {} {}/{}",
+                text(lang, UiText::Best),
+                best / 60,
+                best % 60,
+                text(lang, UiText::Kills),
+                meta_snapshot.kills_total,
+                done,
+                AchievementKind::ALL.len(),
+                loc(lang, "페이지", "Page"),
+                page + 1,
+                page_count
+            ),
+            Vec2::new(panel_x + 42.0, 76.0),
+            if vh <= 620.0 { 17.0 } else { 20.0 },
+            [220, 220, 225, 255],
+        ));
+
+        for (i, &achievement) in AchievementKind::ALL
+            .iter()
+            .skip(start)
+            .take(ACHIEVEMENTS_PER_PAGE)
+            .enumerate()
+        {
+            let completed = achievement_completed(&meta_snapshot, achievement);
+            let prefix = if i == selected { ">" } else { " " };
+            let mark = if completed { "[x]" } else { "[ ]" };
+            let color = if i == selected {
+                [255, 255, 90, 255]
+            } else if completed {
+                [210, 240, 190, 255]
+            } else {
+                LOCKED_TEXT_COLOR
+            };
             q.push(DrawText::new(
                 format!(
-                    "{} {}/{}",
-                    text(lang, UiText::Achievements),
-                    done,
-                    AchievementKind::ALL.len()
+                    "{} {} {} - {}",
+                    prefix,
+                    mark,
+                    achievement.title(lang),
+                    achievement.reward(lang)
                 ),
-                Vec2::new(ax, 80.0),
-                22.0,
-                [255, 220, 80, 255],
+                Vec2::new(panel_x + 56.0, row_y + i as f32 * row_step),
+                if vh <= 620.0 { 15.0 } else { 17.0 },
+                color,
             ));
-            let achievement_rows = if compact_achievements { 6 } else { 8 };
-            for (i, &achievement) in AchievementKind::ALL
-                .iter()
-                .take(achievement_rows)
-                .enumerate()
-            {
-                let completed = achievement_completed(meta, achievement);
-                let mark = if completed { "[x]" } else { "[ ]" };
-                let color = if completed {
-                    [210, 240, 190, 255]
-                } else {
-                    LOCKED_TEXT_COLOR
-                };
-                q.push(DrawText::new(
-                    if compact_achievements {
-                        format!("{} {}", mark, achievement.title(lang))
-                    } else {
-                        format!(
-                            "{} {} - {}",
-                            mark,
-                            achievement.title(lang),
-                            achievement.reward(lang)
-                        )
-                    },
-                    Vec2::new(ax, 112.0 + i as f32 * 28.0),
-                    if compact_achievements { 16.0 } else { 15.0 },
-                    color,
-                ));
-            }
         }
+
+        q.push(DrawText::new(
+            loc(
+                lang,
+                "W/S = 이동  A/D = 페이지  ESC = 뒤로",
+                "W/S = navigate  A/D = page  ESC = back",
+            )
+            .to_string(),
+            Vec2::new(panel_x + 42.0, 10.0 + panel_h - 34.0),
+            18.0,
+            HELP_TEXT_COLOR,
+        ));
     }
 }
 
@@ -864,6 +1152,10 @@ impl System for HudSystem {
                 draw_shop_hud(world, vw, vh, lang);
                 return;
             }
+            SurvivorMode::Achievements => {
+                draw_achievements_hud(world, vw, vh, lang);
+                return;
+            }
             SurvivorMode::PauseMenu => {
                 draw_pause_menu_hud(world, vw, vh, lang);
                 return;
@@ -934,13 +1226,15 @@ impl System for HudSystem {
             } else {
                 0.0
             };
-            let compact_detailed_hud =
-                (vw <= 900.0 || compact_resolution) && matches!(hud_detail, HudDetail::Detailed);
+            let compact_hud = vw <= 900.0 || compact_resolution;
+            let compact_detailed_hud = compact_hud && matches!(hud_detail, HudDetail::Detailed);
             let panel_h = if compact_detailed_hud { 120.0 } else { 64.0 };
             let panel_w = (if compact_detailed_hud {
                 390.0_f32
-            } else {
+            } else if compact_hud {
                 560.0_f32
+            } else {
+                720.0_f32
             } * ui_scale)
                 .min(vw - 16.0 * ui_scale);
             queue_slot_frame(
@@ -997,25 +1291,45 @@ impl System for HudSystem {
             let hp_text = format!("{:.0}/{:.0}", hp.max(0.0), hp_max);
             let xp_text = format!("{}/{}", xp, xp_max);
             let mut stat_lines: Vec<String> = Vec::new();
-            let info_line = match hud_detail {
+            let info_size = if compact_detailed_hud {
+                21.0
+            } else if compact_hud {
+                20.0
+            } else {
+                19.0
+            };
+            let stat_size = if compact_detailed_hud {
+                19.0
+            } else if compact_hud {
+                18.0
+            } else {
+                17.0
+            };
+            let time_text = format!("{:02}:{:02}", mm, ss);
+            let mut primary_values = Vec::new();
+            let mut secondary_values = Vec::new();
+            match hud_detail {
                 HudDetail::Minimal => {
-                    format!(
-                        "{:02}:{:02}  {} {}  {} {}  {} {}  {} {}",
-                        mm,
-                        ss,
-                        text(lang, UiText::Lv),
-                        lv,
-                        text(lang, UiText::Hp),
-                        hp_text,
-                        text(lang, UiText::Xp),
-                        xp_text,
-                        text(lang, UiText::Kills),
-                        kills
-                    )
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Lv,
+                        value: lv.to_string(),
+                    });
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Hp,
+                        value: hp_text.clone(),
+                    });
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Xp,
+                        value: xp_text.clone(),
+                    });
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Kills,
+                        value: kills.to_string(),
+                    });
                 }
                 HudDetail::Detailed => {
                     if let Some(stats) = player_stats {
-                        if vw <= 900.0 || compact_resolution {
+                        if compact_hud {
                             let (line_a, line_b) = compact_stats_lines(lang, &stats);
                             stat_lines.push(line_a);
                             stat_lines.push(line_b);
@@ -1023,87 +1337,108 @@ impl System for HudSystem {
                             stat_lines.push(compact_stats_line(lang, &stats));
                         }
                     }
-                    if vw <= 900.0 || compact_resolution {
-                        format!(
-                            "{:02}:{:02}  {} {}  {} {}",
-                            mm,
-                            ss,
-                            text(lang, UiText::Lv),
-                            lv,
-                            text(lang, UiText::Hp),
-                            hp_text
-                        )
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Lv,
+                        value: lv.to_string(),
+                    });
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Hp,
+                        value: hp_text.clone(),
+                    });
+                    if compact_hud {
+                        secondary_values.push(HudLabelValue {
+                            label: IngameLabelKind::Xp,
+                            value: xp_text.clone(),
+                        });
+                        secondary_values.push(HudLabelValue {
+                            label: IngameLabelKind::Kills,
+                            value: kills.to_string(),
+                        });
                     } else {
-                        format!(
-                            "{:02}:{:02}  {} {}  {} {}  {} {}  {} {}  {} {}",
-                            mm,
-                            ss,
-                            text(lang, UiText::Lv),
-                            lv,
-                            text(lang, UiText::Hp),
-                            hp_text,
-                            text(lang, UiText::Xp),
-                            xp_text,
-                            text(lang, UiText::Gold),
-                            gold,
-                            text(lang, UiText::Kills),
-                            kills
-                        )
+                        primary_values.push(HudLabelValue {
+                            label: IngameLabelKind::Xp,
+                            value: xp_text.clone(),
+                        });
+                        primary_values.push(HudLabelValue {
+                            label: IngameLabelKind::Gold,
+                            value: gold.to_string(),
+                        });
+                        primary_values.push(HudLabelValue {
+                            label: IngameLabelKind::Kills,
+                            value: kills.to_string(),
+                        });
                     }
                 }
                 HudDetail::Normal => {
-                    if vw <= 900.0 || compact_resolution {
-                        format!(
-                            "{:02}:{:02}  {} {}  {} {}  {} {}  {} {}",
-                            mm,
-                            ss,
-                            text(lang, UiText::Lv),
-                            lv,
-                            text(lang, UiText::Hp),
-                            hp_text,
-                            text(lang, UiText::Xp),
-                            xp_text,
-                            text(lang, UiText::Kills),
-                            kills
-                        )
-                    } else {
-                        format!(
-                            "{:02}:{:02}  {} {}  {} {}  {} {}  {} {}  {} {}  {} {}",
-                            mm,
-                            ss,
-                            text(lang, UiText::Lv),
-                            lv,
-                            text(lang, UiText::Hp),
-                            hp_text,
-                            text(lang, UiText::Xp),
-                            xp_text,
-                            text(lang, UiText::Gold),
-                            gold,
-                            text(lang, UiText::Passives),
-                            passive_count,
-                            text(lang, UiText::Kills),
-                            kills
-                        )
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Lv,
+                        value: lv.to_string(),
+                    });
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Hp,
+                        value: hp_text.clone(),
+                    });
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Xp,
+                        value: xp_text.clone(),
+                    });
+                    if !compact_hud {
+                        primary_values.push(HudLabelValue {
+                            label: IngameLabelKind::Gold,
+                            value: gold.to_string(),
+                        });
+                        primary_values.push(HudLabelValue {
+                            label: IngameLabelKind::Passives,
+                            value: passive_count.to_string(),
+                        });
                     }
+                    primary_values.push(HudLabelValue {
+                        label: IngameLabelKind::Kills,
+                        value: kills.to_string(),
+                    });
                 }
             };
+            let primary_y = hud_y + 30.0 * ui_scale;
+            let secondary_y = hud_y + 54.0 * ui_scale;
+            let info_font_size = info_size * ui_scale;
+            let time_width = estimated_text_width(&time_text, info_font_size) + 14.0 * ui_scale;
+            let primary_layouts = hud_label_layouts(
+                hud_x + time_width,
+                lang,
+                ui_scale,
+                info_font_size,
+                &primary_values,
+            );
+            let secondary_layouts =
+                hud_label_layouts(hud_x, lang, ui_scale, info_font_size, &secondary_values);
+            let label_h = HUD_LABEL_BASE_H * ui_scale;
+            for (item, layout) in primary_values.iter().zip(primary_layouts.iter()) {
+                queue_ingame_ui_image(
+                    world,
+                    (
+                        layout.label_x,
+                        primary_y + 2.0 * ui_scale,
+                        ingame_label_width(item.label, lang, ui_scale),
+                        label_h,
+                    ),
+                    ingame_label_path(item.label, lang),
+                    UI_ROW_IMAGE_Z + 3.0,
+                );
+            }
+            for (item, layout) in secondary_values.iter().zip(secondary_layouts.iter()) {
+                queue_ingame_ui_image(
+                    world,
+                    (
+                        layout.label_x,
+                        secondary_y + 2.0 * ui_scale,
+                        ingame_label_width(item.label, lang, ui_scale),
+                        label_h,
+                    ),
+                    ingame_label_path(item.label, lang),
+                    UI_ROW_IMAGE_Z + 3.0,
+                );
+            }
             if let Some(q) = world.resource_mut::<TextQueue>() {
-                let compact_hud = vw <= 900.0 || compact_resolution;
-                let compact_detailed_hud = compact_hud && matches!(hud_detail, HudDetail::Detailed);
-                let info_size = if compact_detailed_hud {
-                    21.0
-                } else if compact_hud {
-                    20.0
-                } else {
-                    19.0
-                };
-                let stat_size = if compact_detailed_hud {
-                    19.0
-                } else if compact_hud {
-                    18.0
-                } else {
-                    17.0
-                };
                 q.push(DrawText::new(
                     hp_text,
                     Vec2::new(hud_x + hp_bar_w + 8.0 * ui_scale, hud_y - ui_scale),
@@ -1117,24 +1452,28 @@ impl System for HudSystem {
                     [255, 255, 255, 255],
                 ));
                 q.push(DrawText::new(
-                    info_line,
-                    Vec2::new(hud_x, hud_y + 30.0 * ui_scale),
-                    info_size * ui_scale,
+                    time_text,
+                    Vec2::new(hud_x, primary_y),
+                    info_font_size,
                     [210, 210, 210, 255],
                 ));
-                if compact_detailed_hud {
+                for (item, layout) in primary_values.iter().zip(primary_layouts.iter()) {
                     q.push(DrawText::new(
-                        format!(
-                            "{} {}  {} {}",
-                            text(lang, UiText::Xp),
-                            xp_text,
-                            text(lang, UiText::Kills),
-                            kills
-                        ),
-                        Vec2::new(hud_x, hud_y + 54.0 * ui_scale),
-                        info_size * ui_scale,
+                        item.value.clone(),
+                        Vec2::new(layout.value_x, primary_y),
+                        info_font_size,
                         [210, 210, 210, 255],
                     ));
+                }
+                if !secondary_values.is_empty() {
+                    for (item, layout) in secondary_values.iter().zip(secondary_layouts.iter()) {
+                        q.push(DrawText::new(
+                            item.value.clone(),
+                            Vec2::new(layout.value_x, secondary_y),
+                            info_font_size,
+                            [210, 210, 210, 255],
+                        ));
+                    }
                 }
                 for (i, stat_line) in stat_lines.into_iter().enumerate() {
                     let y = if compact_hud {
@@ -1237,20 +1576,30 @@ impl System for HudSystem {
             let weapon_y = vh - XP_BAR_H * ui_scale - slot_h * 2.0 - slot_gap - 16.0 * ui_scale;
             let passive_y = weapon_y + slot_h + slot_gap;
 
-            if let Some(q) = world.resource_mut::<TextQueue>() {
-                q.push(DrawText::new(
-                    text(lang, UiText::Weapons).to_string(),
-                    Vec2::new(slot_x0, weapon_y - 24.0 * ui_scale),
-                    16.0 * ui_scale,
-                    [200, 210, 235, 255],
-                ));
-                q.push(DrawText::new(
-                    text(lang, UiText::Passives).to_string(),
-                    Vec2::new(slot_x0 + 86.0 * ui_scale, weapon_y - 24.0 * ui_scale),
-                    16.0 * ui_scale,
-                    [200, 210, 235, 255],
-                ));
+            queue_ingame_ui_image(
+                world,
+                (
+                    slot_x0,
+                    weapon_y - 32.0 * ui_scale,
+                    124.0 * ui_scale,
+                    31.0 * ui_scale,
+                ),
+                section_label_path(IngameSectionKind::Weapons, lang),
+                UI_ROW_IMAGE_Z + 3.0,
+            );
+            queue_ingame_ui_image(
+                world,
+                (
+                    slot_x0 + 132.0 * ui_scale,
+                    weapon_y - 32.0 * ui_scale,
+                    144.0 * ui_scale,
+                    31.0 * ui_scale,
+                ),
+                section_label_path(IngameSectionKind::Passives, lang),
+                UI_ROW_IMAGE_Z + 3.0,
+            );
 
+            if let Some(q) = world.resource_mut::<TextQueue>() {
                 for i in 0..SLOT_COLS {
                     let sx = slot_x0 + i as f32 * (slot_w + slot_gap);
                     if let Some((_, level, evolved)) = weapon_slots.get(i) {
@@ -1294,13 +1643,13 @@ impl System for HudSystem {
                     let offered = p.offered;
                     let cx = vw / 2.0;
                     let cy = vh / 2.0;
+                    queue_ingame_ui_image(
+                        world,
+                        (cx - 190.0, cy - 168.0, 380.0, 95.0),
+                        levelup_title_path(lang),
+                        UI_PANEL_IMAGE_Z + 8.0,
+                    );
                     if let Some(q) = world.resource_mut::<TextQueue>() {
-                        q.push(DrawText::new(
-                            text(lang, UiText::LevelUp).to_string(),
-                            Vec2::new(cx - 78.0, cy - 136.0),
-                            48.0,
-                            [255, 220, 80, 255],
-                        ));
                         q.push(DrawText::new(
                             format!("1.  {}", offered[0].label(lang)),
                             Vec2::new(cx - 178.0, cy - 48.0),
@@ -1339,16 +1688,22 @@ impl System for HudSystem {
                 444.0,
                 UI_PANEL_IMAGE_Z,
             );
+            queue_ingame_ui_image(
+                world,
+                (cx - 205.0, cy - 194.0, 410.0, 102.0),
+                gameover_title_path(lang),
+                UI_PANEL_IMAGE_Z + 8.0,
+            );
+            queue_ingame_ui_image(
+                world,
+                (cx - 186.0, cy + 124.0, 372.0, 76.0),
+                restart_hint_path(lang),
+                UI_PANEL_IMAGE_Z + 8.0,
+            );
             if let Some(uq) = world.resource_mut::<UiQueue>() {
                 uq.push(DrawRect::new(0.0, 0.0, vw, vh, [0.0, 0.0, 0.0, 0.62]).with_z(0.0));
             }
             if let Some(q) = world.resource_mut::<TextQueue>() {
-                q.push(DrawText::new(
-                    text(lang, UiText::GameOver).to_string(),
-                    Vec2::new(cx - 105.0, cy - 170.0),
-                    64.0,
-                    [255, 60, 60, 255],
-                ));
                 q.push(DrawText::new(
                     format!(
                         "{} {:02}:{:02}  {} {}  {} {}  {} {}",
@@ -1365,12 +1720,6 @@ impl System for HudSystem {
                     Vec2::new(cx - 270.0, cy - 20.0),
                     22.0,
                     [220, 180, 180, 255],
-                ));
-                q.push(DrawText::new(
-                    text(lang, UiText::RestartHint).to_string(),
-                    Vec2::new(cx - 115.0, cy + 140.0),
-                    28.0,
-                    [255, 255, 255, 255],
                 ));
             }
         }
