@@ -138,6 +138,7 @@ bash scripts/verify_macos_package.sh
 
 - Title logo/button과 공통 modal/slot frame 이미지를 제출하기 전에 불투명한 어두운 backing `DrawImage::colored(...)`를 먼저 큐에 넣었다.
 - Settings 도움말 문구를 프레임 밖 아래쪽으로 이동하고 글자 크기를 줄였다.
+- 2026-05-29 로고풍 텍스트 투명 PNG 패스에서 Title logo/button용 backing은 제거되었다. 공통 modal/slot frame backing은 유지한다.
 
 확인:
 

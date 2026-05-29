@@ -29,7 +29,43 @@ bash scripts/package_macos.sh
 bash scripts/verify_macos_package.sh
 ```
 
-Latest observed lib test status: 157 passing.
+Latest observed lib test status: 167 passing.
+
+## Latest Logo Text Transparent PNG Pass
+
+- Regenerated the fixed text PNG set in a stronger logo-style direction after sample approval.
+- Scope:
+  - `assets/textures/survivor/menu/title_logo_plaque_v3.png`
+  - `assets/textures/survivor/menu/menu_button_*_{ko,en}.png`
+  - `assets/textures/survivor/ui/ingame_label_*.png`
+  - `assets/textures/survivor/ui/levelup_title_*.png`
+  - `assets/textures/survivor/ui/gameover_title_*.png`
+  - `assets/textures/survivor/ui/restart_hint_*.png`
+  - `assets/textures/survivor/ui/section_*.png`
+- Style baseline: approved `menu_button_start_ko.png` sample with gold metal text, dark cracked stone plaque, simpler gothic frame, and red gem accents.
+- Applied alpha masks with `scripts/make_text_ui_transparent.py`.
+  - The script keeps the dark stone plaque and visible metal/gem details.
+  - It clears only the outer canvas background.
+  - It preserves the existing runtime dimensions.
+- Removed the Title-only opaque backing rectangles from `TitleVisualSystem`; title logo/buttons now rely on PNG alpha directly.
+- Kept `ui_modal_panel.png` / `ui_slot_frame.png` backing behavior because those shared UI frames were not part of this text PNG transparency pass.
+- Documentation:
+  - Main pass note: `docs/LOGO_TEXT_IMAGE_PASS.md`
+  - Asset hashes: `docs/ASSET_LICENSES.md`
+  - Title menu details: `docs/TITLE_MENU_IMAGE_UI.md`
+  - In-game static text details: `docs/INGAME_STATIC_TEXT_IMAGE_UI.md`
+  - Manual QA: `docs/manual_qa_checklist.md`
+- Latest validation:
+
+```bash
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo build -p game --bin survivor --release --locked
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
+```
+
+- Latest visual smoke: opened `dist/macos/RustSurvivors.app` and confirmed Title logo/buttons render over the background without black/backing rectangles.
 
 ## Latest InGame Static Text Image UI Pass
 

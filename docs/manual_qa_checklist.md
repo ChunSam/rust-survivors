@@ -29,6 +29,8 @@
 - `scripts/verify_macos_package.sh` 통과.
 - `open dist/macos/RustSurvivors.app`로 패키지 앱 실행 확인.
 - Title 화면 확인: 배경 이미지, 한글 제목, 시작 버튼, Character/Stage/Shop/Settings 버튼 표시.
+- Title 메뉴 버튼과 인게임 고정 텍스트 PNG가 로고풍 금속 텍스트 스타일로 보이고, 문구 오탈자가 없는지 확인.
+- 해당 텍스트 PNG의 캔버스 배경이 투명하고, 석재 플레이트 내부가 투명하게 뚫리지 않았는지 확인.
 - Settings 화면 확인: `O` 진입, 한글 전환, 800x600 해상도 적용, 텍스트 화면 내 표시.
 - InGame 800x600 HUD 확인: HP/XP/Level/Kills와 무기/패시브 슬롯 2줄 표시, 큰 겹침 없음.
 - PauseMenu 800x600 확인: Resume/Return to Title/Quit 표시, 텍스트 겹침 없음.
@@ -156,6 +158,7 @@
 - 발견 이슈: 실제 앱 화면에서 Title/menu/UI frame 이미지의 투명 영역이 흰 사각형으로 보임.
 - 원인 추정: `UiImageQueue` 이미지의 투명 영역과 macOS/wgpu surface 합성 경로에서 배경 알파가 안정적으로 남지 않는 시각 누수.
 - 수정: Title logo/button 이미지와 `ui_modal_panel.png` / `ui_slot_frame.png` 제출 전에 불투명한 어두운 backing `DrawImage::colored(...)`를 먼저 큐에 넣음.
+- 2026-05-29 투명 배경 패스에서 Title logo/button PNG는 자체 알파를 사용하도록 전환했고, Title 전용 backing은 제거함. `ui_modal_panel.png` / `ui_slot_frame.png` backing은 유지.
 - 수정: Settings 하단 도움말 문구를 모달 프레임 밖 아래쪽으로 내려 장식 프레임과 겹치지 않게 조정.
 - 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (147 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked`, `bash scripts/package_macos.sh`, `bash scripts/verify_macos_package.sh` 통과.
 - 패키지 앱 smoke: 기본 해상도와 800x600에서 Title, InGame HUD, `B` 보스바, Level-up 카드, Shop, Settings 화면 확인. 흰 사각형 누수 없음.

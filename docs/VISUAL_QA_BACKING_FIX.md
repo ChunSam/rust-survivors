@@ -2,6 +2,8 @@
 
 작성일: 2026-05-28
 
+업데이트: 2026-05-29 로고풍 텍스트 투명 PNG 패스에서 Title logo/button PNG는 자체 알파를 사용하도록 바뀌었고, Title 전용 backing 큐잉은 제거되었다. 이 문서는 2026-05-28 당시 문제와 조치 기록으로 유지한다. 공통 `ui_modal_panel.png` / `ui_slot_frame.png` backing은 계속 별도 UI 프레임 안정화 용도로 남아 있다.
+
 실제 macOS 패키지 앱에서 이미지 기반 UI를 확인하며 발견한 투명 영역 렌더링 문제와 후속 검증 기록이다.
 이미지 UI 도입의 전체 배경은 `docs/IMAGE_BASED_UI_PASS.md`, 긴 변경 이력은 `docs/PHASE_LOG.md`를 참고한다.
 

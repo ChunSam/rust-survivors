@@ -30,6 +30,9 @@
 - `image_gen` built-in 도구로 새 래스터 이미지를 생성했다.
 - 배경은 그대로 PNG로 저장했다.
 - 로고/버튼 이미지는 `#00ff00` 크로마키 배경으로 생성한 뒤, 로컬 임시 Rust 도구로 녹색 배경 제거와 알파 기준 크롭을 처리했다.
+- 2026-05-29 로고풍 텍스트 재작업에서 기존 로고의 금속 세리프/고딕 프레임 느낌을 기준으로 `menu_button_*_{ko,en}.png`를 다시 생성했다.
+- 먼저 `menu_button_start_ko.png` 샘플을 사용자 확인받은 뒤 같은 톤으로 나머지 버튼에 확장했다.
+- `scripts/make_text_ui_transparent.py`로 로고 받침과 메뉴 버튼 PNG의 캔버스 배경을 투명 처리했다.
 - 최종 에셋 SHA-256은 `docs/ASSET_LICENSES.md`에 기록했다.
 
 ## 코드 연결
@@ -69,20 +72,20 @@ bash scripts/verify_macos_package.sh
 결과:
 
 - game lib tests: 147 passed
-- 새 타이틀 메뉴 이미지 레이아웃/opaque backing 테스트 3개 추가
+- 새 타이틀 메뉴 이미지 레이아웃/투명 PNG 큐잉 테스트 3개 추가
 - macOS 폴더 패키지와 `.app` 번들에 `assets/textures/survivor/menu/*.png` 포함 확인
 
 제한:
 
 - 초기 `screencapture` 기반 수동 캡처는 검은 화면으로만 잡혀 실제 타이틀 시각 smoke는 신뢰할 수 없었다.
 - 이후 잠금 해제된 실제 화면에서 `Computer Use`로 기본 해상도와 800x600을 확인했다.
-- 실제 앱 smoke에서 투명 영역이 흰 사각형으로 보이는 문제가 발견되어, Title logo/button 이미지 아래에 불투명한 어두운 backing을 추가했다.
+- 2026-05-29 투명 배경 패스에서 Title logo/button PNG 자체에 알파를 적용하고, Title 전용 불투명 backing 큐잉은 제거했다.
 
 ## 수동 QA 결과
 
 - 기본 해상도에서 새 배경, 로고 받침, Start 버튼, 하단 4버튼이 모두 보인다.
 - 800x600에서 로고/Start/하단 버튼이 서로 겹치지 않는다.
-- 흰 사각형 누수는 backing 추가 후 재현되지 않는다.
+- Title logo/button PNG의 캔버스 배경이 투명하게 보인다.
 - `Enter`, `S`, `O` 입력으로 InGame, Shop, Settings 진입을 확인했다.
 - Settings 진입 후 `ESC`로 Title에 돌아와도 메뉴 이미지가 정상 유지된다.
 

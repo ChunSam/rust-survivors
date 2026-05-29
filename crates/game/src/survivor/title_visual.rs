@@ -93,7 +93,6 @@ impl ScreenRect {
 
 const TITLE_MENU_LOGO_Z: f32 = 28.0;
 const TITLE_MENU_BUTTON_Z: f32 = 30.0;
-const TITLE_MENU_BACKING_Z: f32 = 27.0;
 
 impl System for TitleVisualSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
@@ -172,31 +171,13 @@ fn queue_title_menu_images(world: &mut World, viewport: Vec2, lang: Lang) {
     let logo_image = image_rect_for_path(logo, TITLE_LOGO_PLAQUE_PATH);
     let start_image = image_rect_for_path(start, start_path);
 
-    queue_screen_color(
-        world,
-        logo_image,
-        [0.015, 0.014, 0.018, 1.0],
-        TITLE_MENU_BACKING_Z,
-    );
     queue_screen_image(world, logo_image, TITLE_LOGO_PLAQUE_PATH, TITLE_MENU_LOGO_Z);
-    queue_screen_color(
-        world,
-        start_image,
-        [0.035, 0.012, 0.012, 1.0],
-        TITLE_MENU_BACKING_Z,
-    );
     queue_screen_image(world, start_image, start_path, TITLE_MENU_BUTTON_Z);
 
     let paths = title_menu_button_paths(lang);
     for (path, rect) in paths.into_iter().zip(layout.buttons) {
         let rect = menu_button_image_rect(ScreenRect::from_tuple(rect), compact);
         let image_rect = image_rect_for_path(rect, path);
-        queue_screen_color(
-            world,
-            image_rect,
-            [0.026, 0.022, 0.024, 1.0],
-            TITLE_MENU_BACKING_Z,
-        );
         queue_screen_image(world, image_rect, path, TITLE_MENU_BUTTON_Z);
     }
 }
@@ -278,12 +259,6 @@ fn queue_screen_image(world: &mut World, rect: ScreenRect, path: &str, z: f32) {
     }
 }
 
-fn queue_screen_color(world: &mut World, rect: ScreenRect, color: [f32; 4], z: f32) {
-    if let Some(queue) = world.resource_mut::<UiImageQueue>() {
-        queue.push(DrawImage::colored(rect.x, rect.y, rect.w, rect.h, color).with_z(z));
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,36 +310,26 @@ mod tests {
     }
 
     #[test]
-    fn title_menu_images_queue_opaque_backings() {
+    fn title_menu_images_queue_only_transparent_pngs() {
         let mut world = World::new();
         world.insert_resource(UiImageQueue::default());
 
         queue_title_menu_images(&mut world, Vec2::new(1280.0, 720.0), Lang::Ko);
 
         let queue = world.resource::<UiImageQueue>().unwrap();
-        let backing_count = queue
-            .items
-            .iter()
-            .filter(|image| image.texture.is_none() && image.image_handle.is_none())
-            .count();
         let textured_count = queue
             .items
             .iter()
             .filter(|image| image.texture.is_some())
             .count();
 
-        assert_eq!(backing_count, 7);
+        assert!(queue.items.iter().all(|image| image.texture.is_some()));
         assert_eq!(textured_count, 7);
         assert!(queue
             .items
             .iter()
             .filter(|image| image.texture.is_some())
             .all(|image| image.uv == engine::UvRect::FULL));
-        assert!(queue
-            .items
-            .iter()
-            .filter(|image| image.texture.is_none())
-            .all(|image| image.color[3] >= 1.0 && image.z < TITLE_MENU_LOGO_Z));
     }
 
     #[test]

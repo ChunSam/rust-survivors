@@ -4,6 +4,39 @@ Vampire Survivors 클론 개발 진행 상황. 각 sub-phase 완료 시 항목 �
 
 ---
 
+## Logo Text Transparent PNG Pass (2026-05-29)
+
+로고풍 텍스트 이미지 샘플을 사용자 확인받은 뒤, 메뉴와 인게임 고정 텍스트 PNG 전체를 같은 방향으로 정리하고 캔버스 배경을 투명 처리한 패스.
+
+### 변경
+
+- `menu_button_*_{ko,en}.png`를 승인된 `시작` 버튼 샘플 톤으로 교체.
+- `ingame_label_*.png`, `levelup_title_*.png`, `gameover_title_*.png`, `restart_hint_*.png`, `section_*.png`도 같은 금속 텍스트/석재 플레이트 스타일로 교체.
+- `title_logo_plaque_v3.png`와 모든 새 텍스트 PNG에 알파 마스크를 적용해 캔버스 바깥 배경을 투명 처리.
+- `scripts/make_text_ui_transparent.py` 추가: 석재 플레이트와 금속/보석 디테일은 유지하고 외곽 캔버스만 투명화.
+- `title_visual.rs`에서 Title logo/button용 불투명 backing 큐잉을 제거하고, PNG 알파를 직접 사용하도록 조정.
+- `docs/LOGO_TEXT_IMAGE_PASS.md`, `docs/ASSET_LICENSES.md`, `docs/TITLE_MENU_IMAGE_UI.md`, `docs/INGAME_STATIC_TEXT_IMAGE_UI.md`, `docs/manual_qa_checklist.md`, `docs/NEXT_WORK_PLAN.md` 갱신.
+
+### 검증
+
+```bash
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo build -p game --bin survivor --release --locked
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
+```
+
+game lib tests: 167 passed.
+
+### 수동 QA
+
+- `dist/macos/RustSurvivors.app`를 실행해 Title 화면 확인.
+- 로고와 메뉴 버튼 뒤의 검은/불투명 사각 배경이 사라지고, 배경 이미지 위에 PNG 알파가 자연스럽게 합성됨.
+- 앱 확인 후 종료.
+
+---
+
 ## Visual QA Backing Fix Pass (2026-05-28)
 
 실제 패키지 앱을 `Computer Use`로 열어 기본 해상도와 800x600에서 이미지 UI를 확인한 뒤, 투명 영역 합성 문제와 Settings 도움말 겹침을 수정한 패스.

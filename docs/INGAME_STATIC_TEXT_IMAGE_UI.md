@@ -51,6 +51,9 @@
 - `imagegen`으로 텍스트 없는 gothic/dark fantasy UI plaque와 banner 베이스 이미지를 생성했다.
 - 이미지 생성 모델이 텍스트를 직접 그릴 경우 오탈자와 가짜 문자가 섞일 위험이 커서, 최종 문구는 로컬 display font로 래스터라이즈했다.
 - 확정본은 가독성을 우선해 중간 굵기, 얇은 외곽선, 약한 중앙 광원, 한 방향 그림자만 적용했다.
+- 2026-05-29 로고풍 텍스트 재작업에서 승인된 `시작` 버튼 샘플 톤을 기준으로 인게임 고정 텍스트 PNG도 다시 생성했다.
+- 작은 HUD 라벨은 같은 톤을 유지하되 800x600 가독성을 위해 더 단순한 mini plaque로 맞췄다.
+- `scripts/make_text_ui_transparent.py`로 검은 석재 플레이트는 유지하고 캔버스 배경만 투명 처리했다.
 - 최종 PNG는 한/영 문구를 눈으로 확인한 뒤 workspace에 배치했다.
 - SHA-256 해시는 `docs/ASSET_LICENSES.md`에 기록했다.
 

@@ -43,6 +43,10 @@ Notes:
 
 ## Open Requests
 
+No open requests.
+
+## Completed Requests
+
 ## 2026-05-29 - Unify Image Texture Cache Keys
 
 Engine request prompt:
@@ -61,7 +65,7 @@ Problem:
 - `AssetServer::load_image(path)` stores `Handle<ImageAsset>::path()` as a canonical absolute path when the file exists.
 - `DrawImage::texture_key()` and sprite rendering prefer `image_handle.path()` over the fallback texture path.
 - The sprite renderer texture cache is keyed by the relative upload path, so canonical handle paths miss the cache and render with the white fallback texture.
-- `rust-survivors` currently works around this by only passing a handle when `handle.path() == requested_path`.
+- Before completion, `rust-survivors` worked around this by dropping handles whose renderer key did not match the requested texture path.
 
 Expected engine behavior/API:
 - `pending_textures`, `AssetServer` handles, `SpriteRenderer::texture_cache`, and `DrawImage::texture_key()` should use one consistent texture key policy.
@@ -82,4 +86,5 @@ Validation:
   - `cargo build -p game --bin survivor --release --locked`
 
 Notes:
-- After the engine fix lands, remove the `rust-survivors` workaround in `survivor_texture_handle` and restore always passing matching `SurvivorTextureHandles` handles.
+- Completed 2026-05-29: `skeleton-engine` now aliases canonical and requested texture cache keys without a public API change.
+- `rust-survivors` removed the `survivor_texture_handle` renderer-key compatibility workaround and now passes loaded `SurvivorTextureHandles` handles directly.

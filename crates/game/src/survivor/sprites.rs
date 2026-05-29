@@ -205,7 +205,7 @@ pub fn survivor_texture_handle(world: &World, path: &str) -> Option<Handle<Image
     world
         .resource::<SurvivorTextureHandles>()
         .and_then(|textures| textures.handle_for(path))
-        .and_then(|handle| renderer_compatible_texture_handle(path, handle))
+        .cloned()
 }
 
 pub fn survivor_texture_aspect(path: &str) -> Option<f32> {
@@ -250,17 +250,6 @@ pub fn survivor_texture_aspect(path: &str) -> Option<f32> {
         _ => return None,
     };
     Some(w / h)
-}
-
-fn renderer_compatible_texture_handle(
-    requested_path: &str,
-    handle: &Handle<ImageAsset>,
-) -> Option<Handle<ImageAsset>> {
-    if handle.path() == requested_path {
-        Some(handle.clone())
-    } else {
-        None
-    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -794,7 +783,7 @@ mod tests {
         assert_eq!(sprite.texture.as_deref(), Some(ATLAS_PATH));
         assert_eq!(
             sprite.image_handle.as_ref().map(|handle| handle.path()),
-            (handle.path() == ATLAS_PATH).then_some(ATLAS_PATH)
+            Some(handle.path())
         );
         assert!(textures.handle_for(INGAME_LABEL_LV_KO_PATH).is_some());
         assert!(textures.handle_for(INGAME_LABEL_KILLS_EN_PATH).is_some());
@@ -806,27 +795,7 @@ mod tests {
     }
 
     #[test]
-    fn renderer_compatible_texture_handle_requires_same_renderer_key() {
-        let mut server = engine::AssetServer::new();
-        let matching = server.load_image("__missing_relative_renderer_key.png");
-        assert_eq!(
-            renderer_compatible_texture_handle("__missing_relative_renderer_key.png", &matching)
-                .as_ref()
-                .map(|handle| handle.path()),
-            Some("__missing_relative_renderer_key.png")
-        );
-
-        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let absolute_atlas = manifest_dir
-            .join("../../assets/textures/survivor/survivor_atlas.png")
-            .canonicalize()
-            .expect("test atlas path should exist");
-        let canonical = server.load_image(absolute_atlas);
-        assert!(renderer_compatible_texture_handle(ATLAS_PATH, &canonical).is_none());
-    }
-
-    #[test]
-    fn textured_sprite_uses_path_fallback_for_canonicalized_handle_key() {
+    fn textured_sprite_passes_canonicalized_handle_key() {
         let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         let absolute_atlas = manifest_dir
             .join("../../assets/textures/survivor/survivor_atlas.png")
@@ -834,13 +803,17 @@ mod tests {
             .expect("test atlas path should exist");
         let handle = engine::AssetServer::new().load_image(absolute_atlas);
         assert_ne!(handle.path(), ATLAS_PATH);
+        let expected_path = handle.path().to_string();
 
         let mut world = World::new();
         world.insert_resource(texture_handles_with(handle));
         let sprite = survivor_textured_sprite(&world, ATLAS_PATH);
 
         assert_eq!(sprite.texture.as_deref(), Some(ATLAS_PATH));
-        assert!(sprite.image_handle.is_none());
+        assert_eq!(
+            sprite.image_handle.as_ref().map(|handle| handle.path()),
+            Some(expected_path.as_str())
+        );
     }
 
     #[test]
