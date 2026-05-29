@@ -2,8 +2,8 @@
 
 `skeleton-engine`을 기반으로 만드는 Vampire Survivors 스타일 탑다운 자동공격 로그라이트 게임.
 
-현재 workspace의 빌드 대상은 `crates/game` 하나다. 엔진은 로컬 소스가 아니라
-`crates/game/Cargo.toml`의 git dependency인 `https://github.com/ChunSam/skeleton-engine`을 사용한다.
+현재 workspace의 빌드 대상은 `crates/game` 하나다. 엔진은 별도 `skeleton-engine` 저장소가 책임지며,
+현재 `crates/game/Cargo.toml`은 sibling checkout인 `../../../skeleton-engine`을 가리킨다.
 
 ---
 
@@ -47,7 +47,9 @@ rust-survivors/
 ```
 
 엔진 API, 렌더러, 입력, 오디오, 저장, 충돌 모듈 자체 수정이 필요하면 별도 `skeleton-engine` 저장소에서 작업한 뒤
-이 저장소의 git dependency revision을 갱신한다.
+이 저장소의 엔진 의존성 설정을 갱신한다.
+
+전체 저장소 경계, 런타임 흐름, 게임 모듈 관계는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)에 정리되어 있다.
 
 ---
 
