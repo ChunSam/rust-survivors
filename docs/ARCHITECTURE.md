@@ -158,6 +158,23 @@ flowchart TD
 
 메뉴, 상점, 선택 화면은 전투 월드와 같은 `World` 리소스를 쓰지만 모드 가드로 실행 범위를 제한한다. 그래서 UI 작업을 할 때도 먼저 현재 모드 조건을 확인해야 한다.
 
+### 상태 참조표
+
+| 구분 | 상태 | 의미 | 주요 진입 | 주요 이탈/처리 |
+|---|---|---|---|---|
+| `SurvivorMode` | `Title` | 시작 화면과 메인 메뉴 | 최초 `setup_survivor_world`, 타이틀 복귀 | Start는 `InGame`, 메뉴 항목은 선택/상점/설정 화면으로 이동 |
+| `SurvivorMode` | `CharacterSelect` | 캐릭터 선택 화면 | Title에서 Character 선택 | 확정 또는 취소 후 `Title` |
+| `SurvivorMode` | `StageSelect` | 스테이지 선택 화면 | Title에서 Stage 선택 | 해금 검증 후 선택하거나 취소하면 `Title` |
+| `SurvivorMode` | `Shop` | 메타 파워업 상점 | Title에서 Shop 선택 | 구매 처리 후 유지, 뒤로 가면 `Title` |
+| `SurvivorMode` | `Settings` | 해상도, 언어, HUD, 볼륨 설정 | Title에서 Settings 선택 | 설정 저장 후 뒤로 가면 `Title` |
+| `SurvivorMode` | `InGame` | 실제 플레이 모드 | Title Start, 재시작, 일시정지 해제 | ESC는 `PauseMenu`, 보스 클리어는 `StageClear`, 사망은 `GameState::GameOver` |
+| `SurvivorMode` | `PauseMenu` | 인게임 일시정지 메뉴 | `InGame` 중 ESC | Continue는 `InGame`, Title 선택은 `Title` |
+| `SurvivorMode` | `StageClear` | 스테이지 클리어 결과 화면 | 보스 사망과 클리어 조건 달성 | 확인 입력 후 `Title` |
+| `GameState` | `Playing` | 전투 시스템이 정상 실행되는 상태 | 게임 시작, 재시작, 일시정지 해제, 레벨업 선택 완료 | 레벨업, 메뉴, 사망 조건에서 다른 상태로 전환 |
+| `GameState` | `Paused` | 전투 업데이트를 멈추고 UI/메뉴를 보여주는 상태 | Title/Shop/Settings 같은 비전투 모드, PauseMenu, LevelUp | 모드 전환 또는 선택 완료 시 `Playing` |
+| `GameState` | `GameOver` | 플레이어 사망 결과 상태 | `Health`가 0 이하가 되면 `DeathSystem`이 설정 | Restart 입력은 새 플레이, 타이틀 복귀 경로는 `Title` |
+| 조합 상태 | Level-up card | 별도 `SurvivorMode`가 아니라 `InGame` + `GameState::Paused` + `PendingLevelUp` | XP 임계치 도달 | `1/2/3` 카드 선택 후 `GameState::Playing` |
+
 ## 데이터와 에셋 흐름
 
 콘텐츠 튜닝은 코드와 에셋이 함께 움직인다. RON 데이터는 무기와 웨이브 정의를 제공하고, 텍스처/오디오/폰트는 시작 시 또는 시스템 실행 중 엔진 리소스로 연결된다.
@@ -186,3 +203,48 @@ flowchart LR
 ```
 
 비주얼 변경은 `docs/manual_qa_checklist.md`와 패키징 검증까지 함께 고려한다. 새 에셋을 추가하면 `docs/ASSET_LICENSES.md`와 macOS package script의 포함 여부도 확인 대상이다.
+
+### 에셋 참조표
+
+| 분류 | 파일 | 용도 | 대표 사용처 |
+|---|---|---|---|
+| 데이터 | `assets/data/weapons.ron` | 기본 무기 스탯과 무기별 파라미터 | `data.rs`, `inventory.rs` |
+| 데이터 | `assets/data/waves.ron` | 기본 웨이브 정의 | `director.rs`의 기본 `SpawnDirector` 로딩 |
+| 데이터 | `assets/data/waves_mad_forest.ron` | Mad Forest 스테이지 웨이브 | `stage.rs` |
+| 데이터 | `assets/data/waves_inlaid_library.ron` | Inlaid Library 스테이지 웨이브 | `stage.rs` |
+| 데이터 | `assets/data/waves_dairy_plant.ron` | Dairy Plant 스테이지 웨이브 | `stage.rs` |
+| 폰트 | `assets/fonts/NotoSansKR-Regular.ttf` | 한국어/영어 UI 텍스트 렌더링 | `survivor.rs`에서 `FontData`로 삽입 |
+| 폰트 라이선스 | `assets/fonts/OFL.txt` | Noto Sans KR 라이선스 | 배포/라이선스 문서 참고 |
+| 셰이더 | `assets/shaders/sprite.wgsl` | 스프라이트 렌더링 셰이더 | 엔진 렌더러 경로 |
+| BGM | `assets/audio/bgm_title.wav` | 타이틀, 선택 화면, 상점, 설정, 일시정지 BGM | `BgmSystem` |
+| BGM | `assets/audio/bgm_ingame.wav` | 일반 인게임 BGM | `BgmSystem` |
+| BGM | `assets/audio/bgm_boss.wav` | 보스 활성 중 인게임 BGM | `BgmSystem` |
+| BGM | `assets/audio/bgm_stageclear.wav` | 스테이지 클리어 BGM | `BgmSystem` |
+| BGM | `assets/audio/bgm_gameover.wav` | 게임오버 BGM | `BgmSystem` |
+| SFX | `assets/audio/sfx_enemy_hit.wav` | 적 피격 효과음 | `SfxEvent::EnemyHit` |
+| SFX | `assets/audio/sfx_enemy_die.wav` | 적 사망 효과음 | `SfxEvent::EnemyDie` |
+| SFX | `assets/audio/sfx_player_hit.wav` | 플레이어 피격 효과음 | `SfxEvent::PlayerHit` |
+| SFX | `assets/audio/sfx_levelup.wav` | 레벨업 효과음 | `SfxEvent::LevelUp` |
+| SFX | `assets/audio/sfx_xp.wav` | XP 젬 획득 효과음 | `SfxEvent::XpGem` |
+| SFX | `assets/audio/sfx_pickup.wav` | 일반 픽업 효과음 | `SfxEvent::Pickup` |
+| SFX | `assets/audio/sfx_bomb.wav` | Bomb 픽업 폭발 효과음 | `SfxEvent::Bomb` |
+| SFX | `assets/audio/sfx_chest_open.wav` | 보물상자 오픈 효과음 | `SfxEvent::ChestOpen` |
+| SFX | `assets/audio/sfx_boss_appear.wav` | 보스 등장 효과음 | `SfxEvent::BossAppear` |
+| 텍스처 | `assets/textures/survivor/survivor_atlas.png` | 기본 캐릭터/적/픽업/투사체 atlas | `SurvivorTextureHandles`, `sprites.rs` |
+| 텍스처 | `assets/textures/survivor/survivor_actor_frames.png` | 플레이어/적 actor 애니메이션 프레임 | `AnimationPlayer`, `AnimationSystem` |
+| 텍스처 | `assets/textures/survivor/survivor_effects.png` | 무기와 전투 이펙트 sheet | `sprites.rs`, 무기 시스템 |
+| 텍스처 | `assets/textures/survivor/survivor_icons.png` | HUD, 레벨업 카드, 상점용 아이콘 | `icons.rs`, `ui_icons.rs` |
+| 텍스처 | `assets/textures/survivor/survivor_evolutions.png` | 진화 무기 아이콘 sheet | `sprites.rs`, UI 표시 경로 |
+| 텍스처 | `assets/textures/survivor/survivor_passives.png` | 패시브 아이템 아이콘 sheet | `sprites.rs`, UI 표시 경로 |
+| 텍스처 | `assets/textures/survivor/survivor_powerups.png` | 메타 파워업 아이콘 sheet | `sprites.rs`, 상점 UI |
+| 타이틀 UI | `assets/textures/survivor/menu/title_backdrop_v2.png` | 현재 타이틀 배경 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/title_logo_plaque.png` | 타이틀 로고 받침 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_start.png` | Start 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_character.png` | Character 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_stage.png` | Stage 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_shop.png` | Shop 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_settings.png` | Settings 버튼 이미지 | `TitleVisualSystem` |
+| 공통 UI | `assets/textures/survivor/ui/ui_modal_panel.png` | 모달/메뉴/결과 패널 프레임 | `hud.rs`, `ui_icons.rs` |
+| 공통 UI | `assets/textures/survivor/ui/ui_slot_frame.png` | HUD 슬롯, 카드, 선택 행 프레임 | `hud.rs`, `ui_icons.rs` |
+| 소스/레거시 | `assets/textures/survivor/survivor_atlas_source.png` | atlas 제작용 원본/참고 이미지 | 직접 로딩 대상 아님 |
+| 소스/레거시 | `assets/textures/survivor/title_backdrop.png` | 이전 타이틀 배경 | 현재 survivor 실행 경로는 `title_backdrop_v2.png` 사용 |
