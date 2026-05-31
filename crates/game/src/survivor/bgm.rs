@@ -68,15 +68,51 @@ fn bgm_repeats(key: &str) -> bool {
     !matches!(key, "bgm_gameover" | "bgm_stageclear")
 }
 
-fn bgm_playlist_advances(key: &str, variant_count: usize) -> bool {
-    bgm_repeats(key) && variant_count > 1
-}
-
-fn bgm_repeat_flag(key: &str) -> bool {
+fn bgm_restarts_after_finish(key: &str) -> bool {
     bgm_repeats(key)
 }
 
-fn play_bgm_file(audio: &mut AudioManager, path: &str, key: &str, _variant_count: usize) {
+#[cfg(test)]
+fn bgm_playlist_advances(key: &str, variant_count: usize) -> bool {
+    bgm_restarts_after_finish(key) && variant_count > 1
+}
+
+fn bgm_repeat_flag(_key: &str) -> bool {
+    false
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BgmAction {
+    KeepCurrent,
+    PlayPath(String),
+}
+
+fn choose_bgm_action(
+    current: Option<&'static str>,
+    target: &'static str,
+    playlist: &[String],
+    next_variant: &mut usize,
+    finished: Option<bool>,
+) -> Option<BgmAction> {
+    if playlist.is_empty() {
+        return None;
+    }
+
+    if current == Some(target) {
+        if bgm_restarts_after_finish(target) && finished == Some(true) {
+            let path = playlist[*next_variant % playlist.len()].clone();
+            *next_variant = next_variant.wrapping_add(1);
+            return Some(BgmAction::PlayPath(path));
+        }
+        return Some(BgmAction::KeepCurrent);
+    }
+
+    let path = playlist[*next_variant % playlist.len()].clone();
+    *next_variant = next_variant.wrapping_add(1);
+    Some(BgmAction::PlayPath(path))
+}
+
+fn play_bgm_file(audio: &mut AudioManager, path: &str, key: &str) {
     audio.play("bgm", path, bgm_repeat_flag(key));
 }
 
@@ -190,6 +226,18 @@ impl BgmSystem {
         }
         self.playlists.as_ref()
     }
+
+    fn choose_action(&mut self, target: &'static str, finished: Option<bool>) -> Option<BgmAction> {
+        let slot = bgm_slot(target);
+        let playlist = self.ensure_playlists()?[slot].clone();
+        choose_bgm_action(
+            self.current,
+            target,
+            &playlist,
+            &mut self.next_variants[slot],
+            finished,
+        )
+    }
 }
 
 impl System for BgmSystem {
@@ -205,7 +253,6 @@ impl System for BgmSystem {
         let boss_active = world.query::<Boss>().next().is_some();
 
         let target = bgm_key(mode, &state, boss_active);
-        let slot = bgm_slot(target);
         let Some(playlists) = self.ensure_playlists() else {
             log::warn!(
                 "BGM audio root not found for key {target}; checked executable-relative paths only"
@@ -216,6 +263,7 @@ impl System for BgmSystem {
             self.current = Some(target);
             return;
         };
+        let slot = bgm_slot(target);
         let variant_count = playlists[slot].len();
 
         if variant_count == 0 {
@@ -233,36 +281,23 @@ impl System for BgmSystem {
                 .map(|m| m.bgm_volume)
                 .unwrap_or(1.0);
             if let Some(audio) = world.resource_mut::<AudioManager>() {
-                let next_path = if bgm_playlist_advances(target, variant_count)
-                    && audio.is_finished("bgm") == Some(true)
-                {
-                    let variant_index = self.next_variants[slot];
-                    let path = self.playlists.as_ref().unwrap()[slot]
-                        [variant_index % variant_count]
-                        .clone();
-                    self.next_variants[slot] = variant_index.wrapping_add(1);
-                    Some(path)
-                } else {
-                    None
-                };
-                if bgm_playlist_advances(target, variant_count) && next_path.is_some() {
-                    play_bgm_file(audio, next_path.as_deref().unwrap(), target, variant_count);
+                let finished = audio.is_finished("bgm");
+                if let Some(BgmAction::PlayPath(path)) = self.choose_action(target, finished) {
+                    play_bgm_file(audio, &path, target);
                 }
                 audio.set_volume("bgm", volume);
             }
             return; // 같은 상황 유지 — 볼륨 갱신 또는 playlist 다음 곡 처리
         }
 
-        let variant_index = self.next_variants[slot];
-        let path = self.playlists.as_ref().unwrap()[slot][variant_index % variant_count].clone();
-        self.next_variants[slot] = variant_index.wrapping_add(1);
-
         let volume = world
             .resource::<MetaSave>()
             .map(|m| m.bgm_volume)
             .unwrap_or(1.0);
         if let Some(audio) = world.resource_mut::<AudioManager>() {
-            play_bgm_file(audio, &path, target, variant_count);
+            if let Some(BgmAction::PlayPath(path)) = self.choose_action(target, Some(false)) {
+                play_bgm_file(audio, &path, target);
+            }
             audio.set_volume("bgm", volume);
         }
         self.current = Some(target);
@@ -329,13 +364,12 @@ mod tests {
 
     #[test]
     fn bgm_repeat_flag_is_false_for_one_shot_keys() {
-        // stageclear and gameover must never loop — the repeat flag drives rodio's loop setting
+        // All survivor BGM is re-queued manually so finished states stay observable.
         assert!(!bgm_repeat_flag("bgm_stageclear"));
         assert!(!bgm_repeat_flag("bgm_gameover"));
-        // looping tracks must always repeat regardless of variant count
-        assert!(bgm_repeat_flag("bgm_title"));
-        assert!(bgm_repeat_flag("bgm_ingame"));
-        assert!(bgm_repeat_flag("bgm_boss"));
+        assert!(!bgm_repeat_flag("bgm_title"));
+        assert!(!bgm_repeat_flag("bgm_ingame"));
+        assert!(!bgm_repeat_flag("bgm_boss"));
     }
 
     #[test]
@@ -352,9 +386,12 @@ mod tests {
         assert!(bgm_playlist_advances("bgm_title", 2));
         assert!(bgm_playlist_advances("bgm_ingame", 2));
         assert!(bgm_playlist_advances("bgm_boss", 2));
+        assert!(bgm_restarts_after_finish("bgm_title"));
         assert!(!bgm_playlist_advances("bgm_title", 1));
         assert!(!bgm_playlist_advances("bgm_stageclear", 2));
         assert!(!bgm_playlist_advances("bgm_gameover", 2));
+        assert!(!bgm_restarts_after_finish("bgm_stageclear"));
+        assert!(!bgm_restarts_after_finish("bgm_gameover"));
     }
 
     #[test]
@@ -398,5 +435,73 @@ mod tests {
     fn missing_asset_resolves_to_none() {
         let base = manifest_audio_dir();
         assert!(resolve_audio_file_from_base(&base, "does_not_exist").is_none());
+    }
+
+    #[test]
+    fn repeating_bgm_requeues_next_variant_after_finish() {
+        let playlist = vec!["a.mp3".to_string(), "b.mp3".to_string()];
+        let mut next_variant = 1;
+
+        let action = choose_bgm_action(
+            Some("bgm_title"),
+            "bgm_title",
+            &playlist,
+            &mut next_variant,
+            Some(true),
+        );
+
+        assert_eq!(action, Some(BgmAction::PlayPath("b.mp3".to_string())));
+        assert_eq!(next_variant, 2);
+    }
+
+    #[test]
+    fn repeating_bgm_does_not_restart_while_still_playing() {
+        let playlist = vec!["a.mp3".to_string(), "b.mp3".to_string()];
+        let mut next_variant = 1;
+
+        let action = choose_bgm_action(
+            Some("bgm_title"),
+            "bgm_title",
+            &playlist,
+            &mut next_variant,
+            Some(false),
+        );
+
+        assert_eq!(action, Some(BgmAction::KeepCurrent));
+        assert_eq!(next_variant, 1);
+    }
+
+    #[test]
+    fn one_shot_bgm_does_not_auto_advance_after_finish() {
+        let playlist = vec!["clear1.mp3".to_string(), "clear2.mp3".to_string()];
+        let mut next_variant = 1;
+
+        let action = choose_bgm_action(
+            Some("bgm_stageclear"),
+            "bgm_stageclear",
+            &playlist,
+            &mut next_variant,
+            Some(true),
+        );
+
+        assert_eq!(action, Some(BgmAction::KeepCurrent));
+        assert_eq!(next_variant, 1);
+    }
+
+    #[test]
+    fn single_variant_repeating_bgm_restarts_same_track_after_finish() {
+        let playlist = vec!["solo.mp3".to_string()];
+        let mut next_variant = 0;
+
+        let action = choose_bgm_action(
+            Some("bgm_ingame"),
+            "bgm_ingame",
+            &playlist,
+            &mut next_variant,
+            Some(true),
+        );
+
+        assert_eq!(action, Some(BgmAction::PlayPath("solo.mp3".to_string())));
+        assert_eq!(next_variant, 1);
     }
 }
