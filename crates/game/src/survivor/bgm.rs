@@ -72,8 +72,12 @@ fn bgm_playlist_advances(key: &str, variant_count: usize) -> bool {
     bgm_repeats(key) && variant_count > 1
 }
 
-fn play_bgm_file(audio: &mut AudioManager, path: &str, key: &str, variant_count: usize) {
-    audio.play("bgm", path, !bgm_playlist_advances(key, variant_count));
+fn bgm_repeat_flag(key: &str) -> bool {
+    bgm_repeats(key)
+}
+
+fn play_bgm_file(audio: &mut AudioManager, path: &str, key: &str, _variant_count: usize) {
+    audio.play("bgm", path, bgm_repeat_flag(key));
 }
 
 fn normalize_existing_dir(path: PathBuf) -> Option<PathBuf> {
@@ -323,6 +327,17 @@ mod tests {
         assert!(variants[0].ends_with("rustsurvivors title1.mp3"));
         assert!(variants[1].ends_with("rustsurvivors title2.mp3"));
         assert_eq!(variants[0], variants[2 % variants.len()]);
+    }
+
+    #[test]
+    fn bgm_repeat_flag_is_false_for_one_shot_keys() {
+        // stageclear and gameover must never loop — the repeat flag drives rodio's loop setting
+        assert!(!bgm_repeat_flag("bgm_stageclear"));
+        assert!(!bgm_repeat_flag("bgm_gameover"));
+        // looping tracks must always repeat regardless of variant count
+        assert!(bgm_repeat_flag("bgm_title"));
+        assert!(bgm_repeat_flag("bgm_ingame"));
+        assert!(bgm_repeat_flag("bgm_boss"));
     }
 
     #[test]
