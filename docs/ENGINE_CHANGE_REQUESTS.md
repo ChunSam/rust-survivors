@@ -43,9 +43,93 @@ Notes:
 
 ## Open Requests
 
-No open requests.
+## 2026-05-31 - Move Audio Codec Policy Into Engine
+
+Engine request prompt:
+
+Context:
+- Repository: skeleton-engine
+- Triggering game repo: rust-survivors
+- Affected game files:
+  - Cargo.toml
+  - crates/game/Cargo.toml
+  - crates/game/src/survivor/bgm.rs
+
+Problem:
+- `rust-survivors` now ships MP3-only BGM and plays it through engine `AudioManager`.
+- The actual MP3 decoder feature is currently enabled from the game repo by adding a direct `rodio` dependency so Cargo feature unification reaches the engine.
+- This works today but is brittle: game code is forced to know an engine implementation detail, and future `rodio` version/feature changes in the engine could silently break MP3 playback.
+
+Expected engine behavior/API:
+- `skeleton-engine` should own its supported audio codec policy directly.
+- At minimum, the engine's own `rodio` dependency should explicitly enable the codecs required by its public audio API consumers.
+- Preferred outcome:
+  - engine exposes/document its supported formats,
+  - game repos no longer need a direct `rodio` dependency just to make `AudioManager::play(...)` decode a format.
+
+Reproduction:
+1. In `rust-survivors`, remove the direct `rodio` dependency or the `mp3` feature from workspace dependency configuration.
+2. Build and run survivor with MP3-only BGM assets.
+3. Observe that playback support depends on whether the engine's transitive `rodio` feature set happens to include MP3.
+
+Validation:
+- In `skeleton-engine`, enable/document codec support in the engine-owned `rodio` dependency.
+- Verify an engine audio smoke test can decode MP3 through `AudioManager`.
+- Run:
+  - `cargo test`
+  - `cargo test -p game --lib --locked -- --test-threads=1`
+  - `cargo build -p game --bin survivor --release --locked`
+
+Notes:
+- After completion, `rust-survivors` should remove the temporary direct `rodio` dependency if it is no longer needed outside the engine boundary.
 
 ## Completed Requests
+
+## 2026-05-29 - Expose Audio Channel Playback State
+
+Engine request prompt:
+
+Context:
+- Repository: skeleton-engine
+- Triggering game repo: rust-survivors
+- Affected game files:
+  - crates/game/src/survivor/bgm.rs
+
+Problem:
+- `rust-survivors` now has two BGM tracks per gameplay situation and can alternate tracks when entering a situation.
+- The game cannot cleanly advance to the next track when the current non-looping track ends because `AudioManager` does not expose channel playback state.
+- The needed state is already available internally through the channel `Sink`, but game code cannot query it without an engine API.
+- Directly editing the external `skeleton-engine` checkout from this repo is not allowed.
+
+Expected engine behavior/API:
+- Add a public `AudioManager` API for channel playback state.
+- Suggested API:
+  - `is_playing(channel: &str) -> bool`
+  - or `is_finished(channel: &str) -> Option<bool>`
+- The API should let game code distinguish at least:
+  - channel does not exist / has never played,
+  - channel exists and still has queued audio,
+  - channel exists and has reached the end.
+- This should support playlist-style BGM where the game starts the next track after the current one finishes.
+
+Reproduction:
+1. In `rust-survivors`, add two BGM files for a situation such as `assets/audio/rustsurvivors stageclear1.mp3` and `assets/audio/rustsurvivors stageclear2.mp3`.
+2. Play one through `AudioManager::play("bgm", path, false)`.
+3. Observe that game code has no public way to know when the channel has finished so it can play the next variant.
+
+Validation:
+- Add engine tests for the new channel playback-state API.
+- Verify missing channels are reported predictably.
+- Verify a short non-looping tone/file reports unfinished while queued and finished after playback drains.
+- Run:
+  - `cargo test`
+  - `cargo test -p game --lib --locked -- --test-threads=1`
+  - `cargo build -p game --bin survivor --release --locked`
+
+Notes:
+- Completed 2026-05-30: `skeleton-engine` now exposes `AudioChannelState`, `AudioManager::playback_state`, `AudioManager::is_finished`, and `AudioManager::is_playing`.
+- `rust-survivors` now uses `AudioManager::is_finished("bgm")` to advance repeating multi-track BGM playlists.
+- The game should not depend on engine-private `Sink` internals.
 
 ## 2026-05-29 - Unify Image Texture Cache Keys
 

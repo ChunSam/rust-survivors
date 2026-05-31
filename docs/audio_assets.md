@@ -2,20 +2,36 @@
 
 작성일: 2026-05-23
 
-오디오는 `assets/audio/` 아래에서 먼저 `.ogg`, 그 다음 `.wav` 순서로 찾는다.
-현재 저장소에는 모든 표준 BGM/SFX key의 로컬 생성 placeholder `.wav`가 들어 있다.
+오디오는 `assets/audio/` 아래 파일을 사용한다.
+BGM은 상황별 2곡 MP3 variant만 사용한다.
 상용 음원으로 교체할 때도 아래 파일명을 유지하면 코드 변경 없이 반영된다.
 파일이 없으면 게임은 계속 실행된다. BGM은 조용히 정지하고, SFX는 절차적 톤 fallback을 사용한다.
+
+## 경로 규칙
+
+BGM 경로는 현재 작업 디렉터리(`cwd`)가 아니라 실행 파일 기준으로 해석한다.
+
+- macOS `.app`: `Contents/Resources/assets/audio`
+- 일반 실행 파일: 실행 파일 옆 `assets/audio`, 없으면 상위 1단계의 `assets/audio`
+- 개발 빌드(`debug_assertions`): 위 경로에 없을 때만 워크스페이스의 `assets/audio`
+
+의도:
+
+- 임의 cwd 에서 실행해도 같은 음원을 읽는다.
+- 패키지 외부의 우연한 상대경로 MP3를 잘못 집어오지 않는다.
+- 자산이 없으면 잘못된 fallback 대신 BGM 을 정지하고 경고 로그를 남긴다.
 
 ## BGM
 
 | 파일명 | 사용 시점 | 반복 |
 |---|---|---|
-| `bgm_title.ogg` 또는 `bgm_title.wav` | Title, CharacterSelect, StageSelect, Shop, Settings | 반복 |
-| `bgm_ingame.ogg` 또는 `bgm_ingame.wav` | InGame | 반복 |
-| `bgm_boss.ogg` 또는 `bgm_boss.wav` | InGame 중 보스가 살아 있을 때 | 반복 |
-| `bgm_stageclear.ogg` 또는 `bgm_stageclear.wav` | StageClear | 1회 |
-| `bgm_gameover.ogg` 또는 `bgm_gameover.wav` | GameOver | 1회 |
+| `rustsurvivors title1.mp3`, `rustsurvivors title2.mp3` | Title, CharacterSelect, StageSelect, Shop, Settings | 반복 |
+| `rustsurvivors ingame1.mp3`, `rustsurvivors ingame2.mp3` | InGame | 반복 |
+| `rustsurvivors boss1.mp3`, `rustsurvivors boss2.mp3` | InGame 중 보스가 살아 있을 때 | 반복 |
+| `rustsurvivors stageclear1.mp3`, `rustsurvivors stageclear2.mp3` | StageClear | 1회 |
+| `rustsurvivors gameover1.mp3`, `rustsurvivors gameover2.mp3` | GameOver | 1회 |
+
+각 상황에 진입할 때마다 1번과 2번이 번갈아 선택된다. Title/InGame/Boss처럼 반복형 BGM에 2곡 variant가 있으면, 현재 곡이 자연 종료될 때 다음 variant로 이어서 재생된다. StageClear/GameOver는 짧은 1회 cue로 유지된다.
 
 ## SFX
 

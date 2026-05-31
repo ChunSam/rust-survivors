@@ -27,3 +27,5 @@ wgpu     = { workspace = true }
 rand     = { workspace = true }
 serde    = { workspace = true }
 ron      = { workspace = true }
+# Keep a direct rodio dependency for feature unification with engine AudioManager MP3 playback.
+rodio    = { workspace = true }
