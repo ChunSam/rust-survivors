@@ -216,11 +216,11 @@ flowchart LR
 | 폰트 | `assets/fonts/NotoSansKR-Regular.ttf` | 한국어/영어 UI 텍스트 렌더링 | `survivor.rs`에서 `FontData`로 삽입 |
 | 폰트 라이선스 | `assets/fonts/OFL.txt` | Noto Sans KR 라이선스 | 배포/라이선스 문서 참고 |
 | 셰이더 | `assets/shaders/sprite.wgsl` | 스프라이트 렌더링 셰이더 | 엔진 렌더러 경로 |
-| BGM | `assets/audio/bgm_title.wav` | 타이틀, 선택 화면, 상점, 설정, 일시정지 BGM | `BgmSystem` |
-| BGM | `assets/audio/bgm_ingame.wav` | 일반 인게임 BGM | `BgmSystem` |
-| BGM | `assets/audio/bgm_boss.wav` | 보스 활성 중 인게임 BGM | `BgmSystem` |
-| BGM | `assets/audio/bgm_stageclear.wav` | 스테이지 클리어 BGM | `BgmSystem` |
-| BGM | `assets/audio/bgm_gameover.wav` | 게임오버 BGM | `BgmSystem` |
+| BGM | `assets/audio/rustsurvivors title1.mp3`, `rustsurvivors title2.mp3` | 타이틀, 선택 화면, 상점, 설정, 일시정지 BGM playlist | `BgmSystem` |
+| BGM | `assets/audio/rustsurvivors ingame1.mp3`, `rustsurvivors ingame2.mp3` | 일반 인게임 BGM playlist | `BgmSystem` |
+| BGM | `assets/audio/rustsurvivors boss1.mp3`, `rustsurvivors boss2.mp3` | 보스 활성 중 인게임 BGM playlist | `BgmSystem` |
+| BGM | `assets/audio/rustsurvivors stageclear1.mp3`, `rustsurvivors stageclear2.mp3` | 스테이지 클리어 1회 cue | `BgmSystem` |
+| BGM | `assets/audio/rustsurvivors gameover1.mp3`, `rustsurvivors gameover2.mp3` | 게임오버 1회 cue | `BgmSystem` |
 | SFX | `assets/audio/sfx_enemy_hit.wav` | 적 피격 효과음 | `SfxEvent::EnemyHit` |
 | SFX | `assets/audio/sfx_enemy_die.wav` | 적 사망 효과음 | `SfxEvent::EnemyDie` |
 | SFX | `assets/audio/sfx_player_hit.wav` | 플레이어 피격 효과음 | `SfxEvent::PlayerHit` |
@@ -238,13 +238,11 @@ flowchart LR
 | 텍스처 | `assets/textures/survivor/survivor_passives.png` | 패시브 아이템 아이콘 sheet | `sprites.rs`, UI 표시 경로 |
 | 텍스처 | `assets/textures/survivor/survivor_powerups.png` | 메타 파워업 아이콘 sheet | `sprites.rs`, 상점 UI |
 | 타이틀 UI | `assets/textures/survivor/menu/title_backdrop_v2.png` | 현재 타이틀 배경 | `TitleVisualSystem` |
-| 타이틀 UI | `assets/textures/survivor/menu/title_logo_plaque.png` | 타이틀 로고 받침 이미지 | `TitleVisualSystem` |
-| 타이틀 UI | `assets/textures/survivor/menu/menu_button_start.png` | Start 버튼 이미지 | `TitleVisualSystem` |
-| 타이틀 UI | `assets/textures/survivor/menu/menu_button_character.png` | Character 버튼 이미지 | `TitleVisualSystem` |
-| 타이틀 UI | `assets/textures/survivor/menu/menu_button_stage.png` | Stage 버튼 이미지 | `TitleVisualSystem` |
-| 타이틀 UI | `assets/textures/survivor/menu/menu_button_shop.png` | Shop 버튼 이미지 | `TitleVisualSystem` |
-| 타이틀 UI | `assets/textures/survivor/menu/menu_button_settings.png` | Settings 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/title_logo_plaque_v3.png` | 타이틀 로고 받침 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_start_{ko,en}.png` | Start 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_character_{ko,en}.png` | Character 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_stage_{ko,en}.png` | Stage 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_shop_{ko,en}.png` | Shop 버튼 이미지 | `TitleVisualSystem` |
+| 타이틀 UI | `assets/textures/survivor/menu/menu_button_settings_{ko,en}.png` | Settings 버튼 이미지 | `TitleVisualSystem` |
 | 공통 UI | `assets/textures/survivor/ui/ui_modal_panel.png` | 모달/메뉴/결과 패널 프레임 | `hud.rs`, `ui_icons.rs` |
 | 공통 UI | `assets/textures/survivor/ui/ui_slot_frame.png` | HUD 슬롯, 카드, 선택 행 프레임 | `hud.rs`, `ui_icons.rs` |
-| 소스/레거시 | `assets/textures/survivor/survivor_atlas_source.png` | atlas 제작용 원본/참고 이미지 | 직접 로딩 대상 아님 |
-| 소스/레거시 | `assets/textures/survivor/title_backdrop.png` | 이전 타이틀 배경 | 현재 survivor 실행 경로는 `title_backdrop_v2.png` 사용 |

@@ -19,6 +19,7 @@ use super::locale::Lang;
 use super::pickup::GoldWallet;
 use super::powerup::ShopCursor;
 use super::stage::{SelectedStage, StageCursor, StageKind};
+use super::ui_layout::ScreenRect;
 
 const APP_NAME: &str = "rust-vampire-survivors";
 const SAVE_FILE: &str = "save.ron";
@@ -353,8 +354,7 @@ fn title_action_at(x: f32, y: f32, vw: f32, vh: f32) -> Option<TitleAction> {
 }
 
 fn point_in_rect(x: f32, y: f32, rect: (f32, f32, f32, f32)) -> bool {
-    let (rx, ry, rw, rh) = rect;
-    x >= rx && x <= rx + rw && y >= ry && y <= ry + rh
+    ScreenRect::from_tuple(rect).contains_point(glam::Vec2::new(x, y))
 }
 
 fn logical_cursor_position(cursor: glam::Vec2, display_scale: f32) -> glam::Vec2 {

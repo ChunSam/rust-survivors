@@ -118,8 +118,7 @@ fn candidate_audio_dirs_for_exe(exe_path: &Path, include_dev_fallback: bool) -> 
     }
 
     if include_dev_fallback {
-        let dev_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../assets/audio");
+        let dev_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/audio");
         if let Some(dir) = normalize_existing_dir(dev_dir) {
             dirs.push(dir);
         }
@@ -238,16 +237,15 @@ impl System for BgmSystem {
                     && audio.is_finished("bgm") == Some(true)
                 {
                     let variant_index = self.next_variants[slot];
-                    let path = self.playlists.as_ref().unwrap()[slot][variant_index % variant_count]
+                    let path = self.playlists.as_ref().unwrap()[slot]
+                        [variant_index % variant_count]
                         .clone();
                     self.next_variants[slot] = variant_index.wrapping_add(1);
                     Some(path)
                 } else {
                     None
                 };
-                if bgm_playlist_advances(target, variant_count)
-                    && next_path.is_some()
-                {
+                if bgm_playlist_advances(target, variant_count) && next_path.is_some() {
                     play_bgm_file(audio, next_path.as_deref().unwrap(), target, variant_count);
                 }
                 audio.set_volume("bgm", volume);
@@ -372,9 +370,8 @@ mod tests {
     fn macos_bundle_audio_dir_has_priority() {
         let root = Path::new("/tmp/RustSurvivors.app/Contents");
         let exe = root.join("MacOS/RustSurvivors");
-        let dir = macos_app_audio_dir_for_exe(&exe).unwrap_or_else(|| {
-            root.join("Resources").join("assets").join("audio")
-        });
+        let dir = macos_app_audio_dir_for_exe(&exe)
+            .unwrap_or_else(|| root.join("Resources").join("assets").join("audio"));
 
         assert_eq!(dir, root.join("Resources").join("assets").join("audio"));
     }

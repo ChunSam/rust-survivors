@@ -3,7 +3,7 @@
 //! - BossKind: GiantSlime(10min/HP1000) / GhostKing(20min/HP2500) / Death(30min/HP6000)
 //! - BossSpawnSystem: GameStats.elapsed >= spawn_time 시 스폰
 //! - BossPhaseSystem: HP 50%/20% 미만 시 phase 전환 + 속도 강화
-//! - BossDeathSystem: HP <= 0 → despawn + Death 처치 시 StageClear
+//! - BossDeathSystem: HP <= 0 → despawn + clear boss 처치 시 StageClear
 //! - CameraShake: duration/intensity 기반 랜덤 offset 리소스
 //! - StageProgress: cleared 플래그
 
@@ -64,6 +64,10 @@ impl BossKind {
             BossKind::GhostKing => loc(lang, "고스트 킹", "GHOST KING"),
             BossKind::Death => loc(lang, "죽음", "DEATH"),
         }
+    }
+
+    pub fn clears_stage(self) -> bool {
+        matches!(self, BossKind::GiantSlime | BossKind::Death)
     }
 }
 
@@ -288,7 +292,7 @@ impl System for BossPhaseSystem {
 // ─── BossDeathSystem ─────────────────────────────────────────────────────────
 
 /// 보스 HP <= 0 → despawn + CameraShake + kills 카운트.
-/// Death 보스 처치 시 StageProgress.cleared = true.
+/// 10:00 보스 또는 Death 처치 시 StageProgress.cleared = true.
 pub struct BossDeathSystem;
 
 impl System for BossDeathSystem {
@@ -326,13 +330,58 @@ impl System for BossDeathSystem {
                 stats.kills += 1;
             }
 
-            // Death 보스 처치 → StageClear
-            if matches!(kind, BossKind::Death) {
+            // Stage-clear boss 처치 → StageClear
+            if kind.clears_stage() {
                 if let Some(progress) = world.resource_mut::<StageProgress>() {
                     progress.cleared = true;
                 }
                 println!("STAGE CLEAR!");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::survivor::test_support::playing_world_with_boss_resources;
+    use engine::System;
+
+    #[test]
+    fn giant_slime_death_marks_stage_clear() {
+        let mut world = playing_world_with_boss_resources();
+        spawn_boss(&mut world, Vec2::ZERO, BossKind::GiantSlime);
+        let boss = world
+            .query::<Boss>()
+            .next()
+            .map(|(entity, _)| entity)
+            .expect("boss should spawn");
+        world.get_mut::<Health>(boss).unwrap().current = 0.0;
+
+        BossDeathSystem.run(&mut world, 0.0);
+
+        assert!(
+            world.resource::<StageProgress>().unwrap().cleared,
+            "defeating the 10-minute boss should clear the stage"
+        );
+    }
+
+    #[test]
+    fn non_clear_boss_death_does_not_mark_stage_clear() {
+        let mut world = playing_world_with_boss_resources();
+        spawn_boss(&mut world, Vec2::ZERO, BossKind::GhostKing);
+        let boss = world
+            .query::<Boss>()
+            .next()
+            .map(|(entity, _)| entity)
+            .expect("boss should spawn");
+        world.get_mut::<Health>(boss).unwrap().current = 0.0;
+
+        BossDeathSystem.run(&mut world, 0.0);
+
+        assert!(
+            !world.resource::<StageProgress>().unwrap().cleared,
+            "later bosses are not the MVP stage-clear trigger"
+        );
     }
 }

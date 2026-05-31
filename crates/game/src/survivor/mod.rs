@@ -38,6 +38,7 @@ pub mod stats;
 pub(crate) mod test_support;
 pub mod title_visual;
 pub mod ui_icons;
+pub(crate) mod ui_layout;
 pub mod weapon;
 pub mod world_setup;
 pub mod xp;

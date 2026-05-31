@@ -4,6 +4,36 @@ Vampire Survivors 클론 개발 진행 상황. 각 sub-phase 완료 시 항목 �
 
 ---
 
+## Level-up / GameOver Title Restyle (2026-05-30)
+
+레벨업/사망 타이틀 PNG가 좌우로 늘어나 보이는 문제를 사용자 확인 샘플 기반으로 다시 정리한 패스.
+
+### 변경
+
+- `levelup_title_{ko,en}.png`, `gameover_title_{ko,en}.png` 4개를 기존 UI 계열과 맞는 검은 균열 석재, 금속 프레임, 붉은 보석, 금박 문자 스타일로 교체.
+- HUD 배치, 표시 크기, `760x190` 원본 비율, `survivor_texture_aspect` 등록값은 유지.
+- 다음 작업에서 같은 스타일을 재사용할 수 있도록 `docs/UI_TITLE_STYLE_PROMPT.md` 추가.
+- `docs/ASSET_LICENSES.md`의 4개 타이틀 이미지 SHA-256 갱신.
+
+### 검증
+
+```bash
+sips -g pixelWidth -g pixelHeight assets/textures/survivor/ui/levelup_title_ko.png assets/textures/survivor/ui/levelup_title_en.png assets/textures/survivor/ui/gameover_title_ko.png assets/textures/survivor/ui/gameover_title_en.png
+file assets/textures/survivor/ui/levelup_title_ko.png assets/textures/survivor/ui/levelup_title_en.png assets/textures/survivor/ui/gameover_title_ko.png assets/textures/survivor/ui/gameover_title_en.png
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo build -p game --bin survivor --release --locked
+```
+
+game lib tests: 170 passed.
+
+### 수동 QA
+
+- 게임 실행 후 Level-up 화면에서 `레벨 업` / `LEVEL UP` 타이틀이 자연스러운 글자 비율로 보이는지 확인.
+- GameOver 화면에서 `게임 오버` / `GAME OVER` 타이틀이 기존 UI 스타일과 맞고 텍스트/패널과 겹치지 않는지 확인.
+
+---
+
 ## Logo Text Transparent PNG Pass (2026-05-29)
 
 로고풍 텍스트 이미지 샘플을 사용자 확인받은 뒤, 메뉴와 인게임 고정 텍스트 PNG 전체를 같은 방향으로 정리하고 캔버스 배경을 투명 처리한 패스.

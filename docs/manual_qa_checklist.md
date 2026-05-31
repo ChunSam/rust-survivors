@@ -5,6 +5,36 @@
 자동 검증은 통과했지만, wgpu 창에서만 확인 가능한 항목은 수동 QA로 남긴다.
 각 항목은 문제가 있으면 증상, 화면, 누른 키, 대략 시간을 기록한다.
 
+## 2026-05-31 Full Survivor UI Rect Stabilization
+
+- `ModalLayout`, `MenuListLayout`, `TopHudLayout` 추가로 panel/content/row/text/icon rect 기준을 공통화.
+- CharacterSelect, StageSelect, Shop, Achievements, Settings, PauseMenu, StageClear, GameOver의 선택 프레임/텍스트를 safe content rect 기준으로 재배치.
+- InGame 상단 HUD는 `HudDetail`별 `TopHudLayout`에서 HP bar, 수치, stat row, boss bar y를 파생하도록 정리.
+- Level-up 카드 텍스트는 카드 row rect에서 baseline을 파생하도록 정리.
+- 자동 검증: `cargo fmt --check` 통과.
+- 자동 검증: `cargo test -p game --lib --locked -- --test-threads=1` 통과: 181 passed.
+- 자동 검증: `cargo build -p game --bin survivor --release --locked` 통과.
+- 수동 확인 필요: 800x600, 1280x720, 1600x900, 1920x1080에서 Title, CharacterSelect, StageSelect, Shop, Achievements, Settings, PauseMenu, StageClear, InGame HUD, Level-up, GameOver를 실제 창으로 확인.
+
+## 2026-05-31 UI Layout Stabilization Pass
+
+- `crates/game/src/survivor/ui_layout.rs` 추가: `ScreenRect`, `UiLayout`, HUD 슬롯, Level-up 카드, Shop row, Title 이미지 rect 계산을 공통 screen-space 레이아웃으로 분리.
+- InGame HUD 슬롯 레벨 텍스트, Level-up 카드 텍스트, Shop 파워업 텍스트가 아이콘/프레임과 같은 부모 rect 기준을 쓰도록 정리.
+- Title 이미지 rect는 기존 클릭 hit rect를 source of truth로 삼아 같은 center에서 파생되도록 정리.
+- 자동 검증: `cargo fmt --check` 통과.
+- 자동 검증: `cargo test -p game --lib --locked -- --test-threads=1` 통과: 181 passed.
+- 수동 확인 필요: 800x600, 1280x720, 1600x900, 1920x1080에서 Title, InGame HUD 슬롯, Level-up 카드, Shop row의 이미지/아이콘/텍스트 정렬 확인.
+- 수동 확인 필요: CharacterSelect, StageSelect, Achievements, Settings, PauseMenu, StageClear, GameOver에서 기존 화면 전환과 텍스트 겹침 회귀가 없는지 확인.
+
+## 2026-05-30 Level-up / GameOver Title Restyle
+
+- 레벨업/사망 타이틀 PNG 4개를 기존 UI 계열과 맞는 검은 균열 석재, 금속 프레임, 붉은 보석, 금박 문자 스타일로 교체.
+- 4개 이미지 모두 `760x190` RGBA PNG 확인.
+- `cargo fmt --check` 통과.
+- `cargo test -p game --lib --locked -- --test-threads=1` 통과: 170 passed.
+- `cargo build -p game --bin survivor --release --locked` 통과.
+- 수동 확인 필요: 실제 게임 창에서 Level-up/GameOver 타이틀이 기존 UI 스타일과 어울리고 글자가 좌우로 늘어나 보이지 않는지 확인.
+
 ## 2026-05-23 Smoke Result
 
 - `scripts/package_macos.sh`로 만든 `dist/macos/RustSurvivors/survivor` 실행 확인.
@@ -243,8 +273,9 @@ cargo run -p game --bin survivor --release
 
 ## Audio
 
-- `assets/audio/bgm_title.wav`가 Title에서 들린다.
-- InGame/Boss/StageClear/GameOver 전환 시 BGM이 바뀐다.
+- `assets/audio/rustsurvivors title1.mp3` 또는 `title2.mp3`가 Title에서 들린다.
+- Title/InGame/Boss는 2곡 variant가 자연 종료 후 번갈아 이어 재생된다.
+- StageClear/GameOver 전환 시 짧은 1회 BGM cue가 재생된다.
 - 보스 등장 시 `sfx_boss_appear`가 재생된다.
 - 보물상자 획득 시 `sfx_chest_open`이 재생된다.
 - SFX 파일이 없을 때 절차적 톤 fallback이 들린다.

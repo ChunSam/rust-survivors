@@ -14,82 +14,15 @@ use super::sprites::{
     MENU_BUTTON_START_KO_PATH, RENDER_LAYER_BACKGROUND, TITLE_BACKDROP_PATH,
     TITLE_LOGO_PLAQUE_PATH,
 };
+use super::ui_layout::{
+    title_logo_rect as ui_title_logo_rect, title_menu_button_image_rect, title_start_image_rect,
+    ScreenRect,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TitleBackdrop;
 
 pub struct TitleVisualSystem;
-
-#[derive(Debug, Clone, Copy)]
-struct ScreenRect {
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-}
-
-impl ScreenRect {
-    fn from_tuple(rect: (f32, f32, f32, f32)) -> Self {
-        Self {
-            x: rect.0,
-            y: rect.1,
-            w: rect.2,
-            h: rect.3,
-        }
-    }
-
-    fn inflated(self, x: f32, y: f32) -> Self {
-        Self {
-            x: self.x - x,
-            y: self.y - y,
-            w: self.w + x * 2.0,
-            h: self.h + y * 2.0,
-        }
-    }
-
-    fn aspect_fit(self, aspect: f32) -> Self {
-        let rect_aspect = self.w / self.h.max(1.0);
-        if rect_aspect > aspect {
-            let w = self.h * aspect;
-            Self {
-                x: self.x + (self.w - w) * 0.5,
-                w,
-                ..self
-            }
-        } else {
-            let h = self.w / aspect.max(0.001);
-            Self {
-                y: self.y + (self.h - h) * 0.5,
-                h,
-                ..self
-            }
-        }
-    }
-
-    fn aspect_fill(self, aspect: f32) -> Self {
-        let rect_aspect = self.w / self.h.max(1.0);
-        if rect_aspect > aspect {
-            let h = self.w / aspect.max(0.001);
-            Self {
-                y: self.y + (self.h - h) * 0.5,
-                h,
-                ..self
-            }
-        } else {
-            let w = self.h * aspect;
-            Self {
-                x: self.x + (self.w - w) * 0.5,
-                w,
-                ..self
-            }
-        }
-    }
-
-    #[cfg(test)]
-    fn bottom(self) -> f32 {
-        self.y + self.h
-    }
-}
 
 const TITLE_MENU_LOGO_Z: f32 = 28.0;
 const TITLE_MENU_BUTTON_Z: f32 = 30.0;
@@ -140,13 +73,7 @@ impl System for TitleVisualSystem {
 
         if let Some(t) = world.get_mut::<Transform>(entity) {
             t.position = center;
-            let image_rect = ScreenRect {
-                x: 0.0,
-                y: 0.0,
-                w: visible.x,
-                h: visible.y,
-            }
-            .aspect_fill(
+            let image_rect = ScreenRect::new(0.0, 0.0, visible.x, visible.y).aspect_fill(
                 survivor_texture_aspect(TITLE_BACKDROP_PATH).unwrap_or(visible.x / visible.y),
             );
             t.scale = Vec2::new(image_rect.w, image_rect.h) * 1.04;
@@ -164,9 +91,9 @@ impl System for TitleVisualSystem {
 
 fn queue_title_menu_images(world: &mut World, viewport: Vec2, lang: Lang) {
     let layout = title_button_layout(viewport.x, viewport.y);
-    let compact = viewport.x <= 900.0 || viewport.y <= 640.0;
-    let logo = title_logo_rect(viewport.x, viewport.y, compact);
-    let start = start_image_rect(ScreenRect::from_tuple(layout.start), compact);
+    let logo = ui_title_logo_rect(viewport.x, viewport.y);
+    let start =
+        title_start_image_rect(ScreenRect::from_tuple(layout.start), viewport.x, viewport.y);
     let start_path = title_start_button_path(lang);
     let logo_image = image_rect_for_path(logo, TITLE_LOGO_PLAQUE_PATH);
     let start_image = image_rect_for_path(start, start_path);
@@ -176,7 +103,8 @@ fn queue_title_menu_images(world: &mut World, viewport: Vec2, lang: Lang) {
 
     let paths = title_menu_button_paths(lang);
     for (path, rect) in paths.into_iter().zip(layout.buttons) {
-        let rect = menu_button_image_rect(ScreenRect::from_tuple(rect), compact);
+        let rect =
+            title_menu_button_image_rect(ScreenRect::from_tuple(rect), viewport.x, viewport.y);
         let image_rect = image_rect_for_path(rect, path);
         queue_screen_image(world, image_rect, path, TITLE_MENU_BUTTON_Z);
     }
@@ -205,41 +133,6 @@ fn title_menu_button_paths(lang: Lang) -> [&'static str; 5] {
             MENU_BUTTON_ACHIEVEMENTS_EN_PATH,
             MENU_BUTTON_SETTINGS_EN_PATH,
         ],
-    }
-}
-
-fn title_logo_rect(vw: f32, vh: f32, compact: bool) -> ScreenRect {
-    let w = if compact {
-        (vw - 52.0).clamp(560.0, 660.0)
-    } else {
-        (vw * 0.76).clamp(760.0, 1040.0)
-    };
-    let h = if compact {
-        (vh * 0.25).clamp(132.0, 168.0)
-    } else {
-        (vh * 0.29).clamp(190.0, 236.0)
-    };
-    ScreenRect {
-        x: vw * 0.5 - w * 0.5,
-        y: if compact { 36.0 } else { 28.0 },
-        w,
-        h,
-    }
-}
-
-fn start_image_rect(rect: ScreenRect, compact: bool) -> ScreenRect {
-    if compact {
-        rect.inflated(28.0, 18.0)
-    } else {
-        rect.inflated(64.0, 36.0)
-    }
-}
-
-fn menu_button_image_rect(rect: ScreenRect, compact: bool) -> ScreenRect {
-    if compact {
-        rect.inflated(16.0, 14.0)
-    } else {
-        rect.inflated(24.0, 20.0)
     }
 }
 
@@ -273,13 +166,13 @@ mod tests {
     #[test]
     fn compact_title_menu_images_fit_800x600() {
         let layout = title_button_layout(800.0, 600.0);
-        let logo = title_logo_rect(800.0, 600.0, true);
-        let start = start_image_rect(ScreenRect::from_tuple(layout.start), true);
+        let logo = ui_title_logo_rect(800.0, 600.0);
+        let start = title_start_image_rect(ScreenRect::from_tuple(layout.start), 800.0, 600.0);
         assert_inside_viewport(logo, 800.0, 600.0);
         assert_inside_viewport(start, 800.0, 600.0);
         for rect in layout.buttons {
             assert_inside_viewport(
-                menu_button_image_rect(ScreenRect::from_tuple(rect), true),
+                title_menu_button_image_rect(ScreenRect::from_tuple(rect), 800.0, 600.0),
                 800.0,
                 600.0,
             );
@@ -287,25 +180,44 @@ mod tests {
         assert!(logo.bottom() < start.y);
         assert!(
             start.bottom()
-                < menu_button_image_rect(ScreenRect::from_tuple(layout.buttons[0]), true).y
+                < title_menu_button_image_rect(
+                    ScreenRect::from_tuple(layout.buttons[0]),
+                    800.0,
+                    600.0
+                )
+                .y
         );
     }
 
     #[test]
     fn default_title_menu_images_fit_1280x720() {
         let layout = title_button_layout(1280.0, 720.0);
-        assert_inside_viewport(title_logo_rect(1280.0, 720.0, false), 1280.0, 720.0);
+        assert_inside_viewport(ui_title_logo_rect(1280.0, 720.0), 1280.0, 720.0);
         assert_inside_viewport(
-            start_image_rect(ScreenRect::from_tuple(layout.start), false),
+            title_start_image_rect(ScreenRect::from_tuple(layout.start), 1280.0, 720.0),
             1280.0,
             720.0,
         );
         for rect in layout.buttons {
             assert_inside_viewport(
-                menu_button_image_rect(ScreenRect::from_tuple(rect), false),
+                title_menu_button_image_rect(ScreenRect::from_tuple(rect), 1280.0, 720.0),
                 1280.0,
                 720.0,
             );
+        }
+    }
+
+    #[test]
+    fn title_image_rects_share_hit_rect_centers() {
+        let layout = title_button_layout(1280.0, 720.0);
+        let start_hit = ScreenRect::from_tuple(layout.start);
+        let start_image = title_start_image_rect(start_hit, 1280.0, 720.0);
+        assert_eq!(start_image.center(), start_hit.center());
+
+        for rect in layout.buttons {
+            let hit = ScreenRect::from_tuple(rect);
+            let image = title_menu_button_image_rect(hit, 1280.0, 720.0);
+            assert_eq!(image.center(), hit.center());
         }
     }
 
