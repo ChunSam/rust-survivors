@@ -7,10 +7,10 @@
 
 use super::boss::{spawn_boss, BossKind};
 use super::health::Health;
-use super::pickup::{Pickup, PickupKind};
+use super::pickup::{spawn_pickup, PickupKind};
 use super::player::Player;
 use super::xp::XpAccumulator;
-use engine::{Entity, InputState, Sprite, System, Transform, World};
+use engine::{InputState, System, Transform, World};
 use glam::Vec2;
 use winit::keyboard::KeyCode;
 
@@ -94,20 +94,8 @@ fn find_player_pos(world: &World) -> Vec2 {
 }
 
 fn spawn_pickup_near(world: &mut World, pos: Vec2, kind: PickupKind) {
-    let color = kind.color();
-    let size = kind.scale();
-    let e: Entity = world.spawn();
-    world.add_component(
-        e,
-        Transform {
-            position: pos + Vec2::new(40.0, 0.0),
-            scale: Vec2::splat(size),
-            rotation: 0.0,
-            z: 0.5,
-        },
-    );
-    world.add_component(e, Sprite::colored(color[0], color[1], color[2]));
-    world.add_component(e, Pickup { kind });
+    let spawn_pos = pos + Vec2::new(40.0, 0.0);
+    spawn_pickup(world, spawn_pos, kind);
     println!("[DEBUG] {:?} 픽업 스폰 at {:?}", kind, pos);
 }
 
@@ -128,7 +116,9 @@ pub fn toggle_debug_overlay(world: &mut World) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::survivor::pickup::Pickup;
     use crate::survivor::world_setup::spawn_player;
+    use engine::{Sprite, UvRect};
 
     #[test]
     fn debug_overlay_toggles_on_and_off() {
@@ -157,5 +147,23 @@ mod tests {
         let player_entity = world.query::<Player>().next().map(|(e, _)| e).unwrap();
         let xp = world.get::<XpAccumulator>(player_entity).unwrap();
         assert_eq!(xp.current, xp.next_threshold);
+    }
+
+    #[test]
+    fn debug_pickups_use_atlas_sprites() {
+        let mut world = World::new();
+
+        spawn_pickup_near(&mut world, Vec2::ZERO, PickupKind::Bomb);
+        spawn_pickup_near(&mut world, Vec2::new(100.0, 0.0), PickupKind::Rosary);
+
+        let pickups: Vec<_> = world.query::<Pickup>().collect();
+        assert_eq!(pickups.len(), 2);
+
+        for (entity, pickup) in pickups {
+            assert!(matches!(pickup.kind, PickupKind::Bomb | PickupKind::Rosary));
+            let sprite = world.get::<Sprite>(entity).unwrap();
+            assert!(sprite.texture.is_some());
+            assert!(world.get::<UvRect>(entity).is_some());
+        }
     }
 }

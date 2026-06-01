@@ -207,6 +207,7 @@ pub(crate) struct MenuListLayout {
     pub(crate) row_h: f32,
     pub(crate) font_size: f32,
     pub(crate) first_row_y: f32,
+    pub(crate) footer_baseline: Vec2,
 }
 
 impl MenuListLayout {
@@ -222,14 +223,26 @@ impl MenuListLayout {
     ) -> Self {
         let modal =
             ModalLayout::centered(viewport_w, viewport_h, max_panel_w, max_panel_h, top_bias);
+        let compact = viewport_w <= 900.0 || viewport_h <= 640.0;
         let list_top = modal.content.y + 34.0;
-        let list_bottom = modal.footer_baseline.y - 20.0;
+        let list_bottom = if compact {
+            modal.panel.bottom() - 116.0
+        } else {
+            modal.panel.bottom() - 84.0
+        };
         let available_h = (list_bottom - list_top).max(row_count as f32 * 24.0);
         let row_step = preferred_row_step
             .min(available_h / row_count.max(1) as f32)
-            .max(24.0);
+            .max(if compact { 20.0 } else { 24.0 });
         let row_h = (row_step - 4.0).max(20.0);
-        let font_size = preferred_font_size.min(row_h * 0.62).max(14.0);
+        let font_size =
+            preferred_font_size
+                .min(row_h * 0.62)
+                .max(if compact { 13.0 } else { 14.0 });
+        let footer_baseline = Vec2::new(
+            modal.content.x,
+            (modal.panel.bottom() + 22.0).min(viewport_h - 20.0),
+        );
         Self {
             modal,
             row_count,
@@ -237,6 +250,7 @@ impl MenuListLayout {
             row_h,
             font_size,
             first_row_y: list_top,
+            footer_baseline,
         }
     }
 
@@ -506,7 +520,8 @@ impl ShopLayout {
 
     pub(crate) fn visible_rows(self) -> usize {
         let content = self.content_rect();
-        (((content.h - 70.0) / self.row_step()).floor() as usize).clamp(8, 13)
+        let min_rows = if self.viewport_h <= 620.0 { 7 } else { 8 };
+        (((content.h - 70.0) / self.row_step()).floor() as usize).clamp(min_rows, 13)
     }
 
     pub(crate) fn visible_start(self, cursor_index: usize, total_rows: usize) -> usize {
@@ -583,7 +598,12 @@ impl ShopLayout {
 
     pub(crate) fn footer_pos(self) -> Vec2 {
         let panel = self.panel_rect();
-        Vec2::new(self.content_rect().x, panel.bottom() - 28.0)
+        let y = if self.viewport_h <= 620.0 {
+            (panel.bottom() + 34.0).min(self.viewport_h - 20.0)
+        } else {
+            panel.bottom() - 28.0
+        };
+        Vec2::new(self.content_rect().x, y)
     }
 }
 
@@ -664,6 +684,8 @@ mod tests {
             assert_inside_viewport(shop.selection_skin_rect(0), viewport);
             assert_inside_viewport(menu.modal.panel, viewport);
             assert_inside_viewport(menu.selection_rect(0), viewport);
+            assert!(menu.footer_baseline.y <= vh - 16.0);
+            assert!(menu.row_rect(menu.row_count - 1).bottom() <= menu.modal.panel.bottom() - 40.0);
 
             for slot in 0..SLOT_COLS {
                 let slot_rect = hud.slot_rect(slot, 0);

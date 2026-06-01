@@ -5,6 +5,36 @@
 자동 검증은 통과했지만, wgpu 창에서만 확인 가능한 항목은 수동 QA로 남긴다.
 각 항목은 문제가 있으면 증상, 화면, 누른 키, 대략 시간을 기록한다.
 
+## 2026-06-01 UI Visual QA Replay
+
+- 범위: UI 중심 수동 QA. 실제 스피커 BGM/SFX, StageClear, 장시간 플레이는 제외.
+- 실행: `cargo run -p game --bin survivor` 개발 바이너리를 실제 macOS 창으로 실행.
+- 캡처 기준: CoreGraphics window bounds 확인 후 content 영역 기준으로 캡처. 1920x1080은 macOS 표시 bounds가 `1920x1050`으로 제한되어 보이는 content 기준으로 확인.
+- 발견 이슈: 800x600에서 Settings 하단 도움말과 Resolution row가 모달 하단 장식을 침범.
+- 발견 이슈: 800x600에서 CharacterSelect 제목/Gold 겹침, 하단 row/help가 모달 장식에 걸림.
+- 발견 이슈: 800x600에서 Achievements 제목/요약/첫 row가 겹치고 10번째 row가 하단 장식에 걸림.
+- 발견 이슈: 800x600에서 Shop 마지막 visible row와 도움말이 하단 프레임/중앙 장식에 걸림.
+- 발견 이슈: 1280x720 및 1600x900 Settings에서 Resolution row/help가 하단 장식에 가까움.
+- 수정: compact/non-compact `MenuListLayout`의 리스트 하단 여백과 footer baseline을 분리해 도움말을 프레임 아래로 배치.
+- 수정: Settings row 간격을 줄여 Resolution row가 1280x720/1600x900/1920x1080에서 하단 장식을 침범하지 않게 조정.
+- 수정: compact CharacterSelect 헤더의 title/gold 위치와 크기를 조정.
+- 수정: compact Achievements 헤더 크기/위치를 조정하고 업적 페이지 크기를 8개 단위로 변경.
+- 수정: compact Shop visible row 최소값을 7로 낮추고 compact Shop help text를 프레임 아래로 배치.
+- 확인: 800x600 Title, Settings, CharacterSelect, StageSelect, Achievements, Shop에서 텍스트/프레임 큰 겹침 없음.
+- 확인: 800x600 InGame HUD, Level-up, PauseMenu, GameOver, boss bar에서 큰 겹침/흰 사각형/상하 반전 없음.
+- 확인: 1280x720 Settings와 StageSelect에서 row/help가 프레임과 분리됨. 종료 전 `Language=System`, `Resolution=1280x720`로 복원 확인.
+- 확인: 1600x900 Settings와 KO Title에서 scale/white leakage 큰 문제 없음.
+- 확인: 1920x1080 설정 상태는 실제 표시 bounds 제한 안에서 Settings와 KO Title scale/white leakage 큰 문제 없음.
+- 추가 발견: 사용자 800x600 스크린샷에서 F5 Bomb/F6 Rosary가 atlas sprite 대신 회색/흰색 블럭으로 표시됨.
+- 수정: F5/F6 debug pickup 경로가 임시 `Sprite::colored(...)`를 직접 붙이지 않고 공용 `spawn_pickup`을 호출하게 변경. Bomb/Rosary도 일반 드롭과 동일하게 atlas sprite와 `UvRect`를 사용한다.
+- 확인: debug pickup 단위 테스트에서 Bomb/Rosary 엔티티가 texture sprite와 `UvRect`를 갖는지 검증.
+- 추가 발견: 초기 Title 화면에서 START 버튼 뒤로 Player sprite 하단이 보임.
+- 수정: Title 모드 처리 시작 시 Player 엔티티가 남아 있으면 `reset_to_title_world`로 런 상태를 정리하도록 변경.
+- 확인: Title mode transition 단위 테스트에서 초기 setup 후 Player가 제거되고 `GameState::Paused`가 되는지 검증.
+- 자동 검증: `cargo fmt --check` 통과.
+- 자동 검증: `cargo test -p game --lib --locked -- --test-threads=1` 통과: 188 passed.
+- 자동 검증: `cargo build -p game --bin survivor --release --locked` 통과.
+
 ## 2026-05-31 Full Survivor UI Rect Stabilization
 
 - `ModalLayout`, `MenuListLayout`, `TopHudLayout` 추가로 panel/content/row/text/icon rect 기준을 공통화.

@@ -595,22 +595,24 @@ fn draw_character_select_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
         );
     }
     if let Some(q) = world.resource_mut::<TextQueue>() {
+        let compact = vw <= 900.0 || vh <= 640.0;
+        let title_size = if compact { 30.0 } else { 38.0 };
         q.push(DrawText::new(
             text(lang, UiText::CharacterSelect).to_string(),
             Vec2::new(
-                layout.modal.title_center_x() - 210.0,
+                layout.modal.title_center_x() - if compact { 170.0 } else { 210.0 },
                 layout.modal.title_baseline.y,
             ),
-            38.0,
+            title_size,
             [255, 220, 80, 255],
         ));
         q.push(DrawText::new(
             format!("{} {}", text(lang, UiText::Gold), gold),
             Vec2::new(
-                layout.modal.content.right() - 168.0,
-                layout.modal.title_baseline.y + 7.0,
+                layout.modal.content.right() - if compact { 128.0 } else { 168.0 },
+                layout.modal.title_baseline.y + if compact { 30.0 } else { 7.0 },
             ),
-            24.0,
+            if compact { 20.0 } else { 24.0 },
             [255, 255, 100, 255],
         ));
         for (i, kind) in CharacterKind::ALL.iter().enumerate() {
@@ -639,7 +641,7 @@ fn draw_character_select_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
         }
         q.push(DrawText::new(
             text(lang, UiText::NavigateSelectBack).to_string(),
-            layout.modal.footer_baseline,
+            layout.footer_baseline,
             20.0,
             HELP_TEXT_COLOR,
         ));
@@ -712,7 +714,7 @@ fn draw_stage_select_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
         }
         q.push(DrawText::new(
             text(lang, UiText::NavigateSelectBack).to_string(),
-            layout.modal.footer_baseline,
+            layout.footer_baseline,
             20.0,
             HELP_TEXT_COLOR,
         ));
@@ -884,10 +886,15 @@ fn draw_achievements_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
     }
 
     if let Some(q) = world.resource_mut::<TextQueue>() {
+        let compact = vw <= 900.0 || vh <= 640.0;
         q.push(DrawText::new(
             text(lang, UiText::Achievements).to_string(),
-            layout.modal.title_baseline,
-            38.0,
+            if compact {
+                Vec2::new(layout.modal.content.x + 28.0, layout.modal.panel.y + 48.0)
+            } else {
+                layout.modal.title_baseline
+            },
+            if compact { 26.0 } else { 38.0 },
             [255, 220, 80, 255],
         ));
         q.push(DrawText::new(
@@ -904,8 +911,12 @@ fn draw_achievements_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
                 page + 1,
                 page_count
             ),
-            Vec2::new(layout.modal.content.x, layout.modal.content.y + 4.0),
-            if vh <= 620.0 { 17.0 } else { 20.0 },
+            if compact {
+                Vec2::new(layout.modal.content.x + 28.0, layout.modal.panel.y + 76.0)
+            } else {
+                Vec2::new(layout.modal.content.x, layout.modal.content.y + 4.0)
+            },
+            if vh <= 620.0 { 14.0 } else { 20.0 },
             [220, 220, 225, 255],
         ));
 
@@ -947,7 +958,7 @@ fn draw_achievements_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
                 "W/S = navigate  A/D = page  ESC = back",
             )
             .to_string(),
-            layout.modal.footer_baseline,
+            layout.footer_baseline,
             18.0,
             HELP_TEXT_COLOR,
         ));
@@ -1007,7 +1018,7 @@ fn draw_pause_menu_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
         }
         q.push(DrawText::new(
             text(lang, UiText::PauseHelp).to_string(),
-            layout.modal.footer_baseline,
+            layout.footer_baseline,
             18.0,
             HELP_TEXT_COLOR,
         ));
@@ -1021,7 +1032,7 @@ fn draw_settings_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
         .unwrap_or(0);
     let meta = world.resource::<MetaSave>().cloned().unwrap_or_default();
     let selected_resolution = ResolutionPreset::from_key(&meta.resolution_key);
-    let layout = MenuListLayout::new(vw, vh, SETTINGS_ITEMS, 820.0, 470.0, 0.0, 52.0, 24.0);
+    let layout = MenuListLayout::new(vw, vh, SETTINGS_ITEMS, 820.0, 470.0, 0.0, 44.0, 24.0);
     queue_modal_panel_rect(world, layout.modal.panel, UI_PANEL_IMAGE_Z);
 
     if let Some(uq) = world.resource_mut::<UiQueue>() {
@@ -1082,7 +1093,7 @@ fn draw_settings_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
         }
         q.push(DrawText::new(
             text(lang, UiText::NavigateChangeApplyBack).to_string(),
-            layout.modal.footer_baseline,
+            layout.footer_baseline,
             16.0,
             HELP_TEXT_COLOR,
         ));

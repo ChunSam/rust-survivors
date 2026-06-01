@@ -24,7 +24,7 @@ use super::ui_layout::ScreenRect;
 const APP_NAME: &str = "rust-vampire-survivors";
 const SAVE_FILE: &str = "save.ron";
 pub const SETTINGS_ITEMS: usize = 5;
-pub const ACHIEVEMENTS_PER_PAGE: usize = 10;
+pub const ACHIEVEMENTS_PER_PAGE: usize = 8;
 
 // ─── MetaSave ────────────────────────────────────────────────────────────────
 
@@ -753,7 +753,10 @@ impl System for ModeTransitionSystem {
         }
 
         match mode {
-            SurvivorMode::Title => handle_title_input(world),
+            SurvivorMode::Title => {
+                clean_title_world_if_needed(world);
+                handle_title_input(world);
+            }
             SurvivorMode::CharacterSelect => {
                 // CharacterSelectSystem 이 처리 — 여기서는 no-op
             }
@@ -859,6 +862,12 @@ impl System for ModeTransitionSystem {
             SurvivorMode::Achievements => handle_achievement_input(world),
             SurvivorMode::Settings => handle_settings_input(world),
         }
+    }
+}
+
+fn clean_title_world_if_needed(world: &mut World) {
+    if world.query::<super::player::Player>().next().is_some() {
+        super::death::reset_to_title_world(world);
     }
 }
 
@@ -1027,11 +1036,12 @@ mod tests {
     }
 
     #[test]
-    fn achievements_are_paged_in_tens() {
-        assert_eq!(achievement_page_count(), 2);
-        assert_eq!(achievement_items_on_page(0), 10);
-        assert_eq!(achievement_items_on_page(1), 10);
-        assert_eq!(achievement_items_on_page(2), 0);
+    fn achievements_are_paged_for_compact_readability() {
+        assert_eq!(achievement_page_count(), 3);
+        assert_eq!(achievement_items_on_page(0), 8);
+        assert_eq!(achievement_items_on_page(1), 8);
+        assert_eq!(achievement_items_on_page(2), 4);
+        assert_eq!(achievement_items_on_page(3), 0);
     }
 
     #[test]
@@ -1055,5 +1065,24 @@ mod tests {
             SurvivorMode::InGame,
             "Title → InGame 전환 후 SurvivorMode 가 InGame 이어야 함"
         );
+    }
+
+    #[test]
+    fn title_mode_cleans_initial_player_entity() {
+        use crate::survivor::player::Player;
+        use crate::survivor::world_setup::setup_survivor_world;
+        use engine::{GameState, World};
+
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        setup_survivor_world(&mut world);
+
+        assert!(world.query::<Player>().next().is_some());
+
+        let mut system = ModeTransitionSystem;
+        system.run(&mut world, 0.0);
+
+        assert!(world.query::<Player>().next().is_none());
+        assert_eq!(world.resource::<GameState>(), Some(&GameState::Paused));
     }
 }
