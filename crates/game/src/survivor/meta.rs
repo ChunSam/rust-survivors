@@ -5,8 +5,7 @@
 /// - `ModeTransitionSystem` — 모드 전환 + GameState 동기화.
 use engine::save;
 use engine::{
-    DisplayScaleFactor, GameState, InputState, PendingResize, ShouldQuit, System, ViewportSize,
-    WindowConfig, World,
+    GameState, InputState, PendingResize, ShouldQuit, System, ViewportSize, WindowConfig, World,
 };
 use serde::{Deserialize, Serialize};
 use winit::event::MouseButton;
@@ -357,10 +356,6 @@ fn point_in_rect(x: f32, y: f32, rect: (f32, f32, f32, f32)) -> bool {
     ScreenRect::from_tuple(rect).contains_point(glam::Vec2::new(x, y))
 }
 
-fn logical_cursor_position(cursor: glam::Vec2, display_scale: f32) -> glam::Vec2 {
-    cursor / display_scale.max(1.0)
-}
-
 fn request_resolution_change(world: &mut World, w: u32, h: u32) {
     world.insert_resource(PendingResize(Some((w, h))));
     world.insert_resource(ViewportSize {
@@ -392,12 +387,8 @@ fn handle_title_input(world: &mut World) {
             .resource::<ViewportSize>()
             .map(|v| (v.width, v.height))
             .unwrap_or((1280.0, 720.0));
-        let display_scale = world
-            .resource::<DisplayScaleFactor>()
-            .map(|s| s.0)
-            .unwrap_or(1.0);
         let mouse_action = if i.mouse_just_pressed(MouseButton::Left) {
-            let cursor = logical_cursor_position(i.cursor(), display_scale);
+            let cursor = i.mouse_press_cursor(MouseButton::Left);
             title_action_at(cursor.x, cursor.y, vw, vh)
         } else {
             None
@@ -1028,9 +1019,8 @@ mod tests {
     }
 
     #[test]
-    fn physical_cursor_is_converted_to_logical_for_retina_clicks() {
-        let logical = logical_cursor_position(glam::Vec2::new(1040.0, 950.0), 2.0);
-        let action = title_action_at(logical.x, logical.y, 800.0, 600.0);
+    fn logical_cursor_hits_title_button_on_retina_windows() {
+        let action = title_action_at(520.0, 475.0, 800.0, 600.0);
 
         assert_eq!(action, Some(TitleAction::Settings));
     }

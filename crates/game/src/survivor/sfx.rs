@@ -16,6 +16,7 @@ use super::meta::MetaSave;
 
 const AUDIO_DIR: &str = "assets/audio";
 const EXTENSIONS: &[&str] = &["ogg", "wav"];
+const SFX_BUS: &str = "sfx";
 
 fn find_audio_file(key: &str) -> Option<String> {
     for ext in EXTENSIONS {
@@ -27,13 +28,41 @@ fn find_audio_file(key: &str) -> Option<String> {
     None
 }
 
-fn play_file(audio: &mut AudioManager, channel: &str, key: &str, volume: f32) -> bool {
+fn prepare_sfx_channel(audio: &mut AudioManager, channel: &str, gain: f32) {
+    audio.assign_bus(channel, SFX_BUS);
+    audio.set_volume(channel, gain);
+}
+
+fn play_file(audio: &mut AudioManager, channel: &str, key: &str, gain: f32) -> bool {
     let Some(path) = find_audio_file(key) else {
         return false;
     };
     audio.play(channel, &path, false);
-    audio.set_volume(channel, volume);
+    prepare_sfx_channel(audio, channel, gain);
     true
+}
+
+fn play_tone(audio: &mut AudioManager, channel: &str, freq: f32, duration_secs: f32, gain: f32) {
+    audio.assign_bus(channel, SFX_BUS);
+    audio.play_tone(channel, freq, duration_secs, gain);
+}
+
+fn base_gains(event: SfxEvent) -> &'static [f32] {
+    match event {
+        SfxEvent::EnemyHit => &[0.22],
+        SfxEvent::EnemyDie => &[0.35],
+        SfxEvent::PlayerHit => &[0.50],
+        SfxEvent::LevelUp => &[0.55, 0.55],
+        SfxEvent::XpGem => &[0.12],
+        SfxEvent::Pickup => &[0.40],
+        SfxEvent::Bomb => &[0.70, 0.45],
+        SfxEvent::ChestOpen => &[0.45, 0.35],
+        SfxEvent::BossAppear => &[0.70, 0.45],
+    }
+}
+
+fn base_gain(event: SfxEvent, index: usize) -> f32 {
+    base_gains(event)[index]
 }
 
 /// SFX 이벤트 종류.
@@ -117,6 +146,7 @@ impl System for SfxSystem {
         let Some(audio) = world.resource_mut::<AudioManager>() else {
             return;
         };
+        audio.set_bus_volume(SFX_BUS, volume);
 
         // 2) 카테고리별 프레임 상한으로 스팸 방지
         let mut hit_n = 0u8;
@@ -129,8 +159,9 @@ impl System for SfxSystem {
                     if hit_n < 2 {
                         // 짧은 고음 틱 — 여러 무기가 동시에 때려도 2회로 제한
                         let ch = format!("sfx_hit_{hit_n}");
-                        if !play_file(audio, &ch, event.file_key(), volume) {
-                            audio.play_tone(&ch, 420.0, 0.045, 0.22 * volume);
+                        let gain = base_gain(event, 0);
+                        if !play_file(audio, &ch, event.file_key(), gain) {
+                            play_tone(audio, &ch, 420.0, 0.045, gain);
                         }
                         hit_n += 1;
                     }
@@ -138,56 +169,64 @@ impl System for SfxSystem {
                 SfxEvent::EnemyDie => {
                     if die_n < 2 {
                         let ch = format!("sfx_die_{die_n}");
-                        if !play_file(audio, &ch, event.file_key(), volume) {
-                            audio.play_tone(&ch, 160.0, 0.13, 0.35 * volume);
+                        let gain = base_gain(event, 0);
+                        if !play_file(audio, &ch, event.file_key(), gain) {
+                            play_tone(audio, &ch, 160.0, 0.13, gain);
                         }
                         die_n += 1;
                     }
                 }
                 SfxEvent::PlayerHit => {
                     // 플레이어 피격은 게임당 cooldown 이 있어 많아야 1회/초
-                    if !play_file(audio, "sfx_player_hit", event.file_key(), volume) {
-                        audio.play_tone("sfx_player_hit", 200.0, 0.12, 0.50 * volume);
+                    let gain = base_gain(event, 0);
+                    if !play_file(audio, "sfx_player_hit", event.file_key(), gain) {
+                        play_tone(audio, "sfx_player_hit", 200.0, 0.12, gain);
                     }
                 }
                 SfxEvent::LevelUp => {
                     // 상승하는 두 음 — 두 번째 톤으로 즉시 덮어쓰지 않도록 다른 채널
-                    if !play_file(audio, "sfx_levelup", event.file_key(), volume) {
-                        audio.play_tone("sfx_lvl_lo", 440.0, 0.18, 0.55 * volume);
-                        audio.play_tone("sfx_lvl_hi", 660.0, 0.25, 0.55 * volume);
+                    let gains = base_gains(event);
+                    if !play_file(audio, "sfx_levelup", event.file_key(), gains[0]) {
+                        play_tone(audio, "sfx_lvl_lo", 440.0, 0.18, gains[0]);
+                        play_tone(audio, "sfx_lvl_hi", 660.0, 0.25, gains[1]);
                     }
                 }
                 SfxEvent::XpGem => {
                     if xp_n < 3 {
                         let ch = format!("sfx_xp_{xp_n}");
-                        if !play_file(audio, &ch, event.file_key(), volume) {
-                            audio.play_tone(&ch, 880.0, 0.04, 0.12 * volume);
+                        let gain = base_gain(event, 0);
+                        if !play_file(audio, &ch, event.file_key(), gain) {
+                            play_tone(audio, &ch, 880.0, 0.04, gain);
                         }
                         xp_n += 1;
                     }
                 }
                 SfxEvent::Pickup => {
-                    if !play_file(audio, "sfx_pickup", event.file_key(), volume) {
-                        audio.play_tone("sfx_pickup", 1040.0, 0.09, 0.40 * volume);
+                    let gain = base_gain(event, 0);
+                    if !play_file(audio, "sfx_pickup", event.file_key(), gain) {
+                        play_tone(audio, "sfx_pickup", 1040.0, 0.09, gain);
                     }
                 }
                 SfxEvent::Bomb => {
                     // 저주파 굉음 + 하모닉
-                    if !play_file(audio, "sfx_bomb", event.file_key(), volume) {
-                        audio.play_tone("sfx_bomb_lo", 60.0, 0.45, 0.70 * volume);
-                        audio.play_tone("sfx_bomb_hi", 120.0, 0.30, 0.45 * volume);
+                    let gains = base_gains(event);
+                    if !play_file(audio, "sfx_bomb", event.file_key(), gains[0]) {
+                        play_tone(audio, "sfx_bomb_lo", 60.0, 0.45, gains[0]);
+                        play_tone(audio, "sfx_bomb_hi", 120.0, 0.30, gains[1]);
                     }
                 }
                 SfxEvent::ChestOpen => {
-                    if !play_file(audio, "sfx_chest_open", event.file_key(), volume) {
-                        audio.play_tone("sfx_chest_lo", 520.0, 0.12, 0.45 * volume);
-                        audio.play_tone("sfx_chest_hi", 780.0, 0.18, 0.35 * volume);
+                    let gains = base_gains(event);
+                    if !play_file(audio, "sfx_chest_open", event.file_key(), gains[0]) {
+                        play_tone(audio, "sfx_chest_lo", 520.0, 0.12, gains[0]);
+                        play_tone(audio, "sfx_chest_hi", 780.0, 0.18, gains[1]);
                     }
                 }
                 SfxEvent::BossAppear => {
-                    if !play_file(audio, "sfx_boss_appear", event.file_key(), volume) {
-                        audio.play_tone("sfx_boss_lo", 90.0, 0.55, 0.70 * volume);
-                        audio.play_tone("sfx_boss_hi", 180.0, 0.35, 0.45 * volume);
+                    let gains = base_gains(event);
+                    if !play_file(audio, "sfx_boss_appear", event.file_key(), gains[0]) {
+                        play_tone(audio, "sfx_boss_lo", 90.0, 0.55, gains[0]);
+                        play_tone(audio, "sfx_boss_hi", 180.0, 0.35, gains[1]);
                     }
                 }
             }
@@ -227,6 +266,20 @@ mod tests {
                 "missing SFX asset for key {}",
                 event.file_key()
             );
+        }
+    }
+
+    #[test]
+    fn sfx_base_gains_are_valid() {
+        for event in SfxEvent::ALL {
+            let gains = base_gains(*event);
+            assert!(!gains.is_empty(), "missing base gain for {event:?}");
+            for &gain in gains {
+                assert!(
+                    gain > 0.0 && gain <= 1.0,
+                    "invalid base gain {gain} for {event:?}"
+                );
+            }
         }
     }
 }
