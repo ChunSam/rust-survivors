@@ -190,7 +190,7 @@ impl System for WhipSystem {
             .collect();
 
         // 좌/우 양쪽에 걸쳐도 한 번만 처리
-        hits.sort_by_key(|e| e.0);
+        hits.sort_by_key(|e| e.index());
         hits.dedup();
 
         apply_damage_to_targets(world, hits, damage);

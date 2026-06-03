@@ -5,6 +5,18 @@
 자동 검증은 통과했지만, wgpu 창에서만 확인 가능한 항목은 수동 QA로 남긴다.
 각 항목은 문제가 있으면 증상, 화면, 누른 키, 대략 시간을 기록한다.
 
+## 2026-06-03 Engine v2 / Gameplay Action QA Targets
+
+- 자동 검증: `cargo fmt --check` 통과.
+- 자동 검증: `cargo test -p game --lib --locked -- --test-threads=1` 통과: 200 passed.
+- 자동 검증: `cargo build -p game --bin survivor --release --locked` 통과.
+- 패키지 검증: `bash scripts/package_macos.sh`, `bash scripts/verify_macos_package.sh` 통과.
+- 확인 필요: Settings에서 SFX volume을 100%, 50%, 0%로 바꾸며 XP pickup, enemy hit, Bomb/Rosary, level-up SFX가 같은 비율로 변하는지 실제 스피커로 확인.
+- 확인 필요: BGM volume과 SFX volume을 따로 조절했을 때 서로 간섭하지 않는지 확인.
+- 확인 필요: Level-up 화면에서 `R` reroll, `S` skip, `4/5/6` banish가 표시 카운트와 함께 동작하고 800x600에서 카드 텍스트와 겹치지 않는지 확인.
+- 확인 필요: Luck/Greed/Curse/Revival 파워업 또는 패시브 적용 후 드롭률, coin 획득량, 적 강화, 부활이 런타임에서 체감 가능한지 확인.
+- 확인 필요: 800x600, 기본 해상도, HiDPI 창에서 Title 클릭, HUD, Level-up 카드, UI icons, actor/effect sprite가 겹치거나 상하 반전되지 않는지 확인.
+
 ## 2026-06-01 UI Visual QA Replay
 
 - 범위: UI 중심 수동 QA. 실제 스피커 BGM/SFX, StageClear, 장시간 플레이는 제외.

@@ -1,5 +1,6 @@
 use super::enemy::{Enemy, EnemyAi, EnemyAiKind, EnemyKind, Zombie};
 use super::health::Health;
+use super::player::{Player, PlayerStats};
 use super::sprites::{add_sprite, add_tinted_sprite, SurvivorSprite, ENEMY_VISUAL_SCALE};
 use super::LAYER_ENEMY;
 use engine::{Collider, CollisionLayer, Transform, World};
@@ -36,7 +37,11 @@ pub fn spawn_enemy_full(
     is_elite: bool,
 ) {
     let mut stats = kind.stats();
+    let curse = enemy_curse_multiplier(world);
     let mut collision_radius = stats.scale * 0.5;
+    stats.hp *= curse;
+    stats.move_speed *= curse;
+    stats.contact_damage *= curse;
     stats.scale *= ENEMY_VISUAL_SCALE;
     if is_elite {
         stats.hp *= 5.0;
@@ -123,6 +128,14 @@ pub fn spawn_enemy_full(
     }
 }
 
+pub fn enemy_curse_multiplier(world: &World) -> f32 {
+    world
+        .query2::<Player, PlayerStats>()
+        .next()
+        .map(|(_, _, stats)| stats.curse.clamp(0.5, 3.0))
+        .unwrap_or(1.0)
+}
+
 /// 좀비 엔티티를 주어진 위치에 스폰한다 (하위 호환 유지).
 ///
 /// 내부적으로 `spawn_enemy(world, pos, EnemyKind::Zombie)` 를 호출한다.
@@ -168,5 +181,43 @@ mod tests {
         };
 
         assert_eq!(*radius, EnemyKind::Zombie.stats().scale * 0.5 * 1.5);
+    }
+
+    #[test]
+    fn enemy_curse_multiplier_defaults_without_player() {
+        let world = World::new();
+
+        assert_eq!(enemy_curse_multiplier(&world), 1.0);
+    }
+
+    #[test]
+    fn enemy_spawn_applies_curse_to_stats_not_collider() {
+        let mut world = World::new();
+        let player = world.spawn();
+        world.add_component(player, Player);
+        world.add_component(
+            player,
+            PlayerStats {
+                curse: 2.0,
+                ..PlayerStats::default()
+            },
+        );
+
+        spawn_enemy(&mut world, Vec2::ZERO, EnemyKind::Zombie);
+
+        let (_, enemy, ai, health, collider) = world
+            .query4::<Enemy, EnemyAi, Health, Collider>()
+            .next()
+            .expect("enemy should have gameplay components");
+        let Collider::Circle { radius } = collider else {
+            panic!("enemy collider should be a circle");
+        };
+        assert_eq!(
+            enemy.contact_damage,
+            EnemyKind::Zombie.stats().contact_damage * 2.0
+        );
+        assert_eq!(ai.move_speed, EnemyKind::Zombie.stats().move_speed * 2.0);
+        assert_eq!(health.max, EnemyKind::Zombie.stats().hp * 2.0);
+        assert_eq!(*radius, EnemyKind::Zombie.stats().scale * 0.5);
     }
 }

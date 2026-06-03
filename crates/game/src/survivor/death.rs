@@ -107,20 +107,53 @@ impl System for EnemyContactDamageSystem {
 /// Player Health <= 0 이면 GameState::GameOver 로 전환.
 pub struct DeathSystem;
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RevivalState {
+    pub used: u32,
+}
+
 impl System for DeathSystem {
     fn run(&mut self, world: &mut World, _dt: f32) {
         if !matches!(world.resource::<GameState>(), Some(GameState::Playing)) {
             return;
         }
-        let hp = world
+        let player = world
             .query2::<Player, Health>()
             .next()
-            .map(|(_, _, h)| h.current);
-        if let Some(hp) = hp {
-            if hp <= 0.0 {
-                if let Some(gs) = world.resource_mut::<GameState>() {
-                    *gs = GameState::GameOver;
+            .map(|(e, _, h)| (e, h.current, h.max));
+        if let Some((player_entity, hp, max_hp)) = player {
+            if hp > 0.0 {
+                return;
+            }
+
+            let revival_limit = world
+                .get::<PlayerStats>(player_entity)
+                .map(|stats| stats.revival)
+                .unwrap_or(0);
+            let used = world
+                .resource::<RevivalState>()
+                .map(|state| state.used)
+                .unwrap_or(0);
+
+            if used < revival_limit {
+                if world.resource::<RevivalState>().is_none() {
+                    world.insert_resource(RevivalState::default());
                 }
+                if let Some(state) = world.resource_mut::<RevivalState>() {
+                    state.used += 1;
+                }
+                if let Some(h) = world.get_mut::<Health>(player_entity) {
+                    h.current = (max_hp * 0.5).max(1.0);
+                }
+                if let Some(q) = world.resource_mut::<SfxQueue>() {
+                    q.push(SfxEvent::LevelUp);
+                }
+                println!("Revived ({}/{})", used + 1, revival_limit);
+                return;
+            }
+
+            if let Some(gs) = world.resource_mut::<GameState>() {
+                *gs = GameState::GameOver;
             }
         }
     }
@@ -173,6 +206,8 @@ fn reset_run_state(world: &mut World) {
         *stats = GameStats::default();
     }
     world.remove_resource::<super::levelup::PendingLevelUp>();
+    world.remove_resource::<super::levelup::LevelUpActions>();
+    world.remove_resource::<RevivalState>();
     // SpawnDirector cooldown 리셋 (waves 정의는 유지, 내부 카운터만 초기화)
     if let Some(d) = world.resource_mut::<super::director::SpawnDirector>() {
         d.spawn_elapsed = 0.0;
@@ -330,5 +365,75 @@ mod tests {
             .next()
             .map(|(_, _, h)| h.current);
         assert_eq!(hp, Some(90.0));
+    }
+
+    #[test]
+    fn death_system_consumes_revival_before_game_over() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(SfxQueue::default());
+        let player = world.spawn();
+        world.add_component(player, Player);
+        world.add_component(player, Health::new(100.0));
+        world.get_mut::<Health>(player).unwrap().current = 0.0;
+        world.add_component(
+            player,
+            PlayerStats {
+                revival: 1,
+                ..PlayerStats::default()
+            },
+        );
+        let mut system = DeathSystem;
+
+        system.run(&mut world, 0.0);
+
+        assert_eq!(world.resource::<GameState>(), Some(&GameState::Playing));
+        assert_eq!(world.get::<Health>(player).map(|h| h.current), Some(50.0));
+        assert_eq!(
+            world.resource::<RevivalState>().map(|state| state.used),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn death_system_game_over_after_revival_is_spent() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(RevivalState { used: 1 });
+        let player = world.spawn();
+        world.add_component(player, Player);
+        world.add_component(player, Health::new(100.0));
+        world.get_mut::<Health>(player).unwrap().current = 0.0;
+        world.add_component(
+            player,
+            PlayerStats {
+                revival: 1,
+                ..PlayerStats::default()
+            },
+        );
+        let mut system = DeathSystem;
+
+        system.run(&mut world, 0.0);
+
+        assert_eq!(world.resource::<GameState>(), Some(&GameState::GameOver));
+    }
+
+    #[test]
+    fn reset_to_title_clears_run_only_action_state() {
+        let mut world = World::new();
+        world.insert_resource(GameState::Playing);
+        world.insert_resource(super::super::levelup::LevelUpActions {
+            reroll_remaining: 1,
+            ..super::super::levelup::LevelUpActions::default()
+        });
+        world.insert_resource(RevivalState { used: 1 });
+        world_setup::setup_survivor_world(&mut world);
+
+        reset_to_title_world(&mut world);
+
+        assert!(world
+            .resource::<super::super::levelup::LevelUpActions>()
+            .is_none());
+        assert!(world.resource::<RevivalState>().is_none());
     }
 }

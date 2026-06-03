@@ -5,7 +5,7 @@ use super::damage_number::DamageNumber;
 use super::debug_input::DebugOverlay;
 use super::health::Health;
 use super::inventory::{WeaponInventory, WeaponKind};
-use super::levelup::PendingLevelUp;
+use super::levelup::{LevelUpActions, PendingLevelUp};
 use super::locale::{loc, text, Lang, UiText};
 use super::meta::{
     AchievementCursor, HudDetail, MetaSave, PauseMenuCursor, ResolutionPreset, SettingsCursor,
@@ -1605,6 +1605,10 @@ impl System for HudSystem {
             if matches!(state, GameState::Paused) {
                 if let Some(p) = world.resource::<PendingLevelUp>() {
                     let offered = p.offered;
+                    let actions = world
+                        .resource::<LevelUpActions>()
+                        .cloned()
+                        .unwrap_or_default();
                     let cx = vw / 2.0;
                     let cy = vh / 2.0;
                     let levelup_layout = LevelUpLayout::new(vw, vh);
@@ -1632,6 +1636,19 @@ impl System for HudSystem {
                             levelup_layout.text_pos(2),
                             levelup_layout.font_size(),
                             [255, 255, 255, 255],
+                        ));
+                        let hint = text(lang, UiText::LevelUpActions)
+                            .replace("{reroll}", &actions.reroll_remaining.to_string())
+                            .replace("{skip}", &actions.skip_remaining.to_string())
+                            .replace("{banish}", &actions.banish_remaining.to_string());
+                        q.push(DrawText::new(
+                            hint,
+                            Vec2::new(
+                                levelup_layout.text_pos(0).x,
+                                levelup_layout.text_pos(2).y + 58.0,
+                            ),
+                            (levelup_layout.font_size() * 0.68).max(14.0),
+                            [220, 226, 238, 235],
                         ));
                     }
                 }

@@ -11,7 +11,7 @@ use super::boss::CameraShake;
 use super::combat::apply_damage_to_targets;
 use super::enemy::Enemy;
 use super::health::Health;
-use super::player::Player;
+use super::player::{Player, PlayerStats};
 use super::sfx::{SfxEvent, SfxQueue};
 use super::sprites::{add_sprite, SurvivorSprite};
 use super::xp::XpGem;
@@ -109,8 +109,14 @@ impl System for PickupSystem {
 pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, kind: PickupKind) {
     match kind {
         PickupKind::Coin => {
+            let greed = world
+                .query2::<Player, PlayerStats>()
+                .next()
+                .map(|(_, _, stats)| stats.greed)
+                .unwrap_or(1.0);
+            let value = coin_gold_value(greed);
             if let Some(wallet) = world.resource_mut::<GoldWallet>() {
-                wallet.current += 1;
+                wallet.current += value;
                 println!("Coin picked: gold {}", wallet.current);
             }
             if let Some(q) = world.resource_mut::<SfxQueue>() {
@@ -197,18 +203,44 @@ pub fn spawn_pickup(world: &mut World, pos: Vec2, kind: PickupKind) {
 /// - Chicken: 0.5% (누적 0.001 ~ 0.006)
 /// - Coin: 1.0% (누적 0.006 ~ 0.016)
 pub fn try_drop_normal_pickup(world: &mut World, pos: Vec2) {
+    let luck = world
+        .query2::<Player, PlayerStats>()
+        .next()
+        .map(|(_, _, stats)| stats.luck)
+        .unwrap_or(1.0);
     let mut rng = rand::thread_rng();
     let roll: f32 = rng.gen_range(0.0..1.0);
-    if roll < 0.001 {
+    let chances = normal_pickup_thresholds(luck);
+    if roll < chances.rosary {
         spawn_pickup(world, pos, PickupKind::Rosary);
-    } else if roll < 0.006 {
+    } else if roll < chances.chicken {
         // 0.001 ~ 0.006 → Chicken
         spawn_pickup(world, pos, PickupKind::Chicken);
-    } else if roll < 0.016 {
+    } else if roll < chances.coin {
         // 0.006 ~ 0.016 → Coin
         spawn_pickup(world, pos, PickupKind::Coin);
     }
     // 그 외 픽업 없음 — 일반 XpGem 만
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NormalPickupThresholds {
+    pub rosary: f32,
+    pub chicken: f32,
+    pub coin: f32,
+}
+
+pub fn normal_pickup_thresholds(luck: f32) -> NormalPickupThresholds {
+    let luck = luck.clamp(0.0, 5.0);
+    NormalPickupThresholds {
+        rosary: 0.001 * luck,
+        chicken: 0.006 * luck,
+        coin: 0.016 * luck,
+    }
+}
+
+pub fn coin_gold_value(greed: f32) -> u32 {
+    greed.max(0.0).round().max(1.0) as u32
 }
 
 /// 보스 사망 시 항상 Vacuum + Bomb 드롭.
@@ -299,5 +331,34 @@ mod tests {
             "Coin 2회 픽업 후 gold == 2 이어야 함 (실제: {})",
             gold
         );
+    }
+
+    #[test]
+    fn coin_gold_value_rounds_greed_with_minimum_one() {
+        assert_eq!(coin_gold_value(0.0), 1);
+        assert_eq!(coin_gold_value(1.49), 1);
+        assert_eq!(coin_gold_value(1.50), 2);
+        assert_eq!(coin_gold_value(2.49), 2);
+    }
+
+    #[test]
+    fn normal_pickup_thresholds_scale_and_clamp_luck() {
+        assert_eq!(
+            normal_pickup_thresholds(1.0),
+            NormalPickupThresholds {
+                rosary: 0.001,
+                chicken: 0.006,
+                coin: 0.016,
+            }
+        );
+        assert_eq!(
+            normal_pickup_thresholds(2.0),
+            NormalPickupThresholds {
+                rosary: 0.002,
+                chicken: 0.012,
+                coin: 0.032,
+            }
+        );
+        assert!((normal_pickup_thresholds(10.0).coin - 0.080).abs() < f32::EPSILON);
     }
 }

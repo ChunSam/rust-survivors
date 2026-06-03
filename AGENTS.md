@@ -5,7 +5,7 @@
 `rust-survivors` is the game repository for a Vampire Survivors-style top-down auto-attack roguelite built on `skeleton-engine`.
 
 - Main work target: `crates/game`
-- Engine: separate git dependency, `https://github.com/ChunSam/skeleton-engine`
+- Engine: pinned git dependency, `https://github.com/ChunSam/skeleton-engine`
 - Do not edit deleted/legacy `crates/engine` paths in this repo.
 - Do not directly edit external `skeleton-engine` checkouts from this repo. If an engine change is needed, leave an engine change request prompt in `docs/ENGINE_CHANGE_REQUESTS.md`.
 - Preserve the platformer demo binary unless the user explicitly asks otherwise.
@@ -41,6 +41,7 @@ Avoid `cargo clean` on macOS here; use `rm -rf target` only when cleanup is expl
 
 - Move: `W/A/S/D` or arrow keys
 - Level-up cards: `1/2/3`
+- Level-up actions: `R` reroll, `S` skip, `4/5/6` banish card 1/2/3
 - Pause/back: `ESC`
 - Debug visual checks: `F5` Bomb, `F6` Rosary, `F7` boss spawn
 
@@ -61,9 +62,11 @@ If an engine API change is needed:
 4. Continue only with game-side changes that do not require engine edits.
 5. After the engine change is completed externally, update the dependency or lockfile if needed, then run game tests and survivor build.
 
-## Current State - 2026-05-25
+## Current State - 2026-06-03
 
 Completed: Phase 0 through Phase 11 polish baseline, including vertical slice, weapon pool, passives, enemy variety, bosses, evolutions, pickups, menu/meta save, characters, stages, settings, achievements, localization scaffolding, macOS packaging, BGM/SFX placeholder assets, and recent sprite/UI asset pass.
+
+Current engine baseline: `skeleton-engine v2.0.0` pinned to git rev `61c09f14434910a94afc4c9ea167b3f47e0b203b`.
 
 Current validation baseline:
 
@@ -72,7 +75,7 @@ Current validation baseline:
 - `cargo build -p game --bin survivor --release --locked`
 - macOS package + package verification when asset packaging changes
 
-Latest verified test count: 118 lib tests passing.
+Latest verified test count: 200 lib tests passing.
 
 ## Recent Sprite Work
 
@@ -134,8 +137,8 @@ Key assets loaded by `src/bin/survivor.rs`:
 
 ## Next Priorities
 
-1. Visual QA pass for actor animation, effects, UI icons, and responsive UI.
-2. Improve icon placement/readability at 800x600 and high-DPI windows.
-3. Expand localization coverage.
+1. Manual QA for SFX bus volume at 100/50/0%, BGM/SFX independence, and R/S/4/5/6 level-up actions.
+2. Visual QA pass for actor animation, effects, UI icons, responsive UI, 800x600, and high-DPI windows.
+3. Expand localization coverage beyond current menu/HUD/action labels.
 4. Replace placeholder audio/art where final licensed assets are available.
 5. Continue release hardening for macOS package.

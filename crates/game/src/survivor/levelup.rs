@@ -1,7 +1,9 @@
 use super::inventory::{WeaponInventory, WeaponKind};
 use super::locale::{loc, Lang};
+use super::meta::MetaSave;
 use super::passive::{PassiveInventory, PassiveKind};
 use super::player::Player;
+use super::powerup::PowerUpKind;
 use super::sfx::{SfxEvent, SfxQueue};
 use super::xp::XpAccumulator;
 use engine::{GameState, InputState, System, World};
@@ -9,7 +11,7 @@ use rand::seq::SliceRandom;
 use winit::keyboard::KeyCode;
 
 /// 카드 강화 종류 — 10 무기 × 2~3 카드씩 총 28 variant.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CardKind {
     // ── Whip (3)
     WhipDamage,   // damage += 5
@@ -276,6 +278,30 @@ pub struct PendingLevelUp {
     pub offered: [CardKind; 3],
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LevelUpActions {
+    pub reroll_remaining: u32,
+    pub skip_remaining: u32,
+    pub banish_remaining: u32,
+    pub banished: Vec<CardKind>,
+}
+
+impl LevelUpActions {
+    pub fn from_meta(meta: Option<&MetaSave>) -> Self {
+        fn count(meta: Option<&MetaSave>, kind: PowerUpKind) -> u32 {
+            meta.and_then(|m| m.powerup_levels.get(kind.key()).copied())
+                .unwrap_or(0) as u32
+        }
+
+        Self {
+            reroll_remaining: count(meta, PowerUpKind::Reroll),
+            skip_remaining: count(meta, PowerUpKind::Skip),
+            banish_remaining: count(meta, PowerUpKind::Banish),
+            banished: Vec::new(),
+        }
+    }
+}
+
 /// 레벨업 감지 + 카드 선택 처리 시스템.
 ///
 /// - 가드 없음: 이 시스템 자체가 `GameState` 전환을 담당하므로 외부 가드 불필요.
@@ -286,6 +312,132 @@ impl LevelUpSystem {
     /// 다음 레벨업 임계치. L1→5, L2→10, L3→15 …
     pub fn next_threshold(level: u32) -> u32 {
         5 + 5 * level
+    }
+
+    fn ensure_actions(world: &mut World) {
+        if world.resource::<LevelUpActions>().is_some() {
+            return;
+        }
+        let actions = LevelUpActions::from_meta(world.resource::<MetaSave>());
+        world.insert_resource(actions);
+    }
+
+    fn available_cards_for(world: &World, player_entity: engine::Entity) -> Vec<CardKind> {
+        let Some(weapon_inv) = world.get::<WeaponInventory>(player_entity) else {
+            return Vec::new();
+        };
+        let Some(passive_inv) = world.get::<PassiveInventory>(player_entity) else {
+            return Vec::new();
+        };
+        let banished = world
+            .resource::<LevelUpActions>()
+            .map(|actions| actions.banished.as_slice())
+            .unwrap_or(&[]);
+        ALL_CARDS
+            .iter()
+            .copied()
+            .filter(|card| !banished.contains(card))
+            .filter(|card| card.is_available_for(weapon_inv, passive_inv))
+            .collect()
+    }
+
+    fn random_offer(available_cards: &[CardKind]) -> Option<[CardKind; 3]> {
+        if available_cards.len() < 3 {
+            return None;
+        }
+        let mut rng = rand::thread_rng();
+        let chosen: Vec<CardKind> = available_cards
+            .choose_multiple(&mut rng, 3)
+            .copied()
+            .collect();
+        Some([chosen[0], chosen[1], chosen[2]])
+    }
+
+    fn replace_offer(world: &mut World, player_entity: engine::Entity) -> Option<[CardKind; 3]> {
+        let available_cards = Self::available_cards_for(world, player_entity);
+        let offered = Self::random_offer(&available_cards)?;
+        world.insert_resource(PendingLevelUp { offered });
+        Some(offered)
+    }
+
+    fn consume_level_without_card(
+        world: &mut World,
+        player_entity: engine::Entity,
+    ) -> Option<(u32, u32)> {
+        let (new_current, new_threshold) =
+            if let Some(acc) = world.get_mut::<XpAccumulator>(player_entity) {
+                acc.level += 1;
+                acc.next_threshold = Self::next_threshold(acc.level);
+                (acc.current, acc.next_threshold)
+            } else {
+                return None;
+            };
+
+        world.remove_resource::<PendingLevelUp>();
+        if let Some(gs) = world.resource_mut::<GameState>() {
+            *gs = GameState::Playing;
+        }
+        Some((new_current, new_threshold))
+    }
+
+    pub fn reroll_offer(world: &mut World, player_entity: engine::Entity) -> bool {
+        let Some(actions) = world.resource::<LevelUpActions>() else {
+            return false;
+        };
+        if actions.reroll_remaining == 0 {
+            return false;
+        }
+        if Self::available_cards_for(world, player_entity).len() < 3 {
+            return false;
+        }
+        if let Some(actions) = world.resource_mut::<LevelUpActions>() {
+            actions.reroll_remaining -= 1;
+        }
+        Self::replace_offer(world, player_entity).is_some()
+    }
+
+    pub fn skip_levelup(world: &mut World, player_entity: engine::Entity) -> Option<(u32, u32)> {
+        let Some(actions) = world.resource::<LevelUpActions>() else {
+            return None;
+        };
+        if actions.skip_remaining == 0 {
+            return None;
+        }
+        if let Some(actions) = world.resource_mut::<LevelUpActions>() {
+            actions.skip_remaining -= 1;
+        }
+        Self::consume_level_without_card(world, player_entity)
+    }
+
+    pub fn banish_offer(world: &mut World, player_entity: engine::Entity, idx: usize) -> bool {
+        let Some(pending) = world.resource::<PendingLevelUp>() else {
+            return false;
+        };
+        let Some(card) = pending.offered.get(idx).copied() else {
+            return false;
+        };
+        let Some(actions) = world.resource::<LevelUpActions>() else {
+            return false;
+        };
+        if actions.banish_remaining == 0 || actions.banished.contains(&card) {
+            return false;
+        }
+
+        let mut candidate_banished = actions.banished.clone();
+        candidate_banished.push(card);
+        let available_count = Self::available_cards_for(world, player_entity)
+            .into_iter()
+            .filter(|candidate| !candidate_banished.contains(candidate))
+            .count();
+        if available_count < 3 {
+            return false;
+        }
+
+        if let Some(actions) = world.resource_mut::<LevelUpActions>() {
+            actions.banish_remaining -= 1;
+            actions.banished.push(card);
+        }
+        Self::replace_offer(world, player_entity).is_some()
     }
 
     /// 선택한 카드 효과를 Player 엔티티의 WeaponInventory 에 적용하고
@@ -715,15 +867,8 @@ impl System for LevelUpSystem {
                 };
 
                 if current >= threshold {
-                    let (weapon_inv, passive_inv) = world
-                        .get::<WeaponInventory>(_player_entity)
-                        .zip(world.get::<PassiveInventory>(_player_entity))
-                        .expect("Player 는 WeaponInventory/PassiveInventory 를 함께 가져야 함");
-                    let available_cards: Vec<CardKind> = ALL_CARDS
-                        .iter()
-                        .copied()
-                        .filter(|card| card.is_available_for(weapon_inv, passive_inv))
-                        .collect();
+                    Self::ensure_actions(world);
+                    let available_cards = Self::available_cards_for(world, _player_entity);
                     if available_cards.len() < 3 {
                         eprintln!(
                             "LEVEL UP skipped: available card count is {}",
@@ -732,13 +877,8 @@ impl System for LevelUpSystem {
                         return;
                     }
 
-                    // 레벨업: 현재 보유 무기/성장 가능한 패시브에서 3장 랜덤 추출
-                    let mut rng = rand::thread_rng();
-                    let chosen: Vec<CardKind> = available_cards
-                        .choose_multiple(&mut rng, 3)
-                        .copied()
-                        .collect();
-                    let offered = [chosen[0], chosen[1], chosen[2]];
+                    let offered = Self::random_offer(&available_cards)
+                        .expect("available_cards length was checked above");
 
                     world.insert_resource(PendingLevelUp { offered });
                     if let Some(gs) = world.resource_mut::<GameState>() {
@@ -761,24 +901,31 @@ impl System for LevelUpSystem {
             // ── 카드 선택 대기: 1/2/3 키 감지 ─────────────────────────────────
             (Some(GameState::Paused), true) => {
                 // 키 입력 확인 — InputState borrow 를 블록 안에서 끝냄
-                let chosen: Option<usize> = {
+                let action: Option<LevelUpInputAction> = {
                     let Some(input) = world.resource::<InputState>() else {
                         return;
                     };
                     if input.just_pressed(KeyCode::Digit1) {
-                        Some(0)
+                        Some(LevelUpInputAction::Choose(0))
                     } else if input.just_pressed(KeyCode::Digit2) {
-                        Some(1)
+                        Some(LevelUpInputAction::Choose(1))
                     } else if input.just_pressed(KeyCode::Digit3) {
-                        Some(2)
+                        Some(LevelUpInputAction::Choose(2))
+                    } else if input.just_pressed(KeyCode::KeyR) {
+                        Some(LevelUpInputAction::Reroll)
+                    } else if input.just_pressed(KeyCode::KeyS) {
+                        Some(LevelUpInputAction::Skip)
+                    } else if input.just_pressed(KeyCode::Digit4) {
+                        Some(LevelUpInputAction::Banish(0))
+                    } else if input.just_pressed(KeyCode::Digit5) {
+                        Some(LevelUpInputAction::Banish(1))
+                    } else if input.just_pressed(KeyCode::Digit6) {
+                        Some(LevelUpInputAction::Banish(2))
                     } else {
                         None
                     }
                 };
-                let Some(idx) = chosen else { return };
-
-                // 선택된 카드 종류를 값으로 copy — PendingLevelUp borrow 를 여기서 끊음
-                let card = world.resource::<PendingLevelUp>().unwrap().offered[idx];
+                let Some(action) = action else { return };
 
                 // Player 엔티티 조회 — borrow 를 즉시 끊음
                 let player_entity = world
@@ -786,14 +933,42 @@ impl System for LevelUpSystem {
                     .next()
                     .map(|(e, _)| e);
 
-                if let Some(pe) = player_entity {
-                    if let Some((new_current, new_threshold)) = Self::choose_card(world, pe, card) {
-                        println!(
-                            "Resumed (XP={}, next threshold={})",
-                            new_current, new_threshold
-                        );
-                    } else {
-                        eprintln!("Ignored invalid LevelUp card: {:?}", card);
+                let Some(pe) = player_entity else { return };
+
+                match action {
+                    LevelUpInputAction::Choose(idx) => {
+                        // 선택된 카드 종류를 값으로 copy — PendingLevelUp borrow 를 여기서 끊음
+                        let card = world.resource::<PendingLevelUp>().unwrap().offered[idx];
+                        if let Some((new_current, new_threshold)) =
+                            Self::choose_card(world, pe, card)
+                        {
+                            println!(
+                                "Resumed (XP={}, next threshold={})",
+                                new_current, new_threshold
+                            );
+                        } else {
+                            eprintln!("Ignored invalid LevelUp card: {:?}", card);
+                        }
+                    }
+                    LevelUpInputAction::Reroll => {
+                        if !Self::reroll_offer(world, pe) {
+                            eprintln!("Ignored reroll: no remaining rerolls or cards");
+                        }
+                    }
+                    LevelUpInputAction::Skip => {
+                        if let Some((new_current, new_threshold)) = Self::skip_levelup(world, pe) {
+                            println!(
+                                "Skipped LevelUp (XP={}, next threshold={})",
+                                new_current, new_threshold
+                            );
+                        } else {
+                            eprintln!("Ignored skip: no remaining skips");
+                        }
+                    }
+                    LevelUpInputAction::Banish(idx) => {
+                        if !Self::banish_offer(world, pe, idx) {
+                            eprintln!("Ignored banish: no remaining banishes or cards");
+                        }
                     }
                 }
             }
@@ -803,11 +978,21 @@ impl System for LevelUpSystem {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LevelUpInputAction {
+    Choose(usize),
+    Reroll,
+    Skip,
+    Banish(usize),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::survivor::inventory::{WeaponInventory, WeaponKind, WeaponSlot};
+    use crate::survivor::meta::MetaSave;
     use crate::survivor::player::Player;
+    use crate::survivor::powerup::PowerUpKind;
     use crate::survivor::world_setup::spawn_player;
     use engine::World;
 
@@ -961,5 +1146,102 @@ mod tests {
             "PendingLevelUp should be removed after selection"
         );
         assert_eq!(world.resource::<GameState>(), Some(&GameState::Playing));
+    }
+
+    #[test]
+    fn levelup_actions_read_counts_from_meta() {
+        let mut meta = MetaSave::default();
+        meta.powerup_levels
+            .insert(PowerUpKind::Reroll.key().to_string(), 2);
+        meta.powerup_levels
+            .insert(PowerUpKind::Skip.key().to_string(), 1);
+        meta.powerup_levels
+            .insert(PowerUpKind::Banish.key().to_string(), 3);
+
+        let actions = LevelUpActions::from_meta(Some(&meta));
+
+        assert_eq!(actions.reroll_remaining, 2);
+        assert_eq!(actions.skip_remaining, 1);
+        assert_eq!(actions.banish_remaining, 3);
+        assert!(actions.banished.is_empty());
+    }
+
+    #[test]
+    fn skip_levelup_consumes_count_and_resumes() {
+        let (mut world, player_entity) = make_world_with_player();
+        world.insert_resource(GameState::Paused);
+        world.insert_resource(LevelUpActions {
+            skip_remaining: 1,
+            ..LevelUpActions::default()
+        });
+        world.insert_resource(PendingLevelUp {
+            offered: [
+                CardKind::WhipDamage,
+                CardKind::WhipArea,
+                CardKind::WhipCooldown,
+            ],
+        });
+
+        let result = LevelUpSystem::skip_levelup(&mut world, player_entity);
+
+        assert!(result.is_some());
+        assert_eq!(
+            world
+                .resource::<LevelUpActions>()
+                .map(|actions| actions.skip_remaining),
+            Some(0)
+        );
+        assert!(world.resource::<PendingLevelUp>().is_none());
+        assert_eq!(world.resource::<GameState>(), Some(&GameState::Playing));
+    }
+
+    #[test]
+    fn reroll_offer_consumes_count_and_keeps_pending() {
+        let (mut world, player_entity) = make_world_with_player();
+        world.insert_resource(LevelUpActions {
+            reroll_remaining: 1,
+            ..LevelUpActions::default()
+        });
+        world.insert_resource(PendingLevelUp {
+            offered: [
+                CardKind::WhipDamage,
+                CardKind::WhipArea,
+                CardKind::WhipCooldown,
+            ],
+        });
+
+        assert!(LevelUpSystem::reroll_offer(&mut world, player_entity));
+
+        assert_eq!(
+            world
+                .resource::<LevelUpActions>()
+                .map(|actions| actions.reroll_remaining),
+            Some(0)
+        );
+        assert!(world.resource::<PendingLevelUp>().is_some());
+    }
+
+    #[test]
+    fn banish_offer_consumes_count_and_excludes_card() {
+        let (mut world, player_entity) = make_world_with_player();
+        world.insert_resource(LevelUpActions {
+            banish_remaining: 1,
+            ..LevelUpActions::default()
+        });
+        world.insert_resource(PendingLevelUp {
+            offered: [
+                CardKind::WhipDamage,
+                CardKind::WhipArea,
+                CardKind::WhipCooldown,
+            ],
+        });
+
+        assert!(LevelUpSystem::banish_offer(&mut world, player_entity, 0));
+
+        let actions = world.resource::<LevelUpActions>().unwrap();
+        assert_eq!(actions.banish_remaining, 0);
+        assert!(actions.banished.contains(&CardKind::WhipDamage));
+        let pending = world.resource::<PendingLevelUp>().unwrap();
+        assert!(!pending.offered.contains(&CardKind::WhipDamage));
     }
 }
