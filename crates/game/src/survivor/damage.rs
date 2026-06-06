@@ -40,11 +40,11 @@ pub fn apply_damage_to_enemy(world: &mut World, enemy: Entity, damage: f32) -> b
 
     // 재피격 시 원본 색·스케일 누적 방지: 이미 플래시 중이면 원본 값 보존
     let (original, original_scale) =
-        maybe_flash.unwrap_or((current_color, orig_scale.unwrap_or(Vec2::ONE)));
+        maybe_flash.unwrap_or((current_color.to_array(), orig_scale.unwrap_or(Vec2::ONE)));
 
     // 쓰기 패스 — 흰색 순간 플래시 + 스케일 bump
     if let Some(s) = world.get_mut::<Sprite>(enemy) {
-        s.color = [1.0, 1.0, 1.0, original[3]];
+        s.color = engine::Color::rgba(1.0, 1.0, 1.0, original[3]);
     }
     if let Some(t) = world.get_mut::<Transform>(enemy) {
         t.scale = original_scale * SCALE_BUMP;

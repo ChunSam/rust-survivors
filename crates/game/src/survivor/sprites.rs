@@ -528,7 +528,7 @@ pub fn add_tinted_sprite(
     let frame = sprite.render_frame();
     let uv = frame.uv();
     let mut sprite_component = survivor_textured_sprite(world, frame.texture);
-    sprite_component.color = color;
+    sprite_component.color = engine::Color::from(color);
     world.add_component(entity, sprite_component);
     world.add_component(entity, RenderLayer(sprite.render_layer()));
     world.add_component(entity, uv);

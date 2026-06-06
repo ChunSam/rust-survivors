@@ -47,7 +47,7 @@ impl System for HitFlashSystem {
             if new_remaining <= 0.0 {
                 // 만료 — 색·스케일 원복 후 컴포넌트 제거
                 if let Some(s) = world.get_mut::<Sprite>(entity) {
-                    s.color = original;
+                    s.color = engine::Color::from(original);
                 }
                 if let Some(player) = world.get_mut::<AnimationPlayer>(entity) {
                     player.play(0);
@@ -66,12 +66,12 @@ impl System for HitFlashSystem {
 
                 // 색상: 흰색 → 원래 색 페이드
                 if let Some(s) = world.get_mut::<Sprite>(entity) {
-                    s.color = [
+                    s.color = engine::Color::rgba(
                         original[0] + (1.0 - original[0]) * t_norm,
                         original[1] + (1.0 - original[1]) * t_norm,
                         original[2] + (1.0 - original[2]) * t_norm,
                         original[3],
-                    ];
+                    );
                 }
                 // 스케일 펄스: t_norm 0.6~1.0 구간에서만 bump, 이후 즉시 원복
                 let scale_p = ((t_norm - 0.6) / 0.4).clamp(0.0, 1.0);
@@ -702,7 +702,7 @@ mod tests {
         let original = [0.2, 0.4, 0.6, 1.0];
         let original_scale = Vec2::splat(42.0);
         let mut sprite = Sprite::colored(1.0, 1.0, 1.0);
-        sprite.color = [1.0, 1.0, 1.0, 1.0];
+        sprite.color = engine::Color::WHITE;
 
         world.add_component(entity, sprite);
         world.add_component(
@@ -728,7 +728,7 @@ mod tests {
         system.run(&mut world, 0.02);
 
         assert!(world.get::<HitFlash>(entity).is_none());
-        assert_eq!(world.get::<Sprite>(entity).unwrap().color, original);
+        assert_eq!(world.get::<Sprite>(entity).unwrap().color.to_array(), original);
         assert_eq!(
             world.get::<Transform>(entity).unwrap().scale,
             original_scale

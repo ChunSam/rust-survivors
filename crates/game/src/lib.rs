@@ -364,7 +364,7 @@ mod tests {
 
         // sprite 색이 흰색 플래시로 변경됐는지 확인 (Phase 11-B: 빨강→흰색으로 개선)
         use engine::Sprite;
-        let color = world.get::<Sprite>(zombie).map(|s| s.color).unwrap();
+        let color = world.get::<Sprite>(zombie).map(|s| s.color.to_array()).unwrap();
         assert_eq!(
             color,
             [1.0, 1.0, 1.0, 1.0],

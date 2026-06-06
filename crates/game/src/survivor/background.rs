@@ -76,7 +76,7 @@ impl System for BackgroundSystem {
                     t.z = TILE_Z;
                 }
                 if let Some(sprite) = world.get_mut::<Sprite>(entity) {
-                    sprite.color = tile_color(stage, gx, gy);
+                    sprite.color = engine::Color::from(tile_color(stage, gx, gy));
                 }
             }
         }

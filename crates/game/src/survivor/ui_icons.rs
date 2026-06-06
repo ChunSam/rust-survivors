@@ -541,7 +541,7 @@ mod tests {
         assert_eq!(image.y, 24.0);
         assert_eq!(image.w, 48.0);
         assert_eq!(image.h, 16.0);
-        assert_eq!(image.color, [0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(image.color.to_array(), [0.1, 0.2, 0.3, 0.4]);
         assert_eq!(image.z, UI_ROW_Z);
         assert!(image.texture.is_none());
     }

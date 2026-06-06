@@ -74,7 +74,7 @@ impl System for ParticleSystem {
                     t.scale = Vec2::splat((s * size).max(1.0));
                 }
                 if let Some(sp) = world.get_mut::<Sprite>(e) {
-                    sp.color = color;
+                    sp.color = engine::Color::from(color);
                 }
             }
         }
@@ -151,7 +151,7 @@ fn spawn_particle(
         },
     );
     let mut sprite = Sprite::colored(color_start[0], color_start[1], color_start[2]);
-    sprite.color = color_start;
+    sprite.color = engine::Color::from(color_start);
     world.add_component(e, sprite);
     world.add_component(e, RenderLayer(RENDER_LAYER_EFFECTS));
     world.add_component(

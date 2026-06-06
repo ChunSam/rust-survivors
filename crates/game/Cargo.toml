@@ -17,7 +17,7 @@ name = "survivor"
 path = "src/bin/survivor.rs"
 
 [dependencies]
-engine     = { package = "skeleton-engine", git = "https://github.com/ChunSam/skeleton-engine", rev = "61c09f14434910a94afc4c9ea167b3f47e0b203b" }
+engine     = { package = "skeleton-engine", git = "https://github.com/ChunSam/skeleton-engine", rev = "60328fae12ef40a214071770e953d5fc7f777c17" }
 env_logger = { workspace = true }
 log        = { workspace = true }
 glam     = { workspace = true }
