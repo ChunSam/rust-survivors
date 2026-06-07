@@ -151,7 +151,7 @@ impl MetaSave {
     pub fn save_to_disk(&self) {
         let path = save::save_path(APP_NAME, SAVE_FILE);
         if let Err(e) = save::save(&path, self) {
-            eprintln!("MetaSave 저장 실패: {:?}", e);
+            eprintln!("MetaSave 저장 실패: {e:?}");
         }
     }
 
@@ -471,7 +471,7 @@ fn handle_title_input(world: &mut World) {
 
 pub fn achievement_page_count() -> usize {
     let total = AchievementKind::ALL.len();
-    (total + ACHIEVEMENTS_PER_PAGE - 1) / ACHIEVEMENTS_PER_PAGE
+    total.div_ceil(ACHIEVEMENTS_PER_PAGE)
 }
 
 pub fn achievement_items_on_page(page: usize) -> usize {
@@ -688,7 +688,7 @@ fn handle_settings_input(world: &mut World) {
         }
         if let Some((w, h)) = resize_request {
             request_resolution_change(world, w, h);
-            println!("Resolution → {}x{}", w, h);
+            println!("Resolution → {w}x{h}");
         }
     }
 
@@ -699,7 +699,7 @@ fn handle_settings_input(world: &mut World) {
             .unwrap_or(ResolutionPreset::R1280x720);
         let (w, h) = preset.dimensions();
         request_resolution_change(world, w, h);
-        println!("Resolution → {}x{}", w, h);
+        println!("Resolution → {w}x{h}");
     }
 }
 
@@ -795,7 +795,7 @@ impl System for ModeTransitionSystem {
                             let key = next.key().to_string();
                             if !meta.unlocked_stages.iter().any(|s| s == &key) {
                                 meta.unlocked_stages.push(key.clone());
-                                println!("Unlocked stage: {}", key);
+                                println!("Unlocked stage: {key}");
                             }
                         }
                         meta.save_to_disk();

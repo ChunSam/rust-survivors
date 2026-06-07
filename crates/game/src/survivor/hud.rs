@@ -850,8 +850,7 @@ fn draw_achievements_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
         .resource::<AchievementCursor>()
         .copied()
         .unwrap_or_default();
-    let page_count =
-        (AchievementKind::ALL.len() + ACHIEVEMENTS_PER_PAGE - 1) / ACHIEVEMENTS_PER_PAGE;
+    let page_count = AchievementKind::ALL.len().div_ceil(ACHIEVEMENTS_PER_PAGE);
     let page = cursor.page.min(page_count.saturating_sub(1));
     let start = page * ACHIEVEMENTS_PER_PAGE;
     let page_items = AchievementKind::ALL
@@ -1083,7 +1082,7 @@ fn draw_settings_hud(world: &mut World, vw: f32, vh: f32, lang: Lang) {
             } else {
                 [200, 200, 200, 255]
             };
-            let line = format!("{:<14}  < {} >", label, value);
+            let line = format!("{label:<14}  < {value} >");
             q.push(DrawText::new(
                 line.clone(),
                 layout.text_pos(i),
@@ -1223,8 +1222,6 @@ impl System for HudSystem {
                 0.0
             };
             let compact_hud = top_layout.compact;
-            let compact_detailed_hud =
-                compact_hud && matches!(top_layout.detail, HudDetail::Detailed);
             queue_ui_colored_image(
                 world,
                 top_layout.panel.x,
@@ -1278,9 +1275,9 @@ impl System for HudSystem {
 
             // HP 수치 텍스트 (바 우측)
             let hp_text = format!("{:.0}/{:.0}", hp.max(0.0), hp_max);
-            let xp_text = format!("{}/{}", xp, xp_max);
+            let xp_text = format!("{xp}/{xp_max}");
             let mut stat_lines: Vec<String> = Vec::new();
-            let time_text = format!("{:02}:{:02}", mm, ss);
+            let time_text = format!("{mm:02}:{ss:02}");
             let mut primary_values = Vec::new();
             let mut secondary_values = Vec::new();
             match hud_detail {
@@ -1445,15 +1442,7 @@ impl System for HudSystem {
                     }
                 }
                 for (i, stat_line) in stat_lines.into_iter().enumerate() {
-                    let y = if compact_hud {
-                        if compact_detailed_hud {
-                            top_layout.stats_y + i as f32 * 20.0 * ui_scale
-                        } else {
-                            top_layout.stats_y + i as f32 * 20.0 * ui_scale
-                        }
-                    } else {
-                        top_layout.stats_y + i as f32 * 20.0 * ui_scale
-                    };
+                    let y = top_layout.stats_y + i as f32 * 20.0 * ui_scale;
                     q.push(DrawText::new(
                         stat_line,
                         Vec2::new(hud_x, y),
@@ -1569,9 +1558,9 @@ impl System for HudSystem {
                     if let Some((_, level, evolved)) = weapon_slots.get(i) {
                         q.push(DrawText::new(
                             if *evolved {
-                                format!("Lv {} E", level)
+                                format!("Lv {level} E")
                             } else {
-                                format!("Lv {}", level)
+                                format!("Lv {level}")
                             },
                             Vec2::new(slot_layout.text_x(i), slot.y + 8.0 * ui_scale),
                             if slot.w < 128.0 * ui_scale {
@@ -1588,7 +1577,7 @@ impl System for HudSystem {
                     let slot = slot_layout.slot_rect(i, 1);
                     if let Some((_, level)) = passive_slots.get(i) {
                         q.push(DrawText::new(
-                            format!("Lv {}", level),
+                            format!("Lv {level}"),
                             Vec2::new(slot_layout.text_x(i), slot.y + 8.0 * ui_scale),
                             if slot.w < 128.0 * ui_scale {
                                 15.0
@@ -1776,7 +1765,7 @@ impl System for HudSystem {
             if let Some(q) = world.resource_mut::<TextQueue>() {
                 for (pos, value, alpha) in damage_items {
                     q.push(DrawText::new(
-                        format!("{:.0}", value),
+                        format!("{value:.0}"),
                         pos,
                         20.0,
                         [255, 230, 120, alpha],

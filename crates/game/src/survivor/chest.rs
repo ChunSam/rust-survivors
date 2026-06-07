@@ -358,8 +358,7 @@ mod tests {
         if let WeaponKind::Whip { damage, .. } = whip.kind {
             assert!(
                 damage >= 20.0,
-                "진화 후 Whip damage 가 20.0 이상이어야 함 (실제: {})",
-                damage
+                "진화 후 Whip damage 가 20.0 이상이어야 함 (실제: {damage})"
             );
         } else {
             panic!("Whip variant 이어야 함");

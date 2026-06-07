@@ -13,7 +13,7 @@ use winit::keyboard::KeyCode;
 
 // ─── PowerUpKind ──────────────────────────────────────────────────────────────
 
-/// 영구 PowerUp 종류 (Phase 8-B). CLAUDE.md 로드맵 18종 + Banish = 19종.
+/// 영구 PowerUp 종류 (Phase 8-B). 기본 18종 + Banish = 19종.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PowerUpKind {
     Might,     // +1 might per lv
@@ -30,7 +30,7 @@ pub enum PowerUpKind {
     Growth,    // *1.05
     Greed,     // *1.05
     Luck,      // *1.05
-    Curse,     // *1.05 (적 강화 — placeholder)
+    Curse,     // 적 HP/속도/접촉 피해 강화
     Revival,   // +1
     Reroll,    // +1 (LevelUp 카드 reroll 횟수)
     Skip,      // +1 (LevelUp skip 횟수)
@@ -212,7 +212,7 @@ pub fn try_purchase(world: &mut World, kind: PowerUpKind) -> bool {
     if let Some(meta) = world.resource_mut::<MetaSave>() {
         let current = *meta.powerup_levels.get(&key).unwrap_or(&0);
         if current >= kind.max_level() {
-            println!("PowerUp {} already maxed (lv {})", key, current);
+            println!("PowerUp {key} already maxed (lv {current})");
             return false;
         }
         let cost = kind.cost(current);

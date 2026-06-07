@@ -142,7 +142,7 @@ fn weapon_def_to_slot(def: &WeaponDef) -> WeaponSlot {
                 .expect("LightningRing: strike_count 필드 필요"),
             hit_radius: def.hit_radius.expect("LightningRing: hit_radius 필드 필요"),
         },
-        other => panic!("알 수 없는 무기 종류: {}", other),
+        other => panic!("알 수 없는 무기 종류: {other}"),
     };
 
     WeaponSlot {

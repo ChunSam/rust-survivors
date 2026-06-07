@@ -397,9 +397,7 @@ impl LevelUpSystem {
     }
 
     pub fn skip_levelup(world: &mut World, player_entity: engine::Entity) -> Option<(u32, u32)> {
-        let Some(actions) = world.resource::<LevelUpActions>() else {
-            return None;
-        };
+        let actions = world.resource::<LevelUpActions>()?;
         if actions.skip_remaining == 0 {
             return None;
         }
@@ -942,12 +940,9 @@ impl System for LevelUpSystem {
                         if let Some((new_current, new_threshold)) =
                             Self::choose_card(world, pe, card)
                         {
-                            println!(
-                                "Resumed (XP={}, next threshold={})",
-                                new_current, new_threshold
-                            );
+                            println!("Resumed (XP={new_current}, next threshold={new_threshold})");
                         } else {
-                            eprintln!("Ignored invalid LevelUp card: {:?}", card);
+                            eprintln!("Ignored invalid LevelUp card: {card:?}");
                         }
                     }
                     LevelUpInputAction::Reroll => {
@@ -958,8 +953,7 @@ impl System for LevelUpSystem {
                     LevelUpInputAction::Skip => {
                         if let Some((new_current, new_threshold)) = Self::skip_levelup(world, pe) {
                             println!(
-                                "Skipped LevelUp (XP={}, next threshold={})",
-                                new_current, new_threshold
+                                "Skipped LevelUp (XP={new_current}, next threshold={new_threshold})"
                             );
                         } else {
                             eprintln!("Ignored skip: no remaining skips");

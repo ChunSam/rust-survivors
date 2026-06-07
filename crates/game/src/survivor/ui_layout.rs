@@ -211,6 +211,7 @@ pub(crate) struct MenuListLayout {
 }
 
 impl MenuListLayout {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         viewport_w: f32,
         viewport_h: f32,
@@ -278,7 +279,6 @@ impl MenuListLayout {
 pub(crate) struct TopHudLayout {
     pub(crate) ui_scale: f32,
     pub(crate) compact: bool,
-    pub(crate) detail: HudDetail,
     pub(crate) panel: ScreenRect,
     pub(crate) hp_bar: ScreenRect,
     pub(crate) hp_text_pos: Vec2,
@@ -325,7 +325,6 @@ impl TopHudLayout {
         Self {
             ui_scale,
             compact,
-            detail,
             panel,
             hp_bar,
             hp_text_pos: Vec2::new(hp_bar.right() + 10.0 * ui_scale, hp_bar.y),

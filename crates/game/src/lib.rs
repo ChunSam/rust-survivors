@@ -244,8 +244,7 @@ mod tests {
         }
         assert!(
             zombie_count >= 10,
-            "wave 0 에서 50회 중 Zombie 가 10회 이상 선택되어야 함 (weight 6/8), 실제: {}",
-            zombie_count
+            "wave 0 에서 50회 중 Zombie 가 10회 이상 선택되어야 함 (weight 6/8), 실제: {zombie_count}"
         );
     }
 
@@ -263,8 +262,7 @@ mod tests {
         let count = world.query::<Enemy>().count();
         assert!(
             count >= 1,
-            "SpawnDirectorSystem 이 dt=2.0 후 적 1마리 이상 스폰해야 함, 실제: {}",
-            count
+            "SpawnDirectorSystem 이 dt=2.0 후 적 1마리 이상 스폰해야 함, 실제: {count}"
         );
     }
 
@@ -364,7 +362,10 @@ mod tests {
 
         // sprite 색이 흰색 플래시로 변경됐는지 확인 (Phase 11-B: 빨강→흰색으로 개선)
         use engine::Sprite;
-        let color = world.get::<Sprite>(zombie).map(|s| s.color.to_array()).unwrap();
+        let color = world
+            .get::<Sprite>(zombie)
+            .map(|s| s.color.to_array())
+            .unwrap();
         assert_eq!(
             color,
             [1.0, 1.0, 1.0, 1.0],

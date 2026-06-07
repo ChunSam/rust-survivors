@@ -252,7 +252,7 @@ mod tests {
     fn sfx_events_have_unique_file_keys() {
         let mut keys = HashSet::new();
         for event in SfxEvent::ALL {
-            assert!(keys.insert(event.file_key()), "duplicate key {:?}", event);
+            assert!(keys.insert(event.file_key()), "duplicate key {event:?}");
         }
         assert!(keys.contains("sfx_chest_open"));
         assert!(keys.contains("sfx_boss_appear"));

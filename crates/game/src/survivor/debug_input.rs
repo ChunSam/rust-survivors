@@ -96,7 +96,7 @@ fn find_player_pos(world: &World) -> Vec2 {
 fn spawn_pickup_near(world: &mut World, pos: Vec2, kind: PickupKind) {
     let spawn_pos = pos + Vec2::new(40.0, 0.0);
     spawn_pickup(world, spawn_pos, kind);
-    println!("[DEBUG] {:?} 픽업 스폰 at {:?}", kind, pos);
+    println!("[DEBUG] {kind:?} 픽업 스폰 at {pos:?}");
 }
 
 pub fn toggle_debug_overlay(world: &mut World) {

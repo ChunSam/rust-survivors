@@ -143,7 +143,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
                     t.position = player_pos;
                 }
             }
-            println!("Vacuum picked: {} gems pulled", count);
+            println!("Vacuum picked: {count} gems pulled");
         }
         PickupKind::Bomb => {
             // 화면 내 모든 적에 100 데미지
@@ -155,7 +155,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
             if let Some(q) = world.resource_mut::<SfxQueue>() {
                 q.push(SfxEvent::Bomb);
             }
-            println!("Bomb picked: {} enemies killed", killed);
+            println!("Bomb picked: {killed} enemies killed");
         }
         PickupKind::Rosary => {
             // 화면 내 모든 적 즉사 — 매우 큰 데미지
@@ -167,7 +167,7 @@ pub fn apply_pickup_effect(world: &mut World, player: Entity, player_pos: Vec2, 
             if let Some(q) = world.resource_mut::<SfxQueue>() {
                 q.push(SfxEvent::Bomb);
             }
-            println!("Rosary picked: {} enemies cleared", killed);
+            println!("Rosary picked: {killed} enemies cleared");
         }
     }
 }
@@ -290,8 +290,7 @@ mod tests {
             .unwrap_or(0.0);
         assert!(
             (hp - 70.0).abs() < 0.01,
-            "Chicken 픽업 후 HP 가 70.0 이어야 함 (실제: {:.1})",
-            hp
+            "Chicken 픽업 후 HP 가 70.0 이어야 함 (실제: {hp:.1})"
         );
     }
 
@@ -328,8 +327,7 @@ mod tests {
             .unwrap_or(0);
         assert_eq!(
             gold, 2,
-            "Coin 2회 픽업 후 gold == 2 이어야 함 (실제: {})",
-            gold
+            "Coin 2회 픽업 후 gold == 2 이어야 함 (실제: {gold})"
         );
     }
 

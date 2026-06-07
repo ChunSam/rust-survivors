@@ -728,7 +728,10 @@ mod tests {
         system.run(&mut world, 0.02);
 
         assert!(world.get::<HitFlash>(entity).is_none());
-        assert_eq!(world.get::<Sprite>(entity).unwrap().color.to_array(), original);
+        assert_eq!(
+            world.get::<Sprite>(entity).unwrap().color.to_array(),
+            original
+        );
         assert_eq!(
             world.get::<Transform>(entity).unwrap().scale,
             original_scale
