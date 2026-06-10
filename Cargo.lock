@@ -3215,8 +3215,8 @@ checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "skeleton-engine"
-version = "4.4.0"
-source = "git+https://github.com/ChunSam/skeleton-engine?rev=f62df900b50c3d3a72f4fd951d77db5271eb96d8#f62df900b50c3d3a72f4fd951d77db5271eb96d8"
+version = "4.6.0"
+source = "git+https://github.com/ChunSam/skeleton-engine?rev=59c0845a658587cfb7b7271b592e1284a5e65e1e#59c0845a658587cfb7b7271b592e1284a5e65e1e"
 dependencies = [
  "bytemuck",
  "chacha20poly1305",
