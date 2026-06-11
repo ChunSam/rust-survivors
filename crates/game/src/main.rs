@@ -1,6 +1,6 @@
 use engine::{
-    AnimationSystem, App, AudioManager, Entity, GameState, InputState, PhysicsBody, Sprite, System,
-    Transform, World,
+    AnimationSystem, App, AudioManager, BodyHandle, ColliderHandle, Entity, GameState, InputState,
+    PhysicsBody, Sprite, System, Transform, World,
 };
 use glam::Vec2;
 use rapier2d::prelude::*;
@@ -26,7 +26,7 @@ struct Player;
 /// (PhysicsWorld를 ECS 리소스로 넣으면 &mut World 와 동시 대여 충돌이 생긴다.)
 struct PlatformerSystem {
     physics: engine::PhysicsWorld,
-    player_body: RigidBodyHandle,
+    player_body: BodyHandle,
     player_col: ColliderHandle,
     player_entity: Entity, // 낙하 감지와 재시작 시 Transform 리셋에 사용
     speed: f32,            // 수평 이동 속도 (물리 단위/s)
@@ -94,7 +94,7 @@ impl System for PlatformerSystem {
 
         // ── 4. 물리 결과 → ECS Transform 동기화 ──────────────────────────
         //  (entity, handle) 쌍을 먼저 수집해야 world를 다시 빌릴 수 있다
-        let handles: Vec<(Entity, RigidBodyHandle)> = world
+        let handles: Vec<(Entity, BodyHandle)> = world
             .query::<PhysicsBody>()
             .map(|(e, b)| (e, b.rigid_body_handle))
             .collect();
