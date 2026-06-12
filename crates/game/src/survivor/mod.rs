@@ -101,7 +101,7 @@ pub use spawn::{
     spawn_enemy, spawn_enemy_elite, spawn_enemy_full, spawn_enemy_with_splits, spawn_zombie,
 };
 pub use sprites::{
-    add_sprite, add_tinted_sprite, survivor_textured_sprite, SurvivorSprite,
+    add_sprite, add_tinted_sprite, survivor_textured_sprite, ActorFacingSystem, SurvivorSprite,
     SurvivorTextureHandles, ACTOR_FRAMES_PATH, ATLAS_PATH, BOSS_VISUAL_SCALE,
     DAIRY_PLANT_TILES_PATH, EFFECTS_PATH, ENEMY_VISUAL_SCALE, EVOLUTIONS_PATH,
     GAMEOVER_TITLE_EN_PATH, GAMEOVER_TITLE_KO_PATH, INGAME_LABEL_GOLD_EN_PATH,

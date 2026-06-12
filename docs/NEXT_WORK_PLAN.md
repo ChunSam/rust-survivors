@@ -36,7 +36,7 @@ bash scripts/verify_macos_package.sh
 Latest verified status (2026-06-12):
 
 - `cargo fmt --check`: passed
-- `cargo test -p game --lib --locked -- --test-threads=1`: 210 passed
+- `cargo test -p game --lib --locked -- --test-threads=1`: 213 passed
 - `cargo build -p game --bin survivor --release --locked`: passed
 - `bash scripts/package_macos.sh`: passed
 - `bash scripts/verify_macos_package.sh`: passed
@@ -68,6 +68,7 @@ Manual speaker/window QA is still outstanding.
   - `4/5/6`: banish offered card 1/2/3 if banishes remain.
 - `LevelUpActions` and `RevivalState` are run-local resources and reset on run reset.
 - Stage backgrounds use generated 4x4 tilemap PNGs through handle-backed `Sprite` plus per-tile `UvRect`; Mad Forest, Inlaid Library, and Dairy Plant now have distinct world textures.
+- Actor sprites flip horizontally from their world x movement direction after `AnimationSystem`, so player/enemy/boss sprites do not appear to walk backward when moving left.
 - New gameplay behavior is automated-test covered, but live feel still needs manual QA.
 
 ## Sprite / UI Policy

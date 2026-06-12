@@ -1,6 +1,6 @@
 use engine::{
-    AnimationClip, AnimationPlayer, Entity, Handle, ImageAsset, RenderLayer, Sprite, Transform,
-    UvRect, World,
+    AnimationClip, AnimationPlayer, BlendUv, Entity, Handle, ImageAsset, RenderLayer, Sprite,
+    System, Transform, UvRect, World,
 };
 
 use super::icons::ICONS_PATH;
@@ -98,6 +98,7 @@ const ACTOR_MOVE_FRAME_COUNT: u32 = 3;
 const ACTOR_HIT_FRAME_COL: u32 = 3;
 const ACTOR_DEATH_FRAME_COL: u32 = 4;
 const ACTOR_MOVE_FPS: f32 = 6.0;
+const ACTOR_FACING_EPSILON: f32 = 0.01;
 
 #[derive(Clone, Debug)]
 pub struct SurvivorTextureHandles {
@@ -543,10 +544,81 @@ pub fn add_tinted_sprite(
     world.add_component(entity, RenderLayer(sprite.render_layer()));
     world.add_component(entity, uv);
     world.add_component(entity, sprite.animation_player());
+    if sprite.actor_row().is_some() {
+        let initial_x = world
+            .get::<Transform>(entity)
+            .map(|transform| transform.position.x)
+            .unwrap_or(0.0);
+        world.add_component(entity, ActorFacing::new(initial_x));
+    }
 
     if let Some(transform) = world.get_mut::<Transform>(entity) {
         let max_size = transform.scale.x.max(transform.scale.y);
         transform.scale = sprite.fit_scale(max_size);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ActorFacing {
+    direction_x: f32,
+    last_x: f32,
+}
+
+impl ActorFacing {
+    fn new(last_x: f32) -> Self {
+        Self {
+            direction_x: 1.0,
+            last_x,
+        }
+    }
+
+    fn update(&mut self, current_x: f32) -> bool {
+        let delta_x = current_x - self.last_x;
+        if delta_x.abs() > ACTOR_FACING_EPSILON {
+            self.direction_x = delta_x.signum();
+        }
+        self.last_x = current_x;
+        self.is_left()
+    }
+
+    fn is_left(self) -> bool {
+        self.direction_x < 0.0
+    }
+}
+
+#[derive(Default)]
+pub struct ActorFacingSystem {
+    updates: Vec<(Entity, f32)>,
+}
+
+impl System for ActorFacingSystem {
+    fn run(&mut self, world: &mut World, _dt: f32) {
+        self.updates.clear();
+        self.updates.extend(
+            world
+                .query2::<Transform, ActorFacing>()
+                .map(|(entity, transform, _)| (entity, transform.position.x)),
+        );
+
+        for (entity, current_x) in self.updates.drain(..) {
+            let facing_left = if let Some(facing) = world.get_mut::<ActorFacing>(entity) {
+                facing.update(current_x)
+            } else {
+                continue;
+            };
+            if let Some(uv) = world.get_mut::<UvRect>(entity) {
+                set_uv_facing(uv, facing_left);
+            }
+            if let Some(blend) = world.get_mut::<BlendUv>(entity) {
+                set_uv_facing(&mut blend.to, facing_left);
+            }
+        }
+    }
+}
+
+fn set_uv_facing(uv: &mut UvRect, facing_left: bool) {
+    if facing_left != (uv.u_size < 0.0) {
+        *uv = uv.flipped_x();
     }
 }
 
@@ -561,6 +633,7 @@ fn single_frame(sprite: SurvivorSprite) -> AnimationPlayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use engine::System;
 
     const ACTOR_SPRITES: &[SurvivorSprite] = &[
         SurvivorSprite::Hero,
@@ -733,6 +806,72 @@ mod tests {
                 "{sprite:?} transform should match rendered frame aspect"
             );
         }
+    }
+
+    #[test]
+    fn actor_sprites_receive_facing_state() {
+        let mut world = World::new();
+        let actor = world.spawn();
+        world.add_component(actor, Transform::default());
+        add_sprite(&mut world, actor, SurvivorSprite::Hero);
+
+        let item = world.spawn();
+        world.add_component(item, Transform::default());
+        add_sprite(&mut world, item, SurvivorSprite::XpGem);
+
+        assert!(world.get::<ActorFacing>(actor).is_some());
+        assert!(world.get::<ActorFacing>(item).is_none());
+    }
+
+    #[test]
+    fn actor_facing_flips_uv_when_moving_left() {
+        let mut world = World::new();
+        let actor = world.spawn();
+        world.add_component(
+            actor,
+            Transform {
+                position: glam::Vec2::ZERO,
+                ..Default::default()
+            },
+        );
+        add_sprite(&mut world, actor, SurvivorSprite::Hero);
+        let base_uv = actor_frame(0, 0).uv();
+
+        world.get_mut::<Transform>(actor).unwrap().position.x = -10.0;
+        world.add_component(actor, base_uv);
+        let mut system = ActorFacingSystem::default();
+        system.run(&mut world, 0.0);
+
+        assert_eq!(*world.get::<UvRect>(actor).unwrap(), base_uv.flipped_x());
+        assert!(world.get::<ActorFacing>(actor).unwrap().is_left());
+    }
+
+    #[test]
+    fn actor_facing_returns_uv_to_right_when_moving_right() {
+        let mut world = World::new();
+        let actor = world.spawn();
+        world.add_component(
+            actor,
+            Transform {
+                position: glam::Vec2::ZERO,
+                ..Default::default()
+            },
+        );
+        add_sprite(&mut world, actor, SurvivorSprite::Hero);
+        let base_uv = actor_frame(0, 0).uv();
+        let mut system = ActorFacingSystem::default();
+
+        world.get_mut::<Transform>(actor).unwrap().position.x = -10.0;
+        world.add_component(actor, base_uv);
+        system.run(&mut world, 0.0);
+        assert_eq!(*world.get::<UvRect>(actor).unwrap(), base_uv.flipped_x());
+
+        world.get_mut::<Transform>(actor).unwrap().position.x = 5.0;
+        world.add_component(actor, base_uv);
+        system.run(&mut world, 0.0);
+
+        assert_eq!(*world.get::<UvRect>(actor).unwrap(), base_uv);
+        assert!(!world.get::<ActorFacing>(actor).unwrap().is_left());
     }
 
     #[test]

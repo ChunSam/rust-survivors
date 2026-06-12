@@ -5,6 +5,13 @@
 자동 검증은 통과했지만, wgpu 창에서만 확인 가능한 항목은 수동 QA로 남긴다.
 각 항목은 문제가 있으면 증상, 화면, 누른 키, 대략 시간을 기록한다.
 
+## 2026-06-12 Actor Facing Flip Pass
+
+- 적용: player/enemy/boss actor sprites가 월드 x 이동 방향에 따라 `UvRect.flipped_x()`로 좌우 반전된다.
+- 자동 검증: actor sprite에만 facing state가 붙고, 좌측 이동 시 UV가 반전되며, 우측 이동 시 원래 UV로 돌아오는지 단위 테스트로 고정.
+- 확인 필요: 실제 macOS 창에서 플레이어가 `A`/왼쪽 방향키로 이동할 때 뒤로 걷지 않고 좌측을 바라보는지 확인.
+- 확인 필요: Zombie/Bat/Ghost 등 추격형 적과 보스가 플레이어를 향해 좌우 방향을 바꾸는지 확인.
+
 ## 2026-06-12 Stage Tilemap Background Pass
 
 - 추가: `assets/textures/survivor/stages/`에 Mad Forest, Inlaid Library, Dairy Plant용 AI-generated tilemap PNG 3개를 저장.
