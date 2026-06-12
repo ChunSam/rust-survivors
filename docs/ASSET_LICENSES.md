@@ -1,7 +1,7 @@
 # Rust Survivors Asset Licenses
 
 작성일: 2026-05-23
-갱신일: 2026-05-30
+갱신일: 2026-06-12
 
 출시 빌드에는 모든 외부 자산의 출처와 라이선스를 이 문서에 남긴다.
 출처가 불명확한 파일은 release package에 포함하지 않는다.
@@ -23,6 +23,7 @@
 | `assets/textures/survivor/survivor_icons.png` | local generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256 `31d7a1b50c4a214957625e4b3938289147673996332ffaf15fa8ac01e320c372` |
 | `assets/textures/survivor/survivor_passives.png` | local generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256 `b53e24428528c51350defcb430debdbb018d932ee5ae3933569ef89dc07678e6` |
 | `assets/textures/survivor/survivor_powerups.png` | local generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256 `d266df248806cdf966ba199d30acfaf7867d0978a868f0b0c844936da5d12634` |
+| `assets/textures/survivor/stages/*.png` | local AI generated asset | 프로젝트 내부 placeholder | 필요 없음 | Stage background tilemaps generated for 4x4 `UvRect` sampling. SHA-256: `mad_forest_tiles.png` `c1e6742e1d9ac6e442e4ab7f949437f104815457b00e62e2ed235e87bde634c7`, `inlaid_library_tiles.png` `1ed2470f436d244c4fb99cfae822b5474f7fe71cb8fe52a844eb1f8f02351fbb`, `dairy_plant_tiles.png` `28fbb22193b69bc0c22585a460db04da5ac8aa5795dbe1d020d6bdb648ab6e06` |
 | `assets/textures/survivor/menu/title_backdrop_v2.png` | local AI generated asset | 프로젝트 내부 placeholder | 필요 없음 | SHA-256 `07ed6357d9efc45fd4c32c957809962a0cfd5ccd35cca94d66389070fa9c927e` |
 | `assets/textures/survivor/menu/title_logo_plaque_v3.png`, `menu_button_*_{ko,en}.png` | local AI generated asset | 프로젝트 내부 placeholder | 필요 없음 | Text UI alpha matte applied with `scripts/make_text_ui_transparent.py`. SHA-256: `title_logo_plaque_v3.png` `b12dfec922bfb7e4d1e1b87b74dc38ea116bd240fe87dc158c35a3a5164cc3ea`, `menu_button_start_ko.png` `14ebbf2e8b28ef0608f54c7e90a4cda37f0af5d8d386a92628dcf0ffdf2ee811`, `menu_button_start_en.png` `20ac804a2e445e90dac6bafc2565d81689e21ae183e82811bfe192e366cd3342`, `menu_button_character_ko.png` `a8143b7d992a14dc600d40d3629e32dc30b7f0bf888cfcc96d5aa8cf9c8e3cc0`, `menu_button_character_en.png` `707c5a2418a87009925979f7730e7b1365725e24777721dd60f9f6405c15b102`, `menu_button_stage_ko.png` `054d65558346c244f74db9ce59740dd26bb92bf5a963aae182dbe0a8007c7014`, `menu_button_stage_en.png` `b26dc4c76878e7c9afcbe3c1b90979f2de856a1d974f38f12e1c2b6bf02aa841`, `menu_button_shop_ko.png` `203f1400de4d0e0d07224f593564c88657a547ce3347e1b168bfdc1b9098efb1`, `menu_button_shop_en.png` `687763fe015b6bef17f82ee9688904c0dc3f8555c3c2db6a06644b4e20457179`, `menu_button_achievements_ko.png` `4e0884a7c4a51fdbc2b70b115be038d9a9e1f0820a128c98fa3e8ca2bde56579`, `menu_button_achievements_en.png` `f29bb780297778885b0acbdd7cdf7921ffe31b0cd958444163744397e2685a42`, `menu_button_settings_ko.png` `e71721c3b0ef709a7bbd40ff94efd89633313ea411b0d1832bb97e0ef78375cc`, `menu_button_settings_en.png` `daf40164268c0b01ae981ae65c01af05fe5e3cac303995b9ab73ea64c38ef22d` |
 | `assets/textures/survivor/ui/*.png` | local AI generated asset | 프로젝트 내부 placeholder | 필요 없음 | Image generation + local chroma-key alpha cleanup. SHA-256: `ui_modal_panel.png` `464cf041bd2565f60a49f8eec73c1dc4b22509675b4584adeae7c3c0446044ec`, `ui_slot_frame.png` `8235dcbcf0155f5a8a1146d039eaabf05316e2551d6c6d155f8f5056a1a5e41b` |

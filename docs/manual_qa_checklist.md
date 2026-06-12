@@ -5,6 +5,25 @@
 자동 검증은 통과했지만, wgpu 창에서만 확인 가능한 항목은 수동 QA로 남긴다.
 각 항목은 문제가 있으면 증상, 화면, 누른 키, 대략 시간을 기록한다.
 
+## 2026-06-12 Stage Tilemap Background Pass
+
+- 추가: `assets/textures/survivor/stages/`에 Mad Forest, Inlaid Library, Dairy Plant용 AI-generated tilemap PNG 3개를 저장.
+- 적용: `BackgroundSystem`이 선택된 `StageKind`별 텍스처를 `Sprite::textured_with_handle(...)` 경로로 사용하고, 4x4 grid `UvRect`를 월드 좌표별로 선택한다.
+- 자동 검증: 스테이지별 tilemap path, asset 존재, `UvRect` 범위, 선택 스테이지 변경 시 배경 texture 교체를 단위 테스트로 고정.
+- 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (210 passed), `cargo build -p game --bin survivor --release --locked` 통과.
+- 패키지 검증: `bash scripts/package_macos.sh`, `bash scripts/verify_macos_package.sh` 통과. `.app` Resources에 stage tilemap PNG 3개 포함 확인.
+- 확인 필요: 실제 macOS 창에서 StageSelect로 3개 스테이지를 각각 시작해 배경 분위기가 숲/도서관/공장으로 구분되는지 확인.
+- 확인 필요: 800x600, 기본 해상도, 보스 줌아웃 상태에서 타일 seam, 빈 영역, 적/픽업 가독성 저하가 없는지 확인.
+
+## 2026-06-12 Next Work Plan Automated Progress
+
+- 자동 검증 보강: 스테이지 wave가 0:00~30:00을 gap/overlap 없이 덮는지, 각 스테이지 후반 pressure가 초반보다 충분히 상승하는지, 스테이지별 opening enemy identity가 구분되는지 단위 테스트로 고정.
+- 자동 검증 보강: 10개 starter weapon의 cooldown, damage, projectile/area/orbit/pool 필수 스탯이 플레이 가능한 양수 값인지 단위 테스트로 고정.
+- 자동 검증 보강: Title/menu/settings/pause/level-up/restart keyboard help가 필수 키를 포함하고 level-up action placeholder를 유지하는지 단위 테스트로 고정.
+- 자동 검증: `cargo fmt --check` 통과.
+- 자동 검증: `cargo test -p game --lib --locked -- --test-threads=1` 통과: 210 passed.
+- 수동 확인 유지: 실제 스피커 기준 BGM/SFX 볼륨, 장시간 StageClear/GameOver, 창 렌더링 겹침은 실제 macOS 창에서 확인해야 함.
+
 ## 2026-06-03 Engine v2 / Gameplay Action QA Targets
 
 - 자동 검증: `cargo fmt --check` 통과.
@@ -173,7 +192,7 @@
 - `HitFlash` 만료와 level-up 카드 선택 완료는 sentinel/consumed flag 대신 public ECS removal API를 사용하도록 변경.
 - Survivor texture는 시작 시 `app.load_image`로 handle을 등록하고, sprite 생성은 handle 우선 + path fallback 구조로 정리.
 - 배경/world/effect/UI sprite에 명시적인 `RenderLayer`를 부여하고, 기존 `Transform.z`는 같은 레이어 안의 정렬값으로 유지.
-- 엔진 수정 희망 사항은 `docs/ENGINE_FOLLOWUPS.md`에만 문서화.
+- 완료된 엔진 follow-up 기록은 `docs/ENGINE_MIGRATION_NOTES.md`에 남기고, 새 엔진 요청은 `docs/ENGINE_CHANGE_REQUESTS.md`에만 문서화.
 - 자동 검증: `cargo fmt --check`, `cargo test -p game --lib --locked -- --test-threads=1` (139 passed), `cargo check -p game --all-targets --locked`, `cargo build -p game --bin survivor --release --locked` 통과.
 - 수동 smoke 권장: Title backdrop, InGame actor/effect sprites, HUD/level-up/shop icons를 800x600과 기본 해상도에서 확인.
 

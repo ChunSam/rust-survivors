@@ -12,6 +12,10 @@ pub const ACTOR_FRAMES_PATH: &str = "assets/textures/survivor/survivor_actor_fra
 pub const EVOLUTIONS_PATH: &str = "assets/textures/survivor/survivor_evolutions.png";
 pub const PASSIVES_PATH: &str = "assets/textures/survivor/survivor_passives.png";
 pub const POWERUPS_PATH: &str = "assets/textures/survivor/survivor_powerups.png";
+pub const MAD_FOREST_TILES_PATH: &str = "assets/textures/survivor/stages/mad_forest_tiles.png";
+pub const INLAID_LIBRARY_TILES_PATH: &str =
+    "assets/textures/survivor/stages/inlaid_library_tiles.png";
+pub const DAIRY_PLANT_TILES_PATH: &str = "assets/textures/survivor/stages/dairy_plant_tiles.png";
 pub const TITLE_BACKDROP_PATH: &str = "assets/textures/survivor/menu/title_backdrop_v2.png";
 pub const TITLE_LOGO_PLAQUE_PATH: &str = "assets/textures/survivor/menu/title_logo_plaque_v3.png";
 pub const MENU_BUTTON_START_KO_PATH: &str =
@@ -104,6 +108,9 @@ pub struct SurvivorTextureHandles {
     pub icons: Handle<ImageAsset>,
     pub passives: Handle<ImageAsset>,
     pub powerups: Handle<ImageAsset>,
+    pub mad_forest_tiles: Handle<ImageAsset>,
+    pub inlaid_library_tiles: Handle<ImageAsset>,
+    pub dairy_plant_tiles: Handle<ImageAsset>,
     pub title_backdrop: Handle<ImageAsset>,
     pub title_logo_plaque: Handle<ImageAsset>,
     pub menu_button_start_ko: Handle<ImageAsset>,
@@ -154,6 +161,9 @@ impl SurvivorTextureHandles {
             ICONS_PATH => Some(&self.icons),
             PASSIVES_PATH => Some(&self.passives),
             POWERUPS_PATH => Some(&self.powerups),
+            MAD_FOREST_TILES_PATH => Some(&self.mad_forest_tiles),
+            INLAID_LIBRARY_TILES_PATH => Some(&self.inlaid_library_tiles),
+            DAIRY_PLANT_TILES_PATH => Some(&self.dairy_plant_tiles),
             TITLE_BACKDROP_PATH => Some(&self.title_backdrop),
             TITLE_LOGO_PLAQUE_PATH => Some(&self.title_logo_plaque),
             MENU_BUTTON_START_KO_PATH => Some(&self.menu_button_start_ko),
@@ -616,6 +626,9 @@ mod tests {
             icons: handle.clone(),
             passives: handle.clone(),
             powerups: handle.clone(),
+            mad_forest_tiles: handle.clone(),
+            inlaid_library_tiles: handle.clone(),
+            dairy_plant_tiles: handle.clone(),
             title_backdrop: handle.clone(),
             title_logo_plaque: handle.clone(),
             menu_button_start_ko: handle.clone(),
@@ -792,6 +805,9 @@ mod tests {
         assert!(textures.handle_for(RESTART_HINT_EN_PATH).is_some());
         assert!(textures.handle_for(SECTION_WEAPONS_KO_PATH).is_some());
         assert!(textures.handle_for(SECTION_PASSIVES_EN_PATH).is_some());
+        assert!(textures.handle_for(MAD_FOREST_TILES_PATH).is_some());
+        assert!(textures.handle_for(INLAID_LIBRARY_TILES_PATH).is_some());
+        assert!(textures.handle_for(DAIRY_PLANT_TILES_PATH).is_some());
     }
 
     #[test]
