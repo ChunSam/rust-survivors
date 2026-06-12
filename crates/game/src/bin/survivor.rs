@@ -110,7 +110,7 @@ fn main() {
     app.add_system(HitFlashSystem);
     app.add_system(DamageNumberSystem::default()); // Phase 11: 데미지 숫자 age/이동/despawn
     app.add_system(ParticleSystem::default()); // Phase 11-E: 파티클 이동/페이드/despawn
-    app.add_system(AnimationSystem); // 스프라이트시트 기반 actor/effect UV 진행
+    app.add_system(AnimationSystem::new()); // 스프라이트시트 기반 actor/effect UV 진행
     app.add_system(UiIconSystem); // HUD/카드/상점 아이콘을 화면 고정 스프라이트로 표시
     app.add_system(HudSystem); // 마지막 — TextQueue push (데미지 숫자 포함)
     app.add_system(SfxSystem::default()); // Phase 11-D: SfxQueue drain → AudioManager

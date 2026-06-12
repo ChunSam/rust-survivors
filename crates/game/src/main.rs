@@ -281,7 +281,7 @@ fn main() {
 
     // ── 시스템 등록 ─────────────────────────────────────────────────────────
     // AnimationSystem은 AnimationPlayer 컴포넌트가 없으면 아무것도 하지 않는다.
-    app.add_system(AnimationSystem);
+    app.add_system(AnimationSystem::new());
     app.add_system(PlatformerSystem {
         physics,
         player_body,
