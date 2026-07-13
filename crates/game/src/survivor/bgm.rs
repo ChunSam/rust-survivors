@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 
 use engine::{AudioManager, GameState, System, World};
 
+use super::asset_root;
 use super::boss::Boss;
 use super::meta::MetaSave;
 use super::meta::SurvivorMode;
@@ -116,67 +117,17 @@ fn play_bgm_file(audio: &mut AudioManager, path: &str, key: &str) {
     audio.play("bgm", path, bgm_repeat_flag(key));
 }
 
-fn normalize_existing_dir(path: PathBuf) -> Option<PathBuf> {
-    if !path.is_dir() {
-        return None;
-    }
-    std::fs::canonicalize(&path).ok().or(Some(path))
-}
-
-fn macos_app_audio_dir_for_exe(exe_path: &Path) -> Option<PathBuf> {
-    let macos_dir = exe_path.parent()?;
-    if macos_dir.file_name()? != "MacOS" {
-        return None;
-    }
-    let contents_dir = macos_dir.parent()?;
-    if contents_dir.file_name()? != "Contents" {
-        return None;
-    }
-    normalize_existing_dir(contents_dir.join("Resources").join("assets").join("audio"))
-}
-
-fn candidate_audio_dirs_for_exe(exe_path: &Path, include_dev_fallback: bool) -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-
-    if let Some(dir) = macos_app_audio_dir_for_exe(exe_path) {
-        dirs.push(dir);
-    }
-
-    if let Some(exe_dir) = exe_path.parent() {
-        if let Some(dir) = normalize_existing_dir(exe_dir.join("assets").join("audio")) {
-            dirs.push(dir);
-        }
-        if let Some(parent_dir) = exe_dir.parent() {
-            if let Some(dir) = normalize_existing_dir(parent_dir.join("assets").join("audio")) {
-                dirs.push(dir);
-            }
-        }
-    }
-
-    if include_dev_fallback {
-        let dev_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/audio");
-        if let Some(dir) = normalize_existing_dir(dev_dir) {
-            dirs.push(dir);
-        }
-    }
-
-    dirs
-}
-
-fn resolve_audio_base_from_exe(exe_path: &Path, include_dev_fallback: bool) -> Option<PathBuf> {
-    candidate_audio_dirs_for_exe(exe_path, include_dev_fallback)
-        .into_iter()
-        .next()
-}
-
+/// Audio lives at `<asset root>/assets/audio`. Root discovery (macOS bundle Resources,
+/// then executable-relative, then working-directory-relative) belongs to [`asset_root`],
+/// which owns it for textures and SFX too - one policy, stated in one place.
+///
+/// Executable-relative candidates still win over the working directory there, so a packaged
+/// build never plays audio from a stray folder it happened to be launched next to.
 fn resolve_audio_base_dir() -> Option<PathBuf> {
-    let from_exe = std::env::current_exe()
-        .ok()
-        .and_then(|exe_path| resolve_audio_base_from_exe(&exe_path, cfg!(debug_assertions)));
-
-    // Startup anchors the working directory to the asset root (see `asset_root`), so this
-    // covers dev/release runs where assets do not sit next to the executable.
-    from_exe.or_else(|| normalize_existing_dir(PathBuf::from("assets/audio")))
+    let dir = asset_root::resolve_asset_root()?
+        .join("assets")
+        .join("audio");
+    dir.is_dir().then_some(dir)
 }
 
 fn resolve_audio_file_from_base(base_dir: &Path, stem: &str) -> Option<String> {
@@ -210,7 +161,7 @@ pub struct BgmSystem {
     current: Option<&'static str>,
     /// 상황별 다음 BGM variant 인덱스. 상황 재진입 시 1 → 2 → 1 순서로 고른다.
     next_variants: [usize; BGM_TRACK_COUNT],
-    /// 실행 파일/번들 기준으로 해석한 상황별 BGM playlist 캐시.
+    /// 에셋 루트(`asset_root`) 기준으로 해석한 상황별 BGM playlist 캐시.
     playlists: Option<[Vec<String>; BGM_TRACK_COUNT]>,
 }
 
@@ -260,7 +211,7 @@ impl System for BgmSystem {
         let target = bgm_key(mode, &state, boss_active);
         let Some(playlists) = self.ensure_playlists() else {
             log::warn!(
-                "BGM audio root not found for key {target}; checked executable-relative paths and the working directory"
+                "BGM audio root not found for key {target}; no assets/audio under the resolved asset root"
             );
             if let Some(audio) = world.resource_mut::<AudioManager>() {
                 audio.stop("bgm");
@@ -408,32 +359,15 @@ mod tests {
         assert_eq!(bgm_slot("bgm_gameover"), 4);
     }
 
+    /// Audio resolution is delegated to `asset_root`, which is what enforces the priority
+    /// order (bundle Resources, then executable-relative, then working directory) and is
+    /// tested there. This asserts the delegation itself lands on the repo's audio directory.
     #[test]
-    fn macos_bundle_audio_dir_has_priority() {
-        let root = Path::new("/tmp/RustSurvivors.app/Contents");
-        let exe = root.join("MacOS/RustSurvivors");
-        let dir = macos_app_audio_dir_for_exe(&exe)
-            .unwrap_or_else(|| root.join("Resources").join("assets").join("audio"));
+    fn audio_base_dir_resolves_under_the_asset_root() {
+        let base =
+            resolve_audio_base_dir().expect("repo audio dir should resolve under cargo test");
 
-        assert_eq!(dir, root.join("Resources").join("assets").join("audio"));
-    }
-
-    #[test]
-    fn executable_relative_dirs_are_checked_before_dev_fallback() {
-        let temp = std::env::temp_dir().join("rust_survivors_bgm_test_exe_root");
-        let exe = temp.join("bin/survivor");
-        let candidates = candidate_audio_dirs_for_exe(&exe, true);
-
-        let manifest = manifest_audio_dir();
-        assert_eq!(candidates.last(), Some(&manifest));
-    }
-
-    #[test]
-    fn no_relative_cwd_fallback_is_used() {
-        let temp = std::env::temp_dir().join("rust_survivors_bgm_test_no_cwd");
-        let exe = temp.join("bin/survivor");
-
-        assert!(resolve_audio_base_from_exe(&exe, false).is_none());
+        assert_eq!(base, manifest_audio_dir());
     }
 
     #[test]

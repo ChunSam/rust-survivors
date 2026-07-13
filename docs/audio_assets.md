@@ -9,17 +9,21 @@ BGM은 상황별 2곡 MP3 variant만 사용한다.
 
 ## 경로 규칙
 
-BGM 경로는 현재 작업 디렉터리(`cwd`)가 아니라 실행 파일 기준으로 해석한다.
+BGM·SFX·텍스처는 모두 `asset_root`(`crates/game/src/survivor/asset_root.rs`)가 찾아낸 **에셋 루트** 하나를 기준으로 해석한다. `main()` 이 시작 시 `set_working_dir_to_asset_root()` 로 작업 디렉터리를 그 루트에 고정하고, BGM 은 `<에셋 루트>/assets/audio` 를 쓴다.
 
-- macOS `.app`: `Contents/Resources/assets/audio`
-- 일반 실행 파일: 실행 파일 옆 `assets/audio`, 없으면 상위 1단계의 `assets/audio`
-- 개발 빌드(`debug_assertions`): 위 경로에 없을 때만 워크스페이스의 `assets/audio`
+에셋 루트 탐색 우선순위:
+
+- macOS `.app`: `Contents/Resources`
+- 실행 파일이 있는 디렉터리와 그 상위 (최대 3단계)
+- 현재 작업 디렉터리와 그 상위 (최대 3단계)
 
 의도:
 
-- 임의 cwd 에서 실행해도 같은 음원을 읽는다.
-- 패키지 외부의 우연한 상대경로 MP3를 잘못 집어오지 않는다.
+- 임의 cwd 에서 실행해도(탐색기 더블클릭, 압축 푼 패키지 등) 같은 음원과 텍스처를 읽는다.
+- 실행 파일 기준 후보가 항상 cwd 보다 먼저이므로, 패키지된 빌드가 실행 위치 근처의 엉뚱한 `assets/` 를 집어오지 않는다.
 - 자산이 없으면 잘못된 fallback 대신 BGM 을 정지하고 경고 로그를 남긴다.
+
+2026-07-13 변경: 이전에는 BGM 만 실행 파일 기준으로 따로 해석하고 텍스처/SFX 는 cwd 상대였다. 어느 위치에서 실행하든 셋 중 하나는 깨졌기 때문에(리포지토리 루트에서 실행하면 BGM 이 음원을 못 찾고, 그 밖에서 실행하면 텍스처가 전부 마젠타 폴백이 됐다) 해석 경로를 `asset_root` 하나로 통합했다.
 
 ## BGM
 
