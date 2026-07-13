@@ -170,8 +170,13 @@ fn resolve_audio_base_from_exe(exe_path: &Path, include_dev_fallback: bool) -> O
 }
 
 fn resolve_audio_base_dir() -> Option<PathBuf> {
-    let exe_path = std::env::current_exe().ok()?;
-    resolve_audio_base_from_exe(&exe_path, cfg!(debug_assertions))
+    let from_exe = std::env::current_exe()
+        .ok()
+        .and_then(|exe_path| resolve_audio_base_from_exe(&exe_path, cfg!(debug_assertions)));
+
+    // Startup anchors the working directory to the asset root (see `asset_root`), so this
+    // covers dev/release runs where assets do not sit next to the executable.
+    from_exe.or_else(|| normalize_existing_dir(PathBuf::from("assets/audio")))
 }
 
 fn resolve_audio_file_from_base(base_dir: &Path, stem: &str) -> Option<String> {
@@ -255,7 +260,7 @@ impl System for BgmSystem {
         let target = bgm_key(mode, &state, boss_active);
         let Some(playlists) = self.ensure_playlists() else {
             log::warn!(
-                "BGM audio root not found for key {target}; checked executable-relative paths only"
+                "BGM audio root not found for key {target}; checked executable-relative paths and the working directory"
             );
             if let Some(audio) = world.resource_mut::<AudioManager>() {
                 audio.stop("bgm");

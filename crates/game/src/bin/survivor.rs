@@ -29,23 +29,23 @@
 
 use engine::{AnimationSystem, App, FontData, WindowConfig};
 use game::survivor::{
-    setup_survivor_world, AchievementSystem, ActorFacingSystem, AxeSystem, BackgroundSystem,
-    BgmSystem, BossDeathSystem, BossPhaseSystem, BossSpawnSystem, CameraFollowSystem,
-    CharacterSelectSystem, ChestPickupSystem, CrossSystem, DamageNumberSystem, DeathSystem,
-    DebugInputSystem, EnemyAiSystem, EnemyContactDamageSystem, FireWandSystem, GarlicSystem,
-    HealthRegenSystem, HitFlashSystem, HolyWaterPoolSystem, HolyWaterSystem, HudSystem,
-    KingBibleSystem, KnifeSystem, LevelUpSystem, LightningFlashSystem, LightningRingSystem,
-    MagicWandSystem, MagnetSystem, MetaSave, ModeTransitionSystem, OrbitingBookSystem,
-    ParticleSystem, PickupSystem, PlayerMovementSystem, ProjectileSystem, ResolutionPreset,
-    RestartSystem, SfxSystem, ShopInputSystem, SpawnDirectorSystem, StageSelectSystem,
-    StatRecalcSystem, SurvivorTextureHandles, TitleVisualSystem, UiIconSystem, WhipSystem,
-    ACTOR_FRAMES_PATH, ATLAS_PATH, DAIRY_PLANT_TILES_PATH, EFFECTS_PATH, EVOLUTIONS_PATH,
-    GAMEOVER_TITLE_EN_PATH, GAMEOVER_TITLE_KO_PATH, ICONS_PATH, INGAME_LABEL_GOLD_EN_PATH,
-    INGAME_LABEL_GOLD_KO_PATH, INGAME_LABEL_HP_EN_PATH, INGAME_LABEL_HP_KO_PATH,
-    INGAME_LABEL_KILLS_EN_PATH, INGAME_LABEL_KILLS_KO_PATH, INGAME_LABEL_LV_EN_PATH,
-    INGAME_LABEL_LV_KO_PATH, INGAME_LABEL_PASSIVES_EN_PATH, INGAME_LABEL_PASSIVES_KO_PATH,
-    INGAME_LABEL_XP_EN_PATH, INGAME_LABEL_XP_KO_PATH, INLAID_LIBRARY_TILES_PATH,
-    LEVELUP_TITLE_EN_PATH, LEVELUP_TITLE_KO_PATH, MAD_FOREST_TILES_PATH,
+    set_working_dir_to_asset_root, setup_survivor_world, AchievementSystem, ActorFacingSystem,
+    AxeSystem, BackgroundSystem, BgmSystem, BossDeathSystem, BossPhaseSystem, BossSpawnSystem,
+    CameraFollowSystem, CharacterSelectSystem, ChestPickupSystem, CrossSystem, DamageNumberSystem,
+    DeathSystem, DebugInputSystem, EnemyAiSystem, EnemyContactDamageSystem, FireWandSystem,
+    GarlicSystem, HealthRegenSystem, HitFlashSystem, HolyWaterPoolSystem, HolyWaterSystem,
+    HudSystem, KingBibleSystem, KnifeSystem, LevelUpSystem, LightningFlashSystem,
+    LightningRingSystem, MagicWandSystem, MagnetSystem, MetaSave, ModeTransitionSystem,
+    OrbitingBookSystem, ParticleSystem, PickupSystem, PlayerMovementSystem, ProjectileSystem,
+    ResolutionPreset, RestartSystem, SfxSystem, ShopInputSystem, SpawnDirectorSystem,
+    StageSelectSystem, StatRecalcSystem, SurvivorTextureHandles, TitleVisualSystem, UiIconSystem,
+    WhipSystem, ACTOR_FRAMES_PATH, ATLAS_PATH, DAIRY_PLANT_TILES_PATH, EFFECTS_PATH,
+    EVOLUTIONS_PATH, GAMEOVER_TITLE_EN_PATH, GAMEOVER_TITLE_KO_PATH, ICONS_PATH,
+    INGAME_LABEL_GOLD_EN_PATH, INGAME_LABEL_GOLD_KO_PATH, INGAME_LABEL_HP_EN_PATH,
+    INGAME_LABEL_HP_KO_PATH, INGAME_LABEL_KILLS_EN_PATH, INGAME_LABEL_KILLS_KO_PATH,
+    INGAME_LABEL_LV_EN_PATH, INGAME_LABEL_LV_KO_PATH, INGAME_LABEL_PASSIVES_EN_PATH,
+    INGAME_LABEL_PASSIVES_KO_PATH, INGAME_LABEL_XP_EN_PATH, INGAME_LABEL_XP_KO_PATH,
+    INLAID_LIBRARY_TILES_PATH, LEVELUP_TITLE_EN_PATH, LEVELUP_TITLE_KO_PATH, MAD_FOREST_TILES_PATH,
     MENU_BUTTON_ACHIEVEMENTS_EN_PATH, MENU_BUTTON_ACHIEVEMENTS_KO_PATH,
     MENU_BUTTON_CHARACTER_EN_PATH, MENU_BUTTON_CHARACTER_KO_PATH, MENU_BUTTON_SETTINGS_EN_PATH,
     MENU_BUTTON_SETTINGS_KO_PATH, MENU_BUTTON_SHOP_EN_PATH, MENU_BUTTON_SHOP_KO_PATH,
@@ -58,6 +58,10 @@ use game::survivor::{
 
 fn main() {
     env_logger::init();
+
+    // Textures and SFX load through `assets/...` relative paths; anchor the working
+    // directory so they resolve no matter where the executable was launched from.
+    set_working_dir_to_asset_root();
 
     let mut app = App::new();
 
