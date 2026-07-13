@@ -432,3 +432,9 @@ Get PR #26 reviewed and merged, then hand docs/ENGINE_ASSET_LOADING_REQUEST.md t
 (The bgm.rs cwd-fallback conflict this handoff originally flagged as the next action was resolved
 in commit 1f33906 — see "Resolved After the Handoff Was Written" at the top.)
 ```
+
+## Session Closed
+
+**Closed at:** 2026-07-13
+**Commit:** PR #26 (branch `fix/windows-build-and-asset-root`, rebase-merged into `main`)
+**Session status:** Handed off to next session. Next action: hand `docs/ENGINE_ASSET_LOADING_REQUEST.md` to the engine repo (Requests A and B are independent).
