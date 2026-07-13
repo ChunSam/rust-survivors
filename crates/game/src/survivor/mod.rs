@@ -1,5 +1,6 @@
 pub mod achievement;
 pub mod area;
+pub mod asset_root;
 pub mod background;
 pub mod bgm;
 pub mod bible;
@@ -49,6 +50,7 @@ pub use achievement::{
 pub use area::{
     spawn_holy_water_pool, GarlicSystem, HolyWaterPool, HolyWaterPoolSystem, HolyWaterSystem,
 };
+pub use asset_root::set_working_dir_to_asset_root;
 pub use background::BackgroundSystem;
 pub use bgm::BgmSystem;
 pub use bible::{spawn_book, KingBibleSystem, OrbitingBook, OrbitingBookSystem};
