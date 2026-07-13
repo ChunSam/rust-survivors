@@ -31,7 +31,7 @@ PNG 자체는 알파 채널을 가지고 있었다. 따라서 에셋 누락보�
 | `crates/game/src/survivor/ui_icons.rs` | HUD/Level-up/Shop에서 큐잉되는 slot/modal frame texture 앞에 어두운 backing을 추가한다. |
 | `docs/manual_qa_checklist.md` | 실제 앱 smoke 결과와 남은 수동 QA를 기록한다. |
 | `docs/IMAGE_BASED_UI_PASS.md` | 이미지 UI pass의 제한과 추가 QA 결과를 갱신한다. |
-| `docs/NEXT_WORK_PLAN.md` | 최신 기준과 다음 우선순위를 갱신한다. |
+| `docs/NEXT_WORK_PLAN.md` | 단일 예정 작업 계획을 갱신한다. |
 | `docs/PHASE_LOG.md` | 2026-05-28 Visual QA Backing Fix Pass를 추가한다. |
 
 ## 설계 메모
@@ -76,7 +76,7 @@ bash scripts/verify_macos_package.sh
 
 QA 중 800x600으로 바꾼 해상도는 다시 `1280x720 HD 16:9 [기본값]`으로 되돌렸고, 앱은 종료했다.
 
-## 남은 확인
+## 당시 남은 확인 메모 (비활성)
 
 - 실제 스피커 출력 기준 BGM/SFX 청취.
 - 장시간 플레이 기반 StageClear 흐름.

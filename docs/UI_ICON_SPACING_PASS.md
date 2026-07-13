@@ -68,10 +68,9 @@ cargo test -p game --lib survivor::ui_icons --locked -- --test-threads=1
 
 두 로그는 기존 실행에서도 보이는 warning 성격이며, 이번 아이콘 좌표 변경과 직접 관련된 오류로 보이지 않는다.
 
-## Remaining Manual QA
+## Historical Manual QA Notes (Inactive)
 
 - 800x600 창에서 Level-up 카드 3장의 아이콘/텍스트 간격 확인.
 - 800x600 창에서 Shop 파워업 목록의 아이콘/텍스트 간격 확인.
 - HiDPI 또는 3840x2160급 고해상도 창에서 Level-up/Shop 아이콘이 텍스트와 붙어 보이지 않는지 확인.
 - 하단 HUD 슬롯의 아이콘과 `Lv` 텍스트가 겹치지 않는지 확인.
-

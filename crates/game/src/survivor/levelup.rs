@@ -6,9 +6,8 @@ use super::player::Player;
 use super::powerup::PowerUpKind;
 use super::sfx::{SfxEvent, SfxQueue};
 use super::xp::XpAccumulator;
-use engine::{GameState, InputState, System, World};
+use engine::{GameState, InputState, KeyCode, System, World};
 use rand::seq::SliceRandom;
-use winit::keyboard::KeyCode;
 
 /// 카드 강화 종류 — 10 무기 × 2~3 카드씩 총 28 variant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

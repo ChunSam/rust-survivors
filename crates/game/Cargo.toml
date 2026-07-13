@@ -21,11 +21,7 @@ engine     = { package = "skeleton-engine", git = "https://github.com/ChunSam/sk
 env_logger = { workspace = true }
 log        = { workspace = true }
 glam     = { workspace = true }
-winit    = { workspace = true }
 rapier2d = { workspace = true }
-wgpu     = { workspace = true }
 rand     = { workspace = true }
 serde    = { workspace = true }
 ron      = { workspace = true }
-# Keep a direct rodio dependency for feature unification with engine AudioManager MP3 playback.
-rodio    = { workspace = true }

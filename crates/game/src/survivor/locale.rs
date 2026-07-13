@@ -212,4 +212,56 @@ mod tests {
             assert!(!text(Lang::En, *key).is_empty());
         }
     }
+
+    #[test]
+    fn keyboard_help_texts_cover_expected_controls() {
+        let help_keys = [
+            (
+                UiText::TitleMenuHelp,
+                &["C", "T", "S", "O"][..],
+                &["C", "T", "S", "O"][..],
+            ),
+            (
+                UiText::NavigateSelectBack,
+                &["W/S", "ESC"][..],
+                &["W/S", "ESC"][..],
+            ),
+            (
+                UiText::NavigateBuyBack,
+                &["W/S", "ESC"][..],
+                &["W/S", "ESC"][..],
+            ),
+            (
+                UiText::NavigateChangeApplyBack,
+                &["W/S", "A/D", "ESC"][..],
+                &["W/S", "A/D", "ESC"][..],
+            ),
+            (UiText::PauseHelp, &["W/S", "ESC"][..], &["W/S", "ESC"][..]),
+            (
+                UiText::LevelUpActions,
+                &["R", "S", "4/5/6"][..],
+                &["R", "S", "4/5/6"][..],
+            ),
+            (UiText::RestartHint, &["R 키"][..], &["Press R"][..]),
+        ];
+
+        for (key, ko_tokens, en_tokens) in help_keys {
+            let ko = text(Lang::Ko, key);
+            let en = text(Lang::En, key);
+            for token in ko_tokens {
+                assert!(ko.contains(token), "{key:?} KO missing {token}");
+            }
+            for token in en_tokens {
+                assert!(en.contains(token), "{key:?} EN missing {token}");
+            }
+        }
+
+        for lang in [Lang::Ko, Lang::En] {
+            let actions = text(lang, UiText::LevelUpActions);
+            assert!(actions.contains("{reroll}"));
+            assert!(actions.contains("{skip}"));
+            assert!(actions.contains("{banish}"));
+            assert!(actions.contains("4/5/6"));
+        }
+    }
 }

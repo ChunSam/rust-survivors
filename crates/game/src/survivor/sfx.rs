@@ -270,6 +270,24 @@ mod tests {
     }
 
     #[test]
+    fn sfx_assets_are_documented_for_release() {
+        let licenses = include_str!("../../../../docs/ASSET_LICENSES.md");
+        let audio_docs = include_str!("../../../../docs/audio_assets.md");
+
+        for event in SfxEvent::ALL {
+            let wav_name = format!("{}.wav", event.file_key());
+            assert!(
+                licenses.contains(&wav_name),
+                "missing {wav_name} from ASSET_LICENSES.md"
+            );
+            assert!(
+                audio_docs.contains(&wav_name),
+                "missing {wav_name} from audio_assets.md"
+            );
+        }
+    }
+
+    #[test]
     fn sfx_base_gains_are_valid() {
         for event in SfxEvent::ALL {
             let gains = base_gains(*event);

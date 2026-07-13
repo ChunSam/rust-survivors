@@ -4,9 +4,8 @@
 /// - `SelectedCharacter` — 현재 선택된 캐릭터 리소스.
 /// - `CharacterCursor` — CharacterSelect 화면 커서 리소스.
 /// - `CharacterSelectSystem` — W/S/Enter/Esc 입력 처리.
-use engine::{InputState, System, World};
+use engine::{InputState, KeyCode, System, World};
 use serde::{Deserialize, Serialize};
-use winit::keyboard::KeyCode;
 
 use super::inventory::{WeaponInventory, WeaponKind, WeaponSlot};
 use super::locale::{loc, Lang};

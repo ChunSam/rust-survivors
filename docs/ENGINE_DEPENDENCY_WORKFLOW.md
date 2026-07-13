@@ -1,6 +1,6 @@
 # Engine Dependency Workflow
 
-Updated: 2026-06-03
+Updated: 2026-06-15
 
 ## Current Setup
 
@@ -10,7 +10,7 @@ Updated: 2026-06-03
 engine = {
   package = "skeleton-engine",
   git = "https://github.com/ChunSam/skeleton-engine",
-  rev = "61c09f14434910a94afc4c9ea167b3f47e0b203b"
+  rev = "a3369eef3ac632069b434b1ff4b0bbe8b4158466"
 }
 ```
 
@@ -61,7 +61,7 @@ When game work appears to require an engine change:
 ## Applied Change
 
 - `crates/game/Cargo.toml`: changed `engine` from local path dependency to pinned git dependency.
-- `Cargo.lock`: records `skeleton-engine v2.0.0` from rev `61c09f14434910a94afc4c9ea167b3f47e0b203b`.
+- `Cargo.lock`: records `skeleton-engine v7.0.0` from rev `a3369eef3ac632069b434b1ff4b0bbe8b4158466`.
 - Verification run after the change:
 
 ```bash

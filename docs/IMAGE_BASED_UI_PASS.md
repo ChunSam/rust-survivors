@@ -150,13 +150,13 @@ bash scripts/verify_macos_package.sh
 - Settings 패널의 텍스트와 하단 도움말이 프레임과 겹치지 않는지 확인.
 - QA 중 800x600으로 변경한 해상도는 1280x720 기본값으로 되돌렸다.
 
-남은 수동 QA:
+당시 남은 수동 QA 메모 (비활성, 현재 계획은 `docs/NEXT_WORK_PLAN.md` 참조):
 
 - 실제 스피커 출력 기준 BGM/SFX 청취.
 - 장시간 플레이 기반 StageClear.
 - KO/EN 언어 전환 후 긴 문자열이 버튼/패널 밖으로 나가지 않는지 확인.
 
-## 후속 작업
+## 당시 후속 메모 (비활성)
 
 ## 2026-05-29 InGame Static Text Image Follow-up
 
@@ -186,7 +186,7 @@ bash scripts/verify_macos_package.sh
 - release survivor build 통과
 - macOS folder package와 `.app` package 모두 새 ingame static text PNG 포함 확인
 
-## 후속 작업
+## 당시 후속 메모 (비활성)
 
 1. 선택/hover/focus 상태용 프레임 변형 이미지를 추가한다.
 2. 숫자 전용 bitmap font 또는 digit atlas를 검토해 HP/XP/Gold 같은 수치를 더 이미지 기반으로 전환한다.

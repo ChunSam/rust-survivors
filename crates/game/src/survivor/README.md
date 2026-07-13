@@ -1,29 +1,30 @@
 # survivor — Vampire Survivors 클론
 
 `crates/game/src/survivor/`는 `skeleton-engine` 위에서 동작하는 탑다운 자동공격 로그라이트 게임 로직이다.
-전체 로드맵과 최신 진행 상황은 루트의 `CLAUDE.md`와 `docs/NEXT_WORK_PLAN.md`를 기준으로 본다.
+전체 로드맵과 최신 진행 상황은 루트의 `AGENTS.md`, `CLAUDE.md`를 참고하되, 예정 작업은 `docs/NEXT_WORK_PLAN.md` 하나만 기준으로 본다.
 
 ## 현재 상태
 
 - Phase 1~10 완료: 코어 루프, 무기/패시브/적/보스/진화/픽업/메타 진행/캐릭터/스테이지가 들어가 있다.
 - Phase 11-A~F 완료: 데미지 숫자, 히트 플래시, 화면 흔들기, 절차적 SFX, 파티클, 동적 카메라 줌이 적용됐다.
-- 최근 추가: Settings 화면, HUD 정보량 3단계, 업적 20종과 해금 보상, 이미지 기반 Title 메뉴 1차 패스.
+- 최근 추가: Settings 화면, HUD 정보량 3단계, 업적 20종과 해금 보상, 이미지 기반 Title/HUD 패스, 엔진 v2 대응, SFX bus 볼륨, Luck/Greed/Curse/Revival/Reroll/Skip/Banish 런타임 효과.
 - 오디오는 `assets/audio/`의 BGM/SFX 파일을 우선 사용하고, SFX 파일이 없으면 절차적 톤으로 fallback한다. 파일명은 `docs/audio_assets.md` 기준.
-- 다음 작업 축: 로컬라이제이션 확대 적용, 외부 음원 라이선스 정리, 배포 준비.
+- 예정 작업은 `docs/NEXT_WORK_PLAN.md`에만 기록한다.
 
 ## 실행
 
 ```bash
 cargo run -p game --bin survivor
 cargo run -p game --bin survivor --release
+cargo run -p game --bin game
 ```
 
 검증 명령:
 
 ```bash
-cargo fmt
-cargo test -p game --lib
-cargo build -p game --bin survivor
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo build -p game --bin survivor --release --locked
 ```
 
 ## 조작
@@ -33,16 +34,18 @@ cargo build -p game --bin survivor
 | `W/A/S/D`, 방향키 | 이동 또는 메뉴 커서 이동 |
 | `Enter` | 타이틀/메뉴 선택 |
 | `1/2/3` | 레벨업 카드 선택 |
+| `R` | 레벨업 카드 reroll 또는 GameOver 후 재시작 |
+| `S` | 레벨업 보상 skip |
+| `4/5/6` | 레벨업 카드 1/2/3 banish |
 | `ESC` | 일시정지 메뉴 또는 이전 화면 |
-| `R` | GameOver 후 재시작 |
 | `F5` | 시각 검증용 Bomb 픽업 스폰 |
 | `F6` | 시각 검증용 Rosary 픽업 스폰 |
-| `B` | 시각 검증용 GiantSlime 보스 소환 |
+| `B` | 시각 검증용 보스 소환 |
 
 ## 작업 경계
 
 이 저장소의 작업 대상은 `crates/game`이다. 엔진 소스는 별도 `skeleton-engine` 저장소에서 관리한다.
-엔진 API, 렌더러, 입력, 오디오, 저장, 충돌 모듈 자체 수정이 필요하면 별도 `skeleton-engine` 저장소에서 작업한다.
+엔진 API, 렌더러, 입력, 오디오, 저장, 충돌 모듈 자체 수정이 필요하면 이 저장소에서 엔진 checkout을 직접 수정하지 말고 `docs/ENGINE_CHANGE_REQUESTS.md`에 요청을 남긴다.
 
 ## 모듈 개요
 
@@ -83,9 +86,4 @@ cargo build -p game --bin survivor
 
 ## 다음 작업
 
-현재 계획은 `docs/NEXT_WORK_PLAN.md`를 따른다.
-
-1. 실제 화면에서 Title 이미지 메뉴, Settings, HUD 장비 슬롯, 업적 목록 가독성 검증
-2. 한/영 로컬라이제이션 확대 적용
-3. 외부 음원/이미지 라이선스 정리
-4. 배포 체크리스트 정리
+현재 예정 작업은 `docs/NEXT_WORK_PLAN.md` 하나로 통합한다. 이 README에는 별도 계획 목록을 두지 않는다.

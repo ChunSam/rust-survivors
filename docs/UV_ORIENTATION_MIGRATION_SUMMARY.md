@@ -4,10 +4,9 @@ Date: 2026-05-29
 
 ## Context
 
-The sibling `skeleton-engine` checkout now uses top-left-origin UVs for the shared
-sprite quad. That makes normal PNGs render upright through `Sprite`, `DrawImage`,
-`AtlasSprite`, `UvRect::FULL`, `UvRect::from_grid(...)`, and
-`UvRect::from_pixels(...)`.
+The pinned `skeleton-engine` dependency now uses top-left-origin UVs for the shared sprite quad.
+That makes normal PNGs render upright through `Sprite`, `DrawImage`, `AtlasSprite`,
+`UvRect::FULL`, `UvRect::from_grid(...)`, and `UvRect::from_pixels(...)`.
 
 Before this engine change, `rust-survivors` compensated for the engine quad direction
 by applying vertical UV flips in game code. After the engine fix, those compensations
@@ -31,7 +30,7 @@ would double-flip textures.
 
 ## Verification
 
-Passed:
+Passed during the 2026-05-29 UV orientation pass:
 
 ```bash
 cargo fmt --check
@@ -46,6 +45,8 @@ Observed result:
 - `cargo test`: 151 passed
 - macOS folder and `.app` package verification passed through `scripts/package_macos.sh`
 - `rg -n "flipped_y\\(|vertically_flipped_full_uv" crates/game/src`: no matches
+
+Current project-wide validation is tracked in `AGENTS.md` and `docs/NEXT_WORK_PLAN.md`.
 
 ## Visual QA Result
 

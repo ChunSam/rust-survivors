@@ -4,12 +4,12 @@ This file mirrors the active agent context in `AGENTS.md` and is intentionally k
 
 ## Repository
 
-- Game repo: `/Volumes/SSD/Projects/rust-survivors`
+- Game repo: `/Users/jkl/Projects/rust-survivors`
 - Main crate: `crates/game`
-- Engine repo: `/Volumes/SSD/Projects/skeleton-engine`
-- Engine dependency: `engine = { package = "skeleton-engine", git = "https://github.com/ChunSam/skeleton-engine" }`
+- Engine repo: `https://github.com/ChunSam/skeleton-engine`
+- Engine dependency: pinned git rev `a3369eef3ac632069b434b1ff4b0bbe8b4158466` (`skeleton-engine v7.0.0`)
 
-Do game/content/UI/asset work in this repo. Do renderer/ECS/input/audio/save engine work in the engine repo, then update the git dependency here.
+Do game/content/UI/asset work in this repo. Do not directly edit external engine checkouts from here; if an engine change is needed, add a request to `docs/ENGINE_CHANGE_REQUESTS.md`, then update the dependency after the engine change lands externally.
 
 ## Commands
 
@@ -25,7 +25,7 @@ powershell -File scripts/verify_windows_package.ps1
 
 Avoid `cargo clean`; use `rm -rf target` only if explicitly needed.
 
-## Current Status - 2026-05-25
+## Current Status - 2026-06-15
 
 Implemented major roadmap through Phase 11 polish:
 
@@ -38,8 +38,11 @@ Implemented major roadmap through Phase 11 polish:
 - macOS packaging scripts
 - Sprite size/UV fixes and generated sprite sheets
 - UI icon sprite overlay for HUD/cards/shop
+- Engine v5 compatibility and pinned release dependency
+- SFX bus volume routing through engine audio bus APIs
+- Runtime effects for Luck, Greed, Curse, Revival, Reroll, Skip, and Banish
 
-Recent validation: `cargo fmt --check`, lib tests with 118 passing, release survivor build.
+Recent validation: `cargo fmt --check`, lib tests with 213 passing, and release survivor build. Package scripts were not rerun in the v7 dependency cleanup because no asset or package script changed.
 
 ## Sprite Decisions
 
@@ -49,7 +52,7 @@ Keep the current sprite path:
 - manual `UvRect`
 - `AnimationPlayer` where animation is needed
 
-Do not migrate everything to `AtlasSprite` yet. The current game needs custom crop rectangles and vertically flipped UVs. Engine `AtlasSprite` is a good future option for clean uniform-grid sheets, but a direct migration can break orientation or crop.
+Do not migrate everything to `AtlasSprite` yet. The current game needs custom crop rectangles and game-owned sheet metadata. Engine `AtlasSprite` is a good future option for clean uniform-grid sheets, but a direct migration still needs visual regression coverage for crop/index behavior.
 
 Recent cleanup:
 
@@ -99,10 +102,6 @@ Applied paths:
 - For package/asset changes, run macOS package verification.
 - If borrow checker workarounds are non-obvious, add a short reason.
 
-## Next Work
+## Active Plan
 
-1. Manual visual QA for animation, effects, icon overlay, and responsive UI.
-2. Tune UI icon placement for low resolution and high-DPI windows.
-3. Expand Korean/English localization coverage.
-4. Replace placeholder assets with licensed final art/audio.
-5. Continue macOS release hardening.
+Use `docs/NEXT_WORK_PLAN.md` as the only upcoming-work plan. Keep this file limited to agent context and do not duplicate the plan here.
