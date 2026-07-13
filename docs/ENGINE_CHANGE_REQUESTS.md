@@ -43,35 +43,73 @@ Notes:
 
 ## Open Requests
 
+_None._
+
+## Completed Requests
+
 ## 2026-07-13 - Asset Loading Independent of the Working Directory
 
-Full prompt: `docs/ENGINE_ASSET_LOADING_REQUEST.md` (Request A).
+Resolved in the engine 2026-07-14 — `skeleton-engine` v0.126.0 (PR ChunSam/skeleton-engine#359).
 
-Summary:
+Original prompt: `docs/ENGINE_ASSET_LOADING_REQUEST.md` (Request A).
 
-- Engine image APIs are path-based and the renderer resolves those paths against the process working directory,
-  so launching the executable from anywhere but the repo root fails every texture load and the window renders
+What the request asked for:
+
+- Engine image APIs are path-based and the renderer resolved those paths against the process working directory,
+  so launching the executable from anywhere but the repo root failed every texture load and the window rendered
   solid magenta.
-- Asks for an engine-owned asset root (executable-relative, macOS bundle aware) plus byte-sourced images/audio
-  so a game can embed assets and ship a single file, and for failed texture loads to be loud rather than silent.
-- Workaround in this repo meanwhile: `crates/game/src/survivor/asset_root.rs` points the working directory at the
-  resolved asset root at startup. Remove it once the engine owns this.
+- Asked for an engine-owned asset root (executable-relative, macOS bundle aware), byte-sourced images/audio so a
+  game can embed assets and ship a single file, and for failed texture loads to be loud rather than silent.
+
+What the engine shipped:
+
+- `engine::asset_path::resolve` resolves a relative asset path against a root the engine determines — a macOS
+  bundle's `Contents/Resources`, then the executable's directory and its ancestors, then the working directory —
+  taking the first candidate under which the file actually exists. Executable-derived candidates are searched
+  before the working directory, so a packaged build cannot pick up a stray `assets/` from wherever it was
+  launched. `App::set_asset_root` pins an explicit root.
+- Loud failures: a failed load is now an `error!` naming the roots that were searched, is recorded in
+  `App::asset_failures()`, and `App::set_strict_assets(true)` makes it panic at the load instead of falling back.
+- **Not shipped: byte-sourced images** (`App::load_image_bytes`, for `include_bytes!` single-file distribution).
+  The audio half already existed (`AudioManager::play_bytes`). It was judged not worth it for *this* game either
+  way: `assets/` is 93 MB (56 MB of it audio), so embedding would mean a ~100 MB executable. The zip produced by
+  `scripts/package_windows.ps1` remains the right way to hand this game to someone.
+
+Status in this repo: **no change, deliberately.** This repo pins `skeleton-engine` at rev `a3369ee` (v7.0.0),
+which predates the engine's 0.x version reset — adopting the fix would mean a migration across 100+ releases,
+which is not worth paying on a paused project. The workaround in
+`crates/game/src/survivor/asset_root.rs` (`set_current_dir` to the resolved asset root at startup) therefore
+stays, and it works. Remove it only if this game is ever migrated to a current engine.
 
 ## 2026-07-13 - One `windows` Crate Version on Windows Targets
 
-Full prompt: `docs/ENGINE_ASSET_LOADING_REQUEST.md` (Request B).
+Resolved in the engine 2026-07-14 — `skeleton-engine` v0.125.0 (PR ChunSam/skeleton-engine#358).
 
-Summary:
+Original prompt: `docs/ENGINE_ASSET_LOADING_REQUEST.md` (Request B).
 
-- The Windows release build fails to compile: the engine's `rodio 0.19` pulls `cpal 0.15.3`, which pins
-  `windows 0.54`; `gpu-allocator 0.28.0` (wide range `>=0.53, <=0.62`) reuses that node while `wgpu-hal 29.0.3`
-  uses `windows 0.62`, so the DX12 backend fails with D3D12 type mismatches.
-- Asks the engine to bump `rodio` so `cpal` no longer pins an old `windows`, and to build for
+What the request asked for:
+
+- The Windows release build did not compile: the engine's `rodio 0.19` pulled `cpal 0.15.3`, which pins
+  `windows 0.54`; `gpu-allocator 0.28.0` (wide range `>=0.53, <=0.62`) reused that node while `wgpu-hal 29.0.3`
+  uses `windows 0.62`, so the DX12 backend failed with D3D12 type mismatches.
+- Asked the engine to bump `rodio` so `cpal` no longer pins an old `windows`, and to build for
   `x86_64-pc-windows-msvc` in CI.
-- Workaround in this repo meanwhile: `Cargo.lock` hand-pins `gpu-allocator`'s `windows` edge to `0.62.2`.
-  Drop the pin and re-resolve once the engine lands the bump.
 
-## Completed Requests
+What the engine shipped:
+
+- `rodio` 0.19 → 0.22.2 (`cpal` 0.15.3 → 0.17.3), which removes `windows 0.54` from the graph entirely — the MSVC
+  target now resolves exactly one `windows` version (0.62.2), so `gpu-allocator` and `wgpu-hal` agree.
+- A `Build (Windows / DX12)` CI job on `windows-latest`, now a *required* check. It compiles the DX12 backend (no
+  engine CI job ever had, which is why this could hide) and asserts the invariant directly: exactly one `windows`
+  version on the MSVC target.
+- Worth noting for the record: the conflict was confirmed live on the engine's then-current `main` (v0.124.0), not
+  just on this repo's old pin. The engine's lockfile happened to have resolved `gpu-allocator` onto the good
+  `windows` node, but nothing held it there.
+
+Status in this repo: **no change, deliberately** — same reasoning as Request A. The `Cargo.lock` hand-pin of
+`gpu-allocator`'s `windows` edge to `0.62.2` stays and keeps working. Drop it only if this game is ever migrated
+to a current engine, at which point it becomes redundant.
+
 
 ## 2026-05-31 - Move Audio Codec Policy Into Engine
 

@@ -1,5 +1,18 @@
 # Engine Request - Asset Loading Independent of the Working Directory
 
+> **RESOLVED 2026-07-14 — both requests are fixed in the engine.** Request B shipped in
+> `skeleton-engine` v0.125.0 (PR ChunSam/skeleton-engine#358) and Request A in v0.126.0
+> (PR #359), except for byte-sourced *images*, which were deliberately not built — see
+> `docs/ENGINE_CHANGE_REQUESTS.md` (Completed) for what shipped and why.
+>
+> **This repo was deliberately left unchanged.** It pins `skeleton-engine` at rev `a3369ee`
+> (v7.0.0), which predates the engine's 0.x version reset, so the fixes do not reach it without a
+> migration across 100+ releases — not worth paying on a paused project. The workarounds
+> (`crates/game/src/survivor/asset_root.rs` and the `Cargo.lock` `gpu-allocator` pin) stay and keep
+> working; the game still ships correctly as the zip from `scripts/package_windows.ps1`.
+>
+> The text below is the original request, kept as written.
+
 Standalone prompt for a `skeleton-engine` task. Written from `rust-survivors` on 2026-07-13 after a
 Windows release build rendered nothing but the engine's magenta fallback. Follows the request format
 in `docs/ENGINE_CHANGE_REQUESTS.md`.
