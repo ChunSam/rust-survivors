@@ -19,6 +19,8 @@ cargo test -p game --lib --locked -- --test-threads=1
 cargo build -p game --bin survivor --release --locked
 bash scripts/package_macos.sh
 bash scripts/verify_macos_package.sh
+powershell -File scripts/package_windows.ps1      # dist/windows/RustSurvivors-windows-x64.zip
+powershell -File scripts/verify_windows_package.ps1
 ```
 
 Avoid `cargo clean`; use `rm -rf target` only if explicitly needed.
