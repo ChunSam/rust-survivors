@@ -5,11 +5,10 @@
 /// - `ModeTransitionSystem` — 모드 전환 + GameState 동기화.
 use engine::save;
 use engine::{
-    GameState, InputState, PendingResize, ShouldQuit, System, ViewportSize, WindowConfig, World,
+    GameState, InputState, KeyCode, MouseButton, PendingResize, ShouldQuit, System, ViewportSize,
+    WindowConfig, World,
 };
 use serde::{Deserialize, Serialize};
-use winit::event::MouseButton;
-use winit::keyboard::KeyCode;
 
 use super::achievement::AchievementKind;
 use super::character::CharacterCursor;

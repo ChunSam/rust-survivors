@@ -1,7 +1,7 @@
 # Rust Survivors Release Checklist
 
 작성일: 2026-05-23
-갱신일: 2026-05-24
+갱신일: 2026-06-04
 
 배포 준비는 HUD/업적/로컬라이제이션/오디오가 검증된 뒤 진행한다.
 현재 목표는 로컬에서 재현 가능한 macOS 준비 절차를 고정하는 것이다.
@@ -39,11 +39,14 @@ macOS에서 실행:
 ## 공통 검증
 
 ```bash
-cargo fmt
-cargo test -p game --lib -- --test-threads=1
-cargo build -p game --bin survivor
-cargo build -p game --bin survivor --release
+cargo fmt --check
+cargo test -p game --lib --locked -- --test-threads=1
+cargo build -p game --bin survivor --release --locked
+bash scripts/package_macos.sh
+bash scripts/verify_macos_package.sh
 ```
+
+현재 예정 작업은 `docs/NEXT_WORK_PLAN.md` 하나에만 둔다. 이 문서는 릴리스 절차와 검증 명령만 관리한다.
 
 2026-05-24 자동 검증 결과:
 

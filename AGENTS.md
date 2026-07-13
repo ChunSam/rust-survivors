@@ -45,7 +45,7 @@ Avoid `cargo clean` on macOS here; use `rm -rf target` only when cleanup is expl
 - Level-up cards: `1/2/3`
 - Level-up actions: `R` reroll, `S` skip, `4/5/6` banish card 1/2/3
 - Pause/back: `ESC`
-- Debug visual checks: `F5` Bomb, `F6` Rosary, `F7` boss spawn
+- Debug visual checks: `F5` Bomb, `F6` Rosary, `B` boss spawn
 
 ## Engine Boundary
 
@@ -64,11 +64,11 @@ If an engine API change is needed:
 4. Continue only with game-side changes that do not require engine edits.
 5. After the engine change is completed externally, update the dependency or lockfile if needed, then run game tests and survivor build.
 
-## Current State - 2026-06-03
+## Current State - 2026-06-15
 
 Completed: Phase 0 through Phase 11 polish baseline, including vertical slice, weapon pool, passives, enemy variety, bosses, evolutions, pickups, menu/meta save, characters, stages, settings, achievements, localization scaffolding, macOS packaging, BGM/SFX placeholder assets, and recent sprite/UI asset pass.
 
-Current engine baseline: `skeleton-engine v2.0.0` pinned to git rev `61c09f14434910a94afc4c9ea167b3f47e0b203b`.
+Current engine baseline: `skeleton-engine v7.0.0` pinned to git rev `a3369eef3ac632069b434b1ff4b0bbe8b4158466`.
 
 Current validation baseline:
 
@@ -77,7 +77,7 @@ Current validation baseline:
 - `cargo build -p game --bin survivor --release --locked`
 - macOS package + package verification when asset packaging changes
 
-Latest verified test count: 200 lib tests passing.
+Latest verified test count: 213 lib tests passing.
 
 ## Recent Sprite Work
 
@@ -85,8 +85,8 @@ The game currently keeps the stable `Sprite::textured(...) + UvRect` path instea
 
 Reason:
 
-- Game sprites need custom crop rects and vertically flipped UVs.
-- Engine `AtlasSprite` is useful for uniform grids, but its default UV orientation can reintroduce flipped sprites.
+- Game sprites need custom crop rects and game-owned sheet metadata.
+- Engine `AtlasSprite` is useful for uniform grids, but a broad migration still needs visual regression coverage for crop/index behavior.
 - `survivor_atlas.png` uses hand-tuned crop rectangles for readable actor/item silhouettes.
 
 Stability cleanup already done:
@@ -137,10 +137,8 @@ Key assets loaded by `src/bin/survivor.rs`:
 - For visual changes, run tests/build and update manual QA notes when relevant.
 - Explain borrow checker/lifetime workarounds briefly; the user is a Rust beginner.
 
-## Next Priorities
+## Active Plan
 
-1. Manual QA for SFX bus volume at 100/50/0%, BGM/SFX independence, and R/S/4/5/6 level-up actions.
-2. Visual QA pass for actor animation, effects, UI icons, responsive UI, 800x600, and high-DPI windows.
-3. Expand localization coverage beyond current menu/HUD/action labels.
-4. Replace placeholder audio/art where final licensed assets are available.
-5. Continue release hardening for macOS package.
+The single source of truth for upcoming work is `docs/NEXT_WORK_PLAN.md`.
+
+Do not add parallel next-priority lists to `AGENTS.md`, `CLAUDE.md`, handoffs, or pass-summary docs. Historical docs may describe follow-ups from their original pass, but the active plan should be consolidated in `docs/NEXT_WORK_PLAN.md`.

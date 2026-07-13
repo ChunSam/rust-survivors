@@ -4,9 +4,8 @@
 /// - `SelectedStage` — 현재 선택된 스테이지 리소스.
 /// - `StageCursor` — StageSelect 화면 커서 리소스.
 /// - `StageSelectSystem` — W/S/Enter/Esc 입력 처리 + SpawnDirector 갱신.
-use engine::{InputState, System, World};
+use engine::{InputState, KeyCode, System, World};
 use serde::{Deserialize, Serialize};
-use winit::keyboard::KeyCode;
 
 use super::director::{SpawnDirector, WaveDef, WavesFile};
 use super::locale::{loc, Lang};
@@ -200,6 +199,11 @@ impl System for StageSelectSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
+
+    fn spawn_pressure(wave: &WaveDef) -> f32 {
+        wave.count_per_burst.max(1) as f32 / wave.spawn_interval
+    }
 
     #[test]
     fn stage_count_is_three() {
@@ -226,5 +230,101 @@ mod tests {
             StageKind::DairyPlant.prerequisite(),
             Some(StageKind::InlaidLibrary),
         );
+    }
+
+    #[test]
+    fn all_stage_waves_cover_30_minutes_without_gaps() {
+        for stage in StageKind::ALL {
+            let waves = stage.load_waves();
+            assert!(!waves.is_empty(), "{stage:?} must define waves");
+            assert!(
+                (waves[0].start_time - 0.0).abs() < f32::EPSILON,
+                "{stage:?} must start at 0:00"
+            );
+
+            for pair in waves.windows(2) {
+                let current = &pair[0];
+                let next = &pair[1];
+                assert!(
+                    current.end_time > current.start_time,
+                    "{stage:?} wave has invalid duration"
+                );
+                assert!(
+                    (current.end_time - next.start_time).abs() < f32::EPSILON,
+                    "{stage:?} wave gap or overlap: {} -> {}",
+                    current.end_time,
+                    next.start_time
+                );
+            }
+
+            let last = waves.last().unwrap();
+            assert!(
+                (last.end_time - 1800.0).abs() < f32::EPSILON,
+                "{stage:?} must cover through 30:00"
+            );
+        }
+    }
+
+    #[test]
+    fn stage_wave_pressure_ramps_up_over_run() {
+        for stage in StageKind::ALL {
+            let waves = stage.load_waves();
+            let first = spawn_pressure(waves.first().unwrap());
+            let final_wave = spawn_pressure(waves.last().unwrap());
+            assert!(
+                final_wave >= first * 2.0,
+                "{stage:?} final pressure should be at least double opening pressure"
+            );
+            assert!(
+                waves.iter().all(|w| (0.0..=0.25).contains(&w.elite_chance)),
+                "{stage:?} elite chance should stay readable"
+            );
+        }
+    }
+
+    #[test]
+    fn stages_have_distinct_enemy_identities() {
+        let stage_enemy_sets: Vec<(StageKind, HashSet<String>)> = StageKind::ALL
+            .iter()
+            .map(|stage| {
+                let enemies = stage
+                    .load_waves()
+                    .iter()
+                    .flat_map(|wave| wave.enemies.iter().map(|enemy| enemy.kind.clone()))
+                    .collect();
+                (*stage, enemies)
+            })
+            .collect();
+
+        for pair in stage_enemy_sets.windows(2) {
+            let (left_stage, left) = &pair[0];
+            let (right_stage, right) = &pair[1];
+            assert_ne!(
+                left, right,
+                "{left_stage:?} and {right_stage:?} should not share identical enemy pools"
+            );
+        }
+
+        let forest_opening: HashSet<_> = StageKind::MadForest.load_waves()[0]
+            .enemies
+            .iter()
+            .map(|enemy| enemy.kind.clone())
+            .collect();
+        let library_opening: HashSet<_> = StageKind::InlaidLibrary.load_waves()[0]
+            .enemies
+            .iter()
+            .map(|enemy| enemy.kind.clone())
+            .collect();
+        let dairy_opening: HashSet<_> = StageKind::DairyPlant.load_waves()[0]
+            .enemies
+            .iter()
+            .map(|enemy| enemy.kind.clone())
+            .collect();
+
+        assert!(forest_opening.contains("Zombie"));
+        assert!(library_opening.contains("Ghost"));
+        assert!(dairy_opening.contains("Slime"));
+        assert_ne!(forest_opening, library_opening);
+        assert_ne!(library_opening, dairy_opening);
     }
 }

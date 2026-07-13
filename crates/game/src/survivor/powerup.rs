@@ -8,8 +8,7 @@ use super::player::PlayerStats;
 /// - `ShopInputSystem` — W/S/Enter/Esc 입력 처리.
 /// - `try_purchase` — gold 차감 + level 증가.
 /// - `apply_powerups` — StatRecalcSystem 에서 패시브 합산 *후* 호출.
-use engine::{InputState, System, World};
-use winit::keyboard::KeyCode;
+use engine::{InputState, KeyCode, System, World};
 
 // ─── PowerUpKind ──────────────────────────────────────────────────────────────
 

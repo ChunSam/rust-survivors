@@ -12,7 +12,7 @@ Vampire Survivors 클론 개발 진행 상황. 각 sub-phase 완료 시 항목 �
 
 - `levelup_title_{ko,en}.png`, `gameover_title_{ko,en}.png` 4개를 기존 UI 계열과 맞는 검은 균열 석재, 금속 프레임, 붉은 보석, 금박 문자 스타일로 교체.
 - HUD 배치, 표시 크기, `760x190` 원본 비율, `survivor_texture_aspect` 등록값은 유지.
-- 다음 작업에서 같은 스타일을 재사용할 수 있도록 `docs/UI_TITLE_STYLE_PROMPT.md` 추가.
+- 다음 작업에서 같은 스타일을 재사용할 수 있도록 UI title prompt를 임시 문서로 추가했다. 해당 프롬프트 문서는 2026-06-04 계획 통합 정리에서 제거했다.
 - `docs/ASSET_LICENSES.md`의 4개 타이틀 이미지 SHA-256 갱신.
 
 ### 검증
@@ -197,7 +197,7 @@ bash scripts/package_macos.sh
 bash scripts/verify_macos_package.sh
 ```
 
-### 남은 확인
+### 당시 남은 확인 메모
 
 - `screencapture` smoke는 검은 화면으로만 잡혀 실제 시각 QA가 남아 있음.
 - 기본 해상도와 800x600에서 로고/Start/하단 버튼 이미지와 텍스트 겹침을 직접 확인해야 함.
@@ -1955,7 +1955,7 @@ cargo build --release --workspace           # ok
 
 ### PowerUp 19종
 
-CLAUDE.md 로드맵 18종(Might/Armor/MaxHealth/Recovery/Cooldown/Area/Speed/Duration/Amount/MoveSpeed/Magnet/Growth/Greed/Luck/Curse/Revival/Reroll/Skip) + **Banish** = 19종.
+기본 로드맵 18종(Might/Armor/MaxHealth/Recovery/Cooldown/Area/Speed/Duration/Amount/MoveSpeed/Magnet/Growth/Greed/Luck/Curse/Revival/Reroll/Skip) + **Banish** = 19종.
 Reroll/Skip/Banish 는 최대 Lv 3, 나머지는 Lv 5. 비용 = (current_lv + 1) × 100 gold.
 
 ### 테스트 (game lib: 68 → 71)

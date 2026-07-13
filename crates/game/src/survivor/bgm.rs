@@ -185,11 +185,14 @@ impl BgmSystem {
 
     fn choose_action(&mut self, target: &'static str, finished: Option<bool>) -> Option<BgmAction> {
         let slot = bgm_slot(target);
-        let playlist = self.ensure_playlists()?[slot].clone();
+        if self.playlists.is_none() {
+            self.playlists = build_cached_playlists();
+        }
+        let playlist = &self.playlists.as_ref()?[slot];
         choose_bgm_action(
             self.current,
             target,
-            &playlist,
+            playlist,
             &mut self.next_variants[slot],
             finished,
         )

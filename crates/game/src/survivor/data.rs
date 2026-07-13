@@ -218,4 +218,127 @@ mod tests {
             matches!(slots[9].kind, WeaponKind::LightningRing { strike_count, .. } if strike_count == 1)
         );
     }
+
+    #[test]
+    fn starter_weapon_stats_are_playable_positive_values() {
+        for slot in load_starter_weapons() {
+            assert!(slot.cooldown > 0.0, "{:?} has invalid cooldown", slot.kind);
+            assert_eq!(slot.level, 1);
+            assert_eq!(slot.elapsed, 0.0);
+            assert!(!slot.evolved);
+
+            match slot.kind {
+                WeaponKind::Whip {
+                    damage,
+                    area_width,
+                    area_height,
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(area_width >= 80.0);
+                    assert!(area_height >= 40.0);
+                }
+                WeaponKind::MagicWand {
+                    damage,
+                    projectile_speed,
+                    lifetime,
+                    ..
+                }
+                | WeaponKind::FireWand {
+                    damage,
+                    projectile_speed,
+                    lifetime,
+                    ..
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(projectile_speed > 0.0);
+                    assert!(lifetime > 0.0);
+                }
+                WeaponKind::Knife {
+                    damage,
+                    projectile_speed,
+                    lifetime,
+                    amount,
+                    spread_radians,
+                    ..
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(projectile_speed > 0.0);
+                    assert!(lifetime > 0.0);
+                    assert!(amount >= 1);
+                    assert!(spread_radians >= 0.0);
+                }
+                WeaponKind::Axe {
+                    damage,
+                    initial_speed,
+                    gravity,
+                    lifetime,
+                    amount,
+                    ..
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(initial_speed > 0.0);
+                    assert!(gravity > 0.0);
+                    assert!(lifetime > 0.0);
+                    assert!(amount >= 1);
+                }
+                WeaponKind::Cross {
+                    damage,
+                    projectile_speed,
+                    lifetime,
+                    return_at,
+                    amount,
+                    ..
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(projectile_speed > 0.0);
+                    assert!(lifetime > return_at);
+                    assert!(return_at > 0.0);
+                    assert!(amount >= 1);
+                }
+                WeaponKind::Garlic { damage, radius } => {
+                    assert!(damage > 0.0);
+                    assert!(radius > 0.0);
+                }
+                WeaponKind::HolyWater {
+                    damage,
+                    radius,
+                    pool_lifetime,
+                    tick_cooldown,
+                    drop_count,
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(radius > 0.0);
+                    assert!(pool_lifetime > tick_cooldown);
+                    assert!(tick_cooldown > 0.0);
+                    assert!(drop_count >= 1);
+                }
+                WeaponKind::KingBible {
+                    damage,
+                    book_count,
+                    radius,
+                    angular_speed,
+                    lifetime,
+                    tick_cooldown,
+                    hit_radius,
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(book_count >= 1);
+                    assert!(radius > hit_radius);
+                    assert!(angular_speed > 0.0);
+                    assert!(lifetime > tick_cooldown);
+                    assert!(tick_cooldown > 0.0);
+                    assert!(hit_radius > 0.0);
+                }
+                WeaponKind::LightningRing {
+                    damage,
+                    strike_count,
+                    hit_radius,
+                } => {
+                    assert!(damage > 0.0);
+                    assert!(strike_count >= 1);
+                    assert!(hit_radius > 0.0);
+                }
+            }
+        }
+    }
 }

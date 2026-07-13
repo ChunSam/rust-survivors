@@ -1,6 +1,5 @@
-use engine::{Entity, GameState, InputState, System, Transform, World};
+use engine::{Entity, GameState, InputState, KeyCode, System, Transform, World};
 use glam::Vec2;
-use winit::keyboard::KeyCode;
 
 /// 플레이어 태그 컴포넌트
 pub struct Player;

@@ -71,6 +71,8 @@ Summary:
 - Workaround in this repo meanwhile: `Cargo.lock` hand-pins `gpu-allocator`'s `windows` edge to `0.62.2`.
   Drop the pin and re-resolve once the engine lands the bump.
 
+## Completed Requests
+
 ## 2026-05-31 - Move Audio Codec Policy Into Engine
 
 Engine request prompt:
@@ -110,8 +112,8 @@ Validation:
 
 Notes:
 - After completion, `rust-survivors` should remove the temporary direct `rodio` dependency if it is no longer needed outside the engine boundary.
-
-## Completed Requests
+- Completed 2026-06-15: the pinned `skeleton-engine v7.0.0` dependency owns `rodio` codec features with `wav`, `vorbis`, and `mp3` enabled in the engine crate.
+- Game cleanup completed 2026-06-15: removed the temporary direct `rodio` dependency from `rust-survivors`.
 
 ## 2026-05-29 - Expose Audio Channel Playback State
 

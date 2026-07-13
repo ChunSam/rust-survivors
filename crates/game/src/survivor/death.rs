@@ -6,10 +6,9 @@ use super::player::{Player, PlayerStats};
 use super::sfx::{SfxEvent, SfxQueue};
 use super::{world_setup, LAYER_ENEMY};
 use engine::{
-    Camera, CollisionLayer, GameState, InputState, SpatialGrid, System, Transform, World,
+    Camera, CollisionLayer, GameState, InputState, KeyCode, SpatialGrid, System, Transform, World,
 };
 use glam::Vec2;
-use winit::keyboard::KeyCode;
 
 /// 플레이어가 실제로 적에게 닿았다고 보는 논리 반경.
 ///

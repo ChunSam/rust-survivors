@@ -10,9 +10,8 @@ use super::health::Health;
 use super::pickup::{spawn_pickup, PickupKind};
 use super::player::Player;
 use super::xp::XpAccumulator;
-use engine::{InputState, System, Transform, World};
+use engine::{InputState, KeyCode, System, Transform, World};
 use glam::Vec2;
-use winit::keyboard::KeyCode;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct DebugOverlay {

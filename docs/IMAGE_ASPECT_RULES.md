@@ -1,6 +1,6 @@
 # Image Aspect Rules
 
-Updated: 2026-05-29
+Updated: 2026-06-04
 
 ## Rule
 
@@ -67,7 +67,7 @@ Aspect regressions are covered by tests in:
 - `ui_icons.rs`: shared screen texture queue preserves source aspect.
 - `lightning.rs`: timed effect sprites preserve source aspect inside requested effect bounds.
 
-Latest validation from this pass:
+Validation from the 2026-05-29 aspect pass:
 
 ```bash
 cargo fmt --check
@@ -82,3 +82,5 @@ Result:
 - lib tests: 167 passed
 - survivor release build: passed
 - macOS package verification: passed
+
+Current project-wide validation is tracked in `AGENTS.md` and `docs/NEXT_WORK_PLAN.md`.

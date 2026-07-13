@@ -142,6 +142,21 @@ ordered together in the sprite pass.
   `TopHudLayout.detail` field; the HUD detail-level feature itself still works via the other
   `HudDetail` match arms).
 
+## Applied Status - 2026-06-15
+
+- Game dependency now resolves `skeleton-engine v7.0.0` from pinned git rev
+  `a3369eef3ac632069b434b1ff4b0bbe8b4158466`.
+- Engine v7 is primarily a renderer dependency migration: wgpu 22 -> 29, glyphon 0.6 -> 0.11,
+  egui 0.29 -> 0.34, and engine MSRV 1.88 -> 1.92. Survivor code does not call the changed
+  low-level `GpuContext`, `RenderTarget`, or `DebugUi` APIs.
+- The engine now owns `rodio` codec features for `wav`, `vorbis`, and `mp3`, so the game removed
+  its temporary direct `rodio` dependency.
+- The game also removed its direct `wgpu` dependency, which previously pulled an unused duplicate
+  wgpu 22 stack beside engine wgpu 29, and replaced direct `winit` imports with engine re-exports
+  for `KeyCode` and `MouseButton`.
+- BGM action selection no longer clones the full playlist vector each frame; it borrows the cached
+  playlist and only clones the selected path when a track actually changes.
+
 ## Do Not Move Into The Engine
 
 - `SurvivorSprite` enum and frame table.

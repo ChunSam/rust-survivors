@@ -1,10 +1,9 @@
 use engine::{
     AnimationSystem, App, AudioManager, BodyHandle, ColliderHandle, Entity, GameState, InputState,
-    PhysicsBody, Sprite, System, Transform, World,
+    KeyCode, PhysicsBody, Sprite, System, Transform, World,
 };
 use glam::Vec2;
 use rapier2d::prelude::*;
-use winit::keyboard::KeyCode;
 
 // ─── 좌표 스케일 ──────────────────────────────────────────────────────────────
 //  물리 엔진은 SI 단위(미터)를 사용하고 화면은 픽셀을 사용한다.

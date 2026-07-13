@@ -1,6 +1,6 @@
 # Rust Survivors Next Work Plan
 
-Updated: 2026-06-12
+Updated: 2026-06-15
 
 This is the only active upcoming-work plan for the repository.
 
@@ -11,8 +11,8 @@ Long chronology belongs in `docs/PHASE_LOG.md`; manual verification details belo
 - Repo: `/Users/jkl/Projects/rust-survivors`
 - Main work target: `crates/game`
 - Engine: pinned git dependency on `https://github.com/ChunSam/skeleton-engine`
-- Current engine rev: `77b4465558286c0fe90c37886affcabb7863ebeb`
-- Current engine package: `skeleton-engine v6.0.0`
+- Current engine rev: `a3369eef3ac632069b434b1ff4b0bbe8b4158466`
+- Current engine package: `skeleton-engine v7.0.0`
 - Dependency workflow: `docs/ENGINE_DEPENDENCY_WORKFLOW.md`
 - Engine change requests: `docs/ENGINE_CHANGE_REQUESTS.md`
 
@@ -33,20 +33,21 @@ bash scripts/package_macos.sh
 bash scripts/verify_macos_package.sh
 ```
 
-Latest verified status (2026-06-12):
+Latest verified status (2026-06-15):
 
 - `cargo fmt --check`: passed
 - `cargo test -p game --lib --locked -- --test-threads=1`: 213 passed
 - `cargo build -p game --bin survivor --release --locked`: passed
-- `bash scripts/package_macos.sh`: passed
-- `bash scripts/verify_macos_package.sh`: passed
+- Package scripts were not rerun in this pass because no asset or package script changed.
 
 Manual speaker/window QA is still outstanding.
 
 ## Latest Engine / Gameplay Action Baseline
 
-- Current `crates/game` engine dependency resolves to pinned git rev `77b4465558286c0fe90c37886affcabb7863ebeb`.
-- Current resolved engine package is `skeleton-engine v6.0.0`.
+- Current `crates/game` engine dependency resolves to pinned git rev `a3369eef3ac632069b434b1ff4b0bbe8b4158466`.
+- Current resolved engine package is `skeleton-engine v7.0.0`.
+- Engine v7 moves the renderer stack to wgpu 29 / glyphon 0.11 / egui 0.34 and raises engine MSRV to Rust 1.92; survivor code does not touch the changed low-level render APIs.
+- Removed now-redundant game-side direct `rodio`, `wgpu`, and `winit` dependencies; MP3 codec support is owned by the engine dependency, and input key/mouse types come through engine re-exports.
 - Kept engine v2 ECS compatibility by using `Entity::index()` where direct entity tuple-field access was no longer valid.
 - Kept SFX on an `sfx` audio bus so `MetaSave.sfx_volume` controls file and tone SFX consistently.
 - Wired previously inert meta powerups into runtime behavior:
