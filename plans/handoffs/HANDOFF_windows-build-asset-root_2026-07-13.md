@@ -10,7 +10,7 @@
 
 ---
 
-## Resolved After the Handoff Was Written (2026-07-13, commit `d80b4ae`)
+## Resolved After the Handoff Was Written (2026-07-13, commit `1f33906`)
 
 The `bgm.rs` / `asset_root` conflict flagged below was resolved in the same session, before the branch was merged. `bgm.rs` no longer has its own resolver: `resolve_audio_base_dir()` now delegates to `asset_root::resolve_asset_root()` and appends `assets/audio`. Deleted from `bgm.rs`: `normalize_existing_dir`, `macos_app_audio_dir_for_exe`, `candidate_audio_dirs_for_exe`, `resolve_audio_base_from_exe` (the macOS-bundle detection was a duplicate of `asset_root`'s). Deleted tests: `macos_bundle_audio_dir_has_priority`, `executable_relative_dirs_are_checked_before_dev_fallback`, `no_relative_cwd_fallback_is_used` (the misleadingly-named one) — that policy is now tested once, in `asset_root`. Added `audio_base_dir_resolves_under_the_asset_root`. `docs/audio_assets.md` was rewritten to document the single, unified rule. Test count: **211** (213 − 3 + 1). Sections below that describe this as an open conflict are kept as the historical record of how it was found; treat this block as the current truth.
 
@@ -367,7 +367,7 @@ Diff vs `main`: 11 files, +534 / -21.
 
 ## Where We're Going
 
-1. ~~Decide the `bgm.rs` cwd-fallback question~~ — **DONE in commit `d80b4ae`.** Took option (b): `bgm.rs` delegates to `asset_root::resolve_asset_root()`, the duplicated macOS-bundle logic is gone, and `docs/audio_assets.md` documents the one unified rule.
+1. ~~Decide the `bgm.rs` cwd-fallback question~~ — **DONE in commit `1f33906`.** Took option (b): `bgm.rs` delegates to `asset_root::resolve_asset_root()`, the duplicated macOS-bundle logic is gone, and `docs/audio_assets.md` documents the one unified rule.
 2. **Get PR #26 reviewed and merged**: https://github.com/ChunSam/rust-survivors/pull/26
 3. **Hand `docs/ENGINE_ASSET_LOADING_REQUEST.md` to the engine repo.** Request A (asset root + byte-sourced assets) and Request B (`rodio` bump so `cpal` stops pinning `windows 0.54`) are independent and can be done in either order.
 4. **After engine Request B lands:** delete the `Cargo.lock` pin, re-resolve, confirm only one `windows` version remains on `x86_64-pc-windows-msvc`.
@@ -378,7 +378,7 @@ Diff vs `main`: 11 files, +534 / -21.
 ## Risks & Blockers
 
 - **The `Cargo.lock` pin is fragile.** Any `cargo update` that re-resolves `gpu-allocator` or `windows` can silently revert it, and the Windows build breaks again with 10 confusing type errors. Nothing guards it — no test, no CI. If a future session sees `wgpu-hal` DX12 type mismatches, check `gpu-allocator`'s `windows` edge in the lockfile FIRST.
-- ~~The BGM cwd fallback weakens a policy that a prior session deliberately hardened.~~ **Resolved in `d80b4ae`** — one resolver (`asset_root`), executable-relative still first, `docs/audio_assets.md` rewritten, the misleadingly-named test deleted. Kept here because the failure mode is worth remembering: a test can keep passing while its name stops being true, if it only exercises the layer below the one you changed.
+- ~~The BGM cwd fallback weakens a policy that a prior session deliberately hardened.~~ **Resolved in `1f33906`** — one resolver (`asset_root`), executable-relative still first, `docs/audio_assets.md` rewritten, the misleadingly-named test deleted. Kept here because the failure mode is worth remembering: a test can keep passing while its name stops being true, if it only exercises the layer below the one you changed.
 - **`asset_root`'s ancestor walk could find an unrelated `assets/` directory** up to 4 levels above the executable or the working directory. Low risk in practice, unbounded in principle.
 - **No Windows CI.** This entire class of bug (DX12 compile, cwd-relative assets) is invisible from macOS, which is exactly how it reached a release build. Both engine requests ask for a Windows build job.
 - **Distribution is a 103.5 MB zip**, not a single file. Only engine Request A changes that.
@@ -430,5 +430,5 @@ cd /c/Windows && RUST_LOG=info /e/projects/rust-survivors/target/release/survivo
 # Next action
 Get PR #26 reviewed and merged, then hand docs/ENGINE_ASSET_LOADING_REQUEST.md to the engine repo.
 (The bgm.rs cwd-fallback conflict this handoff originally flagged as the next action was resolved
-in commit d80b4ae — see "Resolved After the Handoff Was Written" at the top.)
+in commit 1f33906 — see "Resolved After the Handoff Was Written" at the top.)
 ```
