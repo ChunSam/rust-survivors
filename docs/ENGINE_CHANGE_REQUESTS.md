@@ -43,6 +43,34 @@ Notes:
 
 ## Open Requests
 
+## 2026-07-13 - Asset Loading Independent of the Working Directory
+
+Full prompt: `docs/ENGINE_ASSET_LOADING_REQUEST.md` (Request A).
+
+Summary:
+
+- Engine image APIs are path-based and the renderer resolves those paths against the process working directory,
+  so launching the executable from anywhere but the repo root fails every texture load and the window renders
+  solid magenta.
+- Asks for an engine-owned asset root (executable-relative, macOS bundle aware) plus byte-sourced images/audio
+  so a game can embed assets and ship a single file, and for failed texture loads to be loud rather than silent.
+- Workaround in this repo meanwhile: `crates/game/src/survivor/asset_root.rs` points the working directory at the
+  resolved asset root at startup. Remove it once the engine owns this.
+
+## 2026-07-13 - One `windows` Crate Version on Windows Targets
+
+Full prompt: `docs/ENGINE_ASSET_LOADING_REQUEST.md` (Request B).
+
+Summary:
+
+- The Windows release build fails to compile: the engine's `rodio 0.19` pulls `cpal 0.15.3`, which pins
+  `windows 0.54`; `gpu-allocator 0.28.0` (wide range `>=0.53, <=0.62`) reuses that node while `wgpu-hal 29.0.3`
+  uses `windows 0.62`, so the DX12 backend fails with D3D12 type mismatches.
+- Asks the engine to bump `rodio` so `cpal` no longer pins an old `windows`, and to build for
+  `x86_64-pc-windows-msvc` in CI.
+- Workaround in this repo meanwhile: `Cargo.lock` hand-pins `gpu-allocator`'s `windows` edge to `0.62.2`.
+  Drop the pin and re-resolve once the engine lands the bump.
+
 ## 2026-05-31 - Move Audio Codec Policy Into Engine
 
 Engine request prompt:
